@@ -18,6 +18,11 @@ export default tseslint.config(
     languageOptions: { parserOptions: { parser: tseslint.parser } }
   },
   {
+    // Runes modules: .svelte.ts is TypeScript, not Svelte markup.
+    files: ['**/*.svelte.ts'],
+    languageOptions: { parser: tseslint.parser }
+  },
+  {
     ignores: ['build/', '.svelte-kit/', 'node_modules/', 'test-results/', 'playwright-report/']
   }
 );

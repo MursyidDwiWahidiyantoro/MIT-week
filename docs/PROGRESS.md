@@ -58,9 +58,20 @@ frontend: computed styles                Geist loaded, bg #0b0f14, h1 52px,
 contract: api/dossier.schema.json        draft 2020-12, validates
 ```
 
+## Phase 3 — Frontend shell & flows
+
+| Item | Status | Evidence |
+|---|---|---|
+| UI primitives (Button/Panel/Field/StatusBadge/Skeleton) | Done | 44px targets, focus rings |
+| Presentation modes (Jelajah/Esensial) | Done | store, switch, neutral first-visit picker, calm motion |
+| SSE client + AuditSession | Done | stage/partial/verdict/done, heartbeat ignored, one retry |
+| Zod schemas + schema_version guard | Done | "Perbarui aplikasi" on a newer contract |
+| Home (hero bar, problem cards, step flow) | Done | rendered at 375/1440, 0 console errors |
+| `/deteksi` (tabs, dropzone, presets, radar) | Done | radar driven only by real stage events |
+| `/hasil` (verdict, honest limits, demo badge) | Done | in-memory store, reload shows "tidak tersimpan" |
+
 ## In progress
-- Phase 1 backend: scoring, security, token, demo — done locally, pending full gate run.
-- Phase 3 frontend: not started.
+- Phase 2 (pipeline & integrations) not started.
 
 ## Phase 1 — Backend core
 

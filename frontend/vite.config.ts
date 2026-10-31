@@ -10,6 +10,7 @@ export default defineConfig({
       // SPA: no SSR, single static bundle with a fallback page.
       adapter: adapter({ fallback: 'index.html', strict: false }),
       prerender: { entries: [] },
+      alias: { '$lib': 'src/lib' },
       // SvelteKit injects an inline bootstrap script; with mode 'hash' it adds
       // that script's sha256 to script-src automatically. A hardcoded
       // script-src 'self' would block hydration and render a blank page.
