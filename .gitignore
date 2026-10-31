@@ -32,3 +32,22 @@ playwright-report/
 # test/tool artifacts
 frontend/.vitest/
 tmp_*.go
+
+# ---- AI tooling (local only, never committed) ----
+# Project skills, MCP server registrations and the agent playbook are local
+# developer assets. They stay on disk but out of the repository.
+.claude/
+.mcp.json
+instruction/CLAUDE.md
+
+# Other agent/assistant tooling droppings
+.hallmark/
+.cursor/
+.continue/
+.codex/
+.aider/
+.specstory/
+.windsurf/
+.gemini/
+CLAUDE.local.md
+*.local.md
