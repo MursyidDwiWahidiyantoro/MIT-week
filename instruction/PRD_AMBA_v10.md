@@ -1,0 +1,273 @@
+# AMBA — Product Requirements Document v10.1
+**AMBA: Aplikasi Mengenali & Bertindak Aman** — web app that helps Indonesian users (all ages) check suspicious social-media links, screenshots and forwarded messages.
+
+| Item | Value |
+|---|---|
+| Event | MIT-Week 2026 Web Development Competition (Universitas Mulawarman) |
+| Theme | *Guardians of the Digital Space — Empowering Today's Generation Toward a Safer Cyber Ecosystem* |
+| Team | Mursyid (PM/Architect), M. Ridho (UI/UX), Bagus Joshua (Go backend), Jericho Mikael (Frontend) |
+| Stack | Svelte 5 + SvelteKit (SPA, adapter-static) + Vite + TS + Tailwind · Go 1.23 + chi · 9router (LLM gateway) |
+| Companion docs | `TECH_SPEC_AMBA.md` (how), `CLAUDE.md` (agent playbook/backlog), `DESIGN.md` (visual & interaction system, authoritative for look-and-feel) |
+| Supersedes | PRD v9.0.0 and v10.0 (file names keep the `v10` label) |
+
+**Language convention:** specs are in English so agents work precisely; **all user-facing copy is Indonesian** (plain, warm, no jargon).
+
+---
+
+## 0. What changed from v9 (and why)
+
+| # | v9 problem | v10 decision |
+|---|---|---|
+| 1 | Score formula assumed all 3 signals always exist (URL/text inputs have no image → ELA undefined). | Weighted average over **available** signals only, with reliability multipliers. New status `INSUFFICIENT` when evidence is too thin. |
+| 2 | ELA ≥ 90 alone forced `TAMPERED`. ELA is false-positive-prone (screenshots/PNG/recompressed images light up). | ELA alone can **never** exceed `SUSPICIOUS`. `TAMPERED` needs corroboration (fact-check contradiction, confirmed text-region anomaly, or known-malicious link). |
+| 3 | Circuit-breaker "fell back to golden cache" on timeout — would return a fake verdict for real input. | Golden cache serves **only** `/demo/{id}`. Timeouts return a **degraded real verdict** from deterministic checks (`degraded: true`). |
+| 4 | 3.5 s end-to-end SLA with LLM + search grounding is unrealistic and would force fake fallbacks. | SSE streaming: first partial result ≤ 1.5 s, final verdict p50 ≤ 3.5 s, hard cap 12 s. Pillars appear as they finish. |
+| 5 | `/hasil/[id]` share link contradicts zero-database design (nothing to look up). | **Signed verdict token** (HMAC) in the URL fragment; `/api/v1/verify` checks authenticity. Also stops forged "AMBA-verified" cards. |
+| 6 | Client-computed ELA score was sent to server and trusted. | Server computes the authoritative ELA score in Go. Client only renders the heatmap visual. |
+| 7 | No phishing-link analysis despite "Tautan Phising" being a headline feature. | New **Link Safety pillar** (redirect unrolling, lookalike/punycode, brand-impersonation, TLD/keyword heuristics, optional Safe Browsing). |
+| 8 | Claimed "video forensics" for TikTok/IG/YT. We only get public metadata, not video content. | Honest scope: metadata + caption/claim + link analysis + fact-check. UI asks for a screenshot when a platform blocks metadata. |
+| 9 | LLM could invent "official source" URLs. | Sources accepted only if returned by the search tool **and** on a trusted-domain allowlist. Otherwise `UNVERIFIED`. |
+| 10 | Demo cases cited real publishers with invented URLs; 1×1 px placeholder heatmaps. | Demo data is synthetic, watermarked "CONTOH/SIMULASI", real heatmaps generated, no fabricated publisher URLs. |
+| 11 | SSRF guard: only first IP pinned, header-size limit only, proxy env unhandled, incomplete CIDRs. | `Dialer.Control` re-validates every actual connection, body size cap, `Proxy: nil`, extended CIDR list. |
+| 12 | CSP set on the Go API only (the SPA is served separately), `connect-src https:` too broad, no CORS. | CSP/headers defined in one frontend config (`security-headers.json`), `connect-src` pinned to API origin, strict CORS allowlist. |
+| 13 | Slider: bounding boxes vanished on the right half; invisible range input had no a11y. | Boxes rendered outside the clip layer; labelled, keyboard-operable slider with visible focus. |
+| 14 | ELA on 12 MP images on main thread; PDF upload listed but undefined. | ELA in a Web Worker with size cap; PDF dropped from MVP. |
+| 15 | Elderly-friendly claim had no concrete features. | Read-aloud (TTS id-ID), text-size toggle, WhatsApp share, colour-independent status, reduced-motion. |
+
+### v10.1 additions (distribution + behaviour change)
+v10.0 specified how AMBA analyzes content but not **how people reach it** or **what they do next**. v10.1 adds:
+- **F11 Share-sheet entry:** AMBA appears in the phone's "Share" menu (PWA Share Target); no copy-paste.
+- **F12 Balas Sopan:** ready-to-send polite reply (respectful / casual / short tone) with the source attached.
+- **F13 Taktik Manipulasi:** names the persuasion trick (urgency, reward bait, false authority…) and highlights the exact phrase.
+- **F14 Mode Jelajah / Mode Esensial:** two presentation modes chosen by preference (never by age), identical information in both, per `DESIGN.md`.
+- **F15 Cek Cepat + Sandi Keluarga (P1):** offline 6-question check for scams with no link/image (fake-relative DMs/calls) and a printable family safe-word card.
+
+**Removed from scope for now:** deployment, hosting, domain, Docker (local development only).
+**Considered and rejected:** "Scam Radar" (link-popularity counts) — needs a datastore, contradicts zero-database privacy pitch.
+
+**Stack and design alignment (v10.1):** the frontend is **Svelte 5 + SvelteKit** (earlier drafts wrongly assumed React). Visuals and interaction follow `DESIGN.md` (dark atmospheric technical look, Explore/Essential modes). The earlier age-framed "Mode Sederhana" that hid scores/ELA is replaced by preference-based modes with identical information.
+
+---
+
+## 1. Problem & Positioning
+
+Indonesians constantly receive forwarded screenshots, "bansos/undian" links and viral claims. Existing tools are fragmented (fact-check sites for text, forensic tools for images, none for links) and aimed at experts.
+
+**AMBA is a literacy aid, not a lie detector.** It combines four independent signals and explains them in plain Indonesian:
+
+1. **Timpa Teks** — image forensics (ELA + AI-located text-region anomalies) for screenshots.
+2. **Jejak AI** — indicative likelihood that an image/text is AI-generated.
+3. **Cek Fakta** — claim extraction + search grounding against trusted Indonesian fact-check/news sources.
+4. **Keamanan Tautan** — phishing/scam heuristics for any URL involved.
+
+Honest-limits principle: every result screen states what the verdict is based on and what AMBA could **not** check.
+
+v10.1 adds a fifth, **non-scoring** layer: **Taktik Manipulasi** (which persuasion tricks the content uses) plus a **Balas Sopan** reply draft, so each check ends with an action and a small lesson, not just a label.
+
+### Target users
+- **Gen Z (16–25):** fast check before sharing; wants a shareable proof card.
+- **Readers who value clarity (any age, often older family members):** forwarded WhatsApp content; want big text, read-aloud, one clear verdict.
+- **Judges:** need a 1-click, offline-safe demo and visible engineering quality.
+
+### Key journeys
+1. Paste link on home → results stream in → verdict → share to WhatsApp.
+2. Upload screenshot → ELA slider + red boxes → proof card PNG.
+3. Paste forwarded text → fact-check verdict + sources.
+4. Judge clicks a demo case → instant result (<500 ms), no network needed.
+5. Learner plays the 3-question quiz → reveals ELA on each image.
+6. Any user long-presses a WhatsApp message/link → Share → AMBA → Mode Esensial verdict (optionally read aloud) → one tap copies a polite reply for the family group.
+7. Someone gets a suspicious call/DM with no link → Cek Cepat (6 questions) → risk level + concrete next steps.
+
+---
+
+## 2. Scope
+
+### MVP (P0 — must ship)
+F1 Link audit · F2 Screenshot audit · F3 Text audit · F4 Link-safety pillar · F5 Result page + signed share · F6 Proof card · F8 Demo sandbox · F9 Accessibility suite · F10 About/Privacy · F11 Share-sheet entry · F12 Balas Sopan · F13 Taktik Manipulasi · F14 Presentation modes · deterministic scoring + tests · SSRF/security baseline · CI.
+
+### P1 (if time)
+F7 Edukasi catalog + mini-game · F15 Cek Cepat + Sandi Keluarga · Safe Browsing integration · metrics endpoint · EN/ID toggle.
+
+### P2 (only after everything above)
+Telegram bot entry point (iOS users lack Web Share Target).
+
+### Non-goals (hard)
+- No accounts/auth. No database. No storage of user images/text/URLs.
+- No scraping behind platform logins. No auto-reporting bots.
+- No claim of legal evidence (see disclaimer).
+- No PDF/video-file analysis in MVP.
+- No deployment, hosting, domain, or Docker work at this stage (local development only).
+- No datastore of any kind for link popularity / "Scam Radar".
+
+---
+
+## 3. Feature Requirements & Acceptance Criteria
+
+### F1 — Link audit (Hero bar on `/` and tab on `/deteksi`)
+- Accepts http(s) URLs up to 2048 chars; auto-trims whitespace; rejects other schemes client-side with a friendly message.
+- Backend resolves metadata via public oEmbed/OpenGraph only (YouTube/TikTok/X oEmbed; OG tags otherwise).
+- **AC:** invalid URL → inline error, no request sent. Unreachable/blocked platform → result shows "Platform tidak mengizinkan pembacaan otomatis" + CTA "Unggah tangkapan layar". Private/internal URLs → refused with generic message, no detail leak.
+
+### F2 — Screenshot audit
+- JPG/PNG/WebP ≤ 10 MB, ≤ 4096 px longest side after decode check; magic-byte validated on the server.
+- Client renders ELA heatmap in a Worker; server computes authoritative ELA score and requests LLM region analysis.
+- **AC:** PNG-origin images show an "ELA kurang andal pada PNG/tangkapan layar" notice and use reduced weight; ≥ 1 red box rendered per anomaly at correct position on any aspect ratio (9:16, 16:9, 1:1, tall chat screenshots).
+
+### F3 — Text audit
+- ≤ 5,000 chars; extracts main claim (≤ 200 chars), runs grounding.
+- **AC:** with no checkable claim → status `INSUFFICIENT`, never `SAFE`.
+
+### F4 — Link-safety pillar
+- Runs on the submitted URL and on URLs found in submitted text/OCR'd screenshot text.
+- Outputs `S_Link` 0–100 with human-readable reasons (e.g. "Domain meniru nama bank", "Tautan singkat mengarah ke situs lain").
+- **AC:** shortener is expanded and the final destination displayed; lookalike/punycode flagged; never fetches non-80/443 ports.
+
+### F5 — Result page `/hasil`
+- Left: evidence viewer (Asli / ELA / Slider). Right: verdict, score, plain explanation, tabs (Timpa Teks · Jejak AI · Sumber · Tautan).
+- Pillars render progressively via SSE with skeletons; failed pillar shows "Tidak dapat diperiksa" instead of silently omitting.
+- **Share:** "Salin tautan" copies `/hasil#t=<signed token>`; opening it shows the compact verdict (no images) with a green "Terverifikasi AMBA" mark only if signature is valid; invalid → red "Laporan tidak sah".
+- **AC:** token tampering (changing score) fails verification; report page makes no call that includes token contents in the URL path/query (fragment only).
+
+### F6 — Proof card (PNG 1200×630)
+- Layout per v9 §10.3, plus: "INDIKATIF — bukan alat bukti hukum" line and QR to the mini-token link.
+- Generated client-side (lazy-loaded `html-to-image`, `qrcode`). Fonts embedded; no external requests during render.
+- **AC:** export < 2 s on mid-range phone; text legible in WhatsApp preview; works offline.
+
+### F7 — Edukasi (P1)
+- Accordion of 3+ scam modus (bansos TikTok, edited headline screenshot, shortlink phishing).
+- Quiz of 3 synthetic images; "Buka bedah forensik" reveals precomputed ELA + explanation.
+
+### F8 — Demo sandbox
+- Three cases (`demo-tiktok`, `demo-berita-ig`, `demo-resmi`) embedded in both binary and SPA; load < 500 ms offline.
+- Synthetic assets only, visible "CONTOH / SIMULASI" watermark, banner "Ini data contoh, bukan hasil audit sungguhan".
+- **AC:** zero network calls when running demo from the SPA; the same JSON passes the `Dossier` schema validator.
+
+### F9 — Accessibility suite
+- WCAG 2.1 AA contrast; touch targets ≥ 44 px; full keyboard operation; visible focus.
+- **Read-aloud** button using `speechSynthesis` (`id-ID`) for verdict + explanation.
+- **Text size** toggle (100/125/150 %), persisted in `localStorage`.
+- Status never conveyed by colour alone (icon + label).
+- `prefers-reduced-motion` disables radar/pulse animations.
+- **WhatsApp share** via `https://wa.me/?text=` with summary + link.
+- **AC:** axe-core: 0 serious/critical violations on all routes; Lighthouse a11y ≥ 95.
+
+### F10 — About & Privacy
+- Team, privacy manifesto, limitations, disclaimer (v9 §15 text retained verbatim).
+- States precisely: images and text are processed in memory and not stored; text/claims are sent to a third-party AI gateway for analysis; aggregate anonymous counters only.
+
+### F11 — Share-sheet entry (PWA Share Target)
+- Web app manifest `share_target` (POST multipart: `title`, `text`, `url`, image `files`) so AMBA appears in the OS share menu once installed. A shared link/text/image opens the audit flow pre-filled and starts immediately (the user explicitly shared it), with a visible "Batalkan" button.
+- The shared item is held only transiently on the client and deleted on read (Tech Spec §8.1).
+- **Fallback:** a "Tempel dari clipboard" one-tap button for browsers without Share Target (notably iOS Safari). Drag/drop and manual paste remain.
+- **AC:** on Android Chrome with the PWA installed, sharing a link from another app reaches the result flow with zero typing; on unsupported browsers the clipboard button works; no shared content remains in Cache Storage/IndexedDB after the audit or after 5 minutes.
+- **Note:** installability requires HTTPS when hosted; `localhost` works in development. Hosting is out of scope for now.
+
+### F12 — Balas Sopan (polite reply generator)
+- On the result screen, "Balas dengan sopan" offers 3 tones: `hormat` (formal/respectful), `santai` (casual), `singkat` (one line).
+- Constraints: Indonesian; ≤ 280 chars; never shames the sender (refers to the content, not the person); may include only the AMBA share link and URLs from **verified** sources; no invented facts; no "100 % pasti" claims.
+- Generated on demand via `POST /reply` from the signed verdict token (no raw user content needed). If the LLM is unavailable or output fails validation → deterministic template for that status × tone.
+- **AC:** every returned URL is in the allowed set; offline demo shows template replies; Copy and WhatsApp buttons work.
+
+### F13 — Taktik Manipulasi (prebunking)
+- The LLM labels persuasion tactics from a **fixed enum** (Tech Spec §6.1) and quotes the trigger phrase. The server accepts a tactic only if the phrase is an exact (normalized) substring of the input text/caption (or of the OCR text for images, labelled "dibaca dari gambar").
+- UI: the phrase is highlighted inline with icon + label (e.g. "Mendesak", "Iming-iming hadiah") and a static one-line "Kenapa ini mencurigakan?" explanation. Max 5 shown.
+- Tactics are **informational only** and never change the score.
+- **AC:** no highlight appears for a phrase that is not in the input; labels/explanations come from a static Indonesian table, not LLM free text.
+
+### F14 — Presentation modes: Mode Jelajah & Mode Esensial (per `DESIGN.md`)
+- Two presentations of one design system, chosen by **preference, never by age, ability or skill**. Neutral labels: **Mode Jelajah** (expressive and immersive: richer transitions, pixel/character moments, optional discoveries) and **Mode Esensial** (calmer and more direct: reduced decoration and non-essential motion, larger type, single column, clearer labels).
+- **Same information and functionality in both:** verdict, score, evidence viewer (ELA slider), pillars, sources, tactics, Balas Sopan, share, proof card, read-aloud. Essential Mode must never look unfinished or lesser.
+- First visit shows a simple neutral picker (no long explanation); default to Essential when the system requests reduced motion. A visible control switches modes at any time; the choice is remembered in `localStorage` and the picker says how to change it. Switching never resets input, progress or the current result.
+- Every result opens with one plain sentence (`verdict.explanation_simple`) in both modes; read-aloud speaks it (and the explanation) on request, with optional auto-read in settings.
+- **AC:** a link check takes ≤ 3 taps in both modes; an automated parity test finds identical information keys in both modes; switching mode mid-flow preserves input and result; reduced-motion yields a genuinely calmer experience in both; base text ≥ 18 px in Essential; axe clean in both.
+
+### F15 — Cek Cepat & Sandi Keluarga (P1)
+- For scams with no link or image (fake-relative DMs, calls, voice notes). Client-only, deterministic 6-question yes/no flow: asked for money? urgent? keep it secret? new number claiming to be someone you know? asked for OTP/PIN/password? could you not verify via another channel?
+- Output: Rendah / Waspada / Tinggi + 3 concrete steps (e.g. "Telepon nomor lama keluarga"). No network calls.
+- **Sandi Keluarga:** generates a memorable two-word safe word and a printable card (print CSS) explaining how to use it.
+- **AC:** works offline; ≤ 6 taps to a result; result is printable; any "yes" to OTP/PIN forces Tinggi.
+
+---
+
+## 3A. Visual & interaction direction (authoritative: `DESIGN.md`)
+- **Identity:** dark, atmospheric, technical look (fine borders, subtle grids, small status indicators), restrained warm accent, sparing cool secondary accent, optional pixel/character charm that never competes with content. This **replaces** the earlier "blue glassmorphism" idea; avoid heavy glow, blur and gradients.
+- **One identity, two experiences:** Mode Jelajah and Mode Esensial (F14), chosen by preference, identical information and functionality.
+- **Interaction rules:** short, purposeful motion only; no flashing, surprise audio, hover-only controls or fake controls; feedback for loading/success/error; easy undo/dismiss/back.
+- **Accessibility baseline in every mode:** keyboard operable, visible unobscured focus, semantic controls, logical focus order, reduced-motion honoured, large touch targets, reflow without horizontal scroll, dynamic status (SSE stage changes) announced through a polite live region.
+- **Verdict colours** come from status tokens and are always paired with an icon and text label; the proof card (PNG) uses the same dark tokens.
+- **Design review gate:** every UI task passes the `DESIGN.md` §9 checklist in both modes and at phone/tablet/desktop widths.
+
+---
+
+## 4. Verdict model (summary — full spec in `TECH_SPEC_AMBA.md` §3)
+
+Statuses: `SAFE` (0–20, green), `SUSPICIOUS` (21–60, amber), `TAMPERED` (61–100, red; label "Terindikasi Hoax/Manipulasi"), `INSUFFICIENT` (grey, "Belum cukup data").
+
+Principles:
+- Score is computed **deterministically in Go**; the LLM supplies features, never the verdict.
+- Weighted average over available signals × reliability.
+- High-severity floors only from corroborated or authoritative evidence.
+- ELA alone ≤ `SUSPICIOUS`.
+- Tactics (F13) and replies (F12) are informational and never change the score.
+
+---
+
+## 5. Non-functional requirements
+
+| Area | Requirement |
+|---|---|
+| Latency | First partial ≤ 1.5 s (p50); final verdict ≤ 3.5 s (p50), ≤ 8 s (p95); hard timeout 12 s → degraded verdict |
+| Demo | < 500 ms, offline |
+| Web vitals | Lighthouse ≥ 90 all categories; JS ≤ 250 KB gz initial route; LCP ≤ 1.8 s (4G); CLS 0; INP ≤ 100 ms on slider |
+| Reliability | No HTTP 500 on dead URLs, corrupt files, oversize input, LLM failure (graceful degraded verdicts) |
+| Security | See Tech Spec §7: SSRF guard, prompt-injection containment, strict headers/CORS, rate limit, upload validation, signed tokens |
+| Privacy | In-memory only; TTL cache keyed by SHA-256 (10 min); logs contain no IP, URL, text or titles |
+| Local dev | `.env.example`; one-command local run with `LLM_MOCK=true`; deployment/hosting/domain deliberately out of scope for now |
+
+---
+
+## 6. Rubric mapping (MIT-Week 2026)
+
+| Criterion | Weight | Evidence in v10 |
+|---|---|---|
+| Functionality & features | 35% | 4-pillar audit, SSE progressive results, signed share, proof card, demo sandbox, share-sheet entry, polite-reply generator, manipulation-tactic highlights |
+| Theme & case fit | 25% | Phishing + hoax screenshots + forwarded messages + no-link scams (Cek Cepat); two presentation modes (Explore/Essential) by preference; tactic-based prebunking; edukasi |
+| UI/UX & accessibility | 20% | `DESIGN.md` system with Explore/Essential modes, WCAG AA, read-aloud, text-size, WhatsApp share, calm-motion support, axe CI gate |
+| Code quality & architecture | 10% | Contract-first OpenAPI, pure scoring package with test vectors, hardened SSRF, CI |
+| Docs & reproducibility | 10% | This PRD set, `CLAUDE.md`, `.env.example`, README, one-command local run |
+
+---
+
+## 7. Risks & mitigations
+
+| Risk | Mitigation |
+|---|---|
+| LLM latency/outage during judging | `LLM_MOCK` + degraded verdicts + demo sandbox works offline |
+| Model name/capabilities differ at integration time (`gemini-3.8-flash` is config, not hardcoded) | Verify via 9router `/models` at startup; fail fast with clear log; mock fallback in dev |
+| Social platforms block metadata | Honest fallback to screenshot upload; oEmbed first |
+| ELA false positives | Reliability weighting, no solo `TAMPERED`, visible limitation text |
+| Prompt injection via page/image text | Delimiter sandbox, JSON-schema output, server-side verdict, source allowlist |
+| Defamation/misattribution in demo | Synthetic assets, watermark, no fabricated publisher URLs |
+| Scope creep | Non-goals list; P1 only after P0 acceptance passes |
+| Web Share Target unsupported on iOS Safari / non-installed PWAs | Clipboard-paste fallback, Essential Mode's large entry buttons, Telegram bot as P2; state limitation in README/About |
+| Reply drafts sound preachy or leak unverified links | On-demand generation, URL allowlist validation, deterministic template fallback |
+
+---
+
+## 8. Milestones (ordered; assign dates by event deadline)
+
+1. **M0 Contract freeze:** `api/openapi.yaml`, Dossier JSON schema, design tokens.
+2. **M1 Backend core:** scoring, security, config, demo endpoints (parallel with frontend shell).
+3. **M2 Pipeline:** link analysis, server ELA, LLM client + mock, grounding verification, SSE, signing.
+4. **M3 Frontend flows:** hero/deteksi, SSE hook, result page, slider, proof card, share target, presentation modes.
+5. **M4 Experience layer:** Balas Sopan, tactic highlights, Cek Cepat, a11y suite, edukasi, about, copywriting pass.
+6. **M5 Hardening:** e2e, Lighthouse, axe, security tests, README (local run), pitch rehearsal.
+
+## 9. Open questions (decide before M2)
+1. Is a Google Safe Browsing API key available? (else heuristics only)
+2. Which oEmbed endpoints are reliably public for TikTok/IG at build time? (test; fall back to OG)
+3. Exact trusted-source allowlist sign-off (`configs/trusted_sources.yaml`).
+4. Share Target needs an installed PWA over HTTPS (localhost works in dev). Decide when hosting enters scope; until then document the iOS gap and rely on the clipboard fallback.
+
+## 10. Disclaimer (retain verbatim in footer and proof card)
+> AMBA (Aplikasi Mengenali & Bertindak Aman) adalah instrumen riset dan verifikasi mandiri berbasis kecerdasan buatan dan analisis kompresi piksel (Error Level Analysis). Hasil analisis, skor risiko, dan kesimpulan yang disajikan bersifat **INDIKATIF** sebagai alat bantu literasi digital masyarakat, serta **BUKAN** merupakan Berita Acara Pemeriksaan (BAP), keterangan ahli peradilan, maupun kesaksian hukum berkekuatan tetap sesuai KUHAP. Tim pengembang tidak bertanggung jawab atas tindakan hukum sepihak, kerugian materiel, maupun sengketa antar-pihak yang timbul akibat penggunaan hasil verifikasi ini tanpa konfirmasi otoritas berwenang.

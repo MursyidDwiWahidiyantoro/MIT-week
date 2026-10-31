@@ -1,0 +1,408 @@
+# AMBA — Technical Specification v10.1
+Companion to `PRD_AMBA_v10.md`. This file is the source of truth for contracts, algorithms and security. If it conflicts with v9 or v10.0, **this file wins**. Deployment, hosting, domain and Docker are out of scope for now (local development only).
+
+---
+
+## 1. Repository layout (monorepo)
+
+```
+amba/
+├── CLAUDE.md
+├── PRD_AMBA_v10.md  TECH_SPEC_AMBA.md  README.md
+├── api/openapi.yaml                    # contract-first, written in Phase 0
+├── configs/trusted_sources.yaml        # fact-check/news domain allowlist
+├── backend/
+│   ├── go.mod                          # module github.com/<org>/amba/backend
+│   ├── cmd/server/main.go
+│   ├── internal/
+│   │   ├── config/        # env parsing, validation
+│   │   ├── httpapi/       # chi router, handlers, middleware, SSE writer
+│   │   ├── models/        # Dossier, events (mirror api/openapi.yaml)
+│   │   ├── scoring/       # PURE functions + table tests
+│   │   ├── security/      # ssrf.go, headers, ratelimit, upload validation
+│   │   ├── linkcheck/     # URL heuristics, redirect unrolling, safe browsing
+│   │   ├── forensics/     # server-side ELA (image/jpeg re-encode diff)
+│   │   ├── llm/           # 9router client, JSON-schema output, tool loop, mock
+│   │   ├── grounding/     # source verification vs allowlist
+│   │   ├── pipeline/      # errgroup orchestration, deadlines, degradation
+│   │   ├── token/         # HMAC signed verdict tokens
+│   │   ├── reply/         # Balas Sopan: LLM draft + validation + deterministic templates
+│   │   ├── tactics/       # tactic enum, phrase substring verification
+│   │   └── demo/          # //go:embed demo-cases.json
+│   └── Makefile
+└── frontend/
+    ├── package.json  svelte.config.js  vite.config.ts  tailwind.config.ts
+    ├── security-headers.json                      # single source for CSP etc. (host-specific emit deferred)
+    ├── static/manifest.webmanifest  src/service-worker.ts  # PWA + share target (§8.1)
+    └── src/
+        ├── routes/ (+layout.svelte, +page.svelte, deteksi/, hasil/, edukasi/, tentang/, cek-cepat/)  # SvelteKit file routing; ssr=false, adapter-static fallback
+        ├── lib/components/ (*.svelte: layout/, home/, deteksi/, hasil/, edukasi/, shared/, a11y/ReadAloud, a11y/TextSize, share/WhatsAppButton, mode/ModeSwitch)
+        ├── lib/ (api/, audit.svelte.ts [runes state + SSE], mode.svelte.ts, sse.ts, forensics/ela.worker.ts, token.ts, a11y.ts, styles/tokens.css)
+        ├── lib/data/demo-cases.json    # identical copy of backend demo data (CI diff check)
+        ├── lib/data/reply-templates.json  # copy of configs/reply_templates.json (CI diff check)
+        ├── lib/data/tactics.json          # static tactic labels + explanations (Indonesian)
+        ├── lib/data/quickcheck.json       # Cek Cepat questions/weights/advice + safe-word list
+        └── tests/
+```
+
+Use `internal/` (not `pkg/`) — nothing here is a public library.
+
+---
+
+## 2. API contract
+
+Base: `/api/v1`. All JSON UTF-8. Errors use one envelope:
+
+```json
+{ "error": { "code": "INVALID_URL", "message": "Tautan tidak valid.", "retryable": false } }
+```
+Codes: `INVALID_URL, BLOCKED_TARGET, UNSUPPORTED_MEDIA, PAYLOAD_TOO_LARGE, RATE_LIMITED, UPSTREAM_TIMEOUT, INTERNAL`. `BLOCKED_TARGET` message is always generic (never reveals which rule fired). HTTP: 400/413/415/429/504/500 respectively.
+
+| Route | Method | Body | Notes |
+|---|---|---|---|
+| `/audit/url` | POST | `{"url": string}` (≤2048) | |
+| `/audit/file` | POST | multipart: `file`; optional `ocr_text` | ≤10 MB; client ELA score is **ignored** |
+| `/audit/text` | POST | `{"text": string}` (≤5000) | |
+| `/verify` | POST | `{"token": string}` | returns `{valid, payload?}` |
+| `/reply` | POST | `{"token": string, "tone": "hormat\|santai\|singkat"}` | returns `{text, source: "llm\|template"}`; see §6.2 |
+| `/demo/{id}` | GET | – | `^[a-z0-9-]{4,40}$` |
+| `/healthz` | GET | – | no auth, no metrics data |
+
+**Response modes** (same endpoint): `Accept: application/json` → single final `Dossier`; `Accept: text/event-stream` → SSE.
+
+### SSE events
+```
+event: stage    data: {"pillar":"ela|ai|fact|link","status":"running|done|skipped|failed"}
+event: partial  data: {"pillar":"fact", "data":{...pillar payload...}}
+event: verdict  data: {Dossier}          # final, signed token included
+event: error    data: {error envelope}
+event: done     data: {}
+```
+Heartbeat comment `: ping` every 10 s. Frontend uses `fetch` + `ReadableStream` (POST SSE), not `EventSource`.
+
+### Dossier v2 (Go structs ↔ JSON ↔ Zod; keep names stable)
+```jsonc
+{
+  "schema_version": 2,
+  "id": "AMBA-20261030-7F3K",          // date + 4 base32 chars
+  "timestamp": "2026-10-30T07:22:15Z", // UTC ISO; UI formats to WITA
+  "input_type": "URL|FILE|TEXT",
+  "source_reference": "string",         // display only; truncated 200 chars
+  "degraded": false,
+  "is_demo": false,
+  "verdict": {
+    "score": 92, "status": "TAMPERED|SUSPICIOUS|SAFE|INSUFFICIENT",
+    "short_title": "string", "explanation": "string (<=400 chars, Indonesian)",
+    "explanation_simple": "string (<=140 chars; deterministic template by status/floor, see §8.2)",
+    "basis": ["ela","fact"], "not_checked": ["ai"],   // honest-limits data
+    "floors_applied": ["FACT_CONTRADICTED"]
+  },
+  "pillars": {
+    "ela":  {"available":true,"score":88,"reliability":1.0,"reliability_note":null,
+             "anomalies":[{"bounding_box":[ymin,xmin,ymax,xmax],"extracted_text":"","reason":""}]},
+    "ai":   {"available":true,"score":95,"indicators":["..."],"caveat":"Indikatif, bukan bukti pasti"},
+    "fact": {"available":true,"claim":"...","status":"CONTRADICTS|SUPPORTS|UNVERIFIED",
+             "sources":[{"title":"","publisher":"","url":"","match":"CONTRADICTS|SUPPORTS|UNVERIFIED"}]},
+    "link": {"available":true,"score":71,"final_url":"","redirect_chain":["..."],
+             "reasons":[{"code":"LOOKALIKE_BRAND","text":"Domain meniru nama BRI"}]}
+  },
+  "tactics": [ {"code":"URGENCY","phrase":"hari ini terakhir","source":"text|ocr"} ],  // label/explain come from static tactics.json
+  "share_token": "v1.<payload>.<sig>"
+}
+```
+Bounding boxes are normalized 0–1000 in `[ymin, xmin, ymax, xmax]` (Gemini convention); frontend converts using the **image's own** aspect ratio.
+
+---
+
+## 3. Scoring specification (`internal/scoring`)
+
+Pure package, no I/O, 100 % table-test coverage.
+
+### 3.1 Inputs
+Each pillar → `Signal{Available bool, Score int(0-100), Reliability float64(0-1)}`.
+
+| Pillar | Base weight | Score definition | Reliability |
+|---|---|---|---|
+| ELA | 0.30 | server ELA variance normalized 0–100 (see §3.4) | 1.0 JPEG-origin; 0.5 PNG/WebP-lossless or screenshot-like; 0.0 if image < 64 px |
+| AI | 0.15 | LLM 0–100 likelihood | 0.7 image, 0.5 text (LLM self-report is weak) |
+| Fact | 0.35 | CONTRADICTS=100, UNVERIFIED=40, SUPPORTS=0; **unavailable if no checkable claim** | 1.0 |
+| Link | 0.20 | `linkcheck` capped sum | 1.0 |
+
+### 3.2 Formula
+```
+eff_w_i  = base_w_i * reliability_i      (only for Available pillars)
+W        = Σ eff_w_i
+if W < 0.30  → status INSUFFICIENT, score = null
+raw      = Σ(eff_w_i * score_i) / W
+score    = round_half_up(raw)            # Go: int(math.Floor(raw + 0.5))
+```
+
+### 3.3 Floors, caps, status
+Apply in this order, then clamp 0–100:
+1. `FACT_CONTRADICTED`: ≥1 source with `match=CONTRADICTS`, host on allowlist, URL came from search tool → `score = max(score, 85)`.
+2. `LINK_MALICIOUS`: Safe Browsing hit or `S_Link ≥ 90` → `score = max(score, 85)`.
+3. `ELA_CORROBORATED`: `S_ELA ≥ 70` **and** an LLM text anomaly box overlapping an ELA hotspot (IoU ≥ 0.1 or centre inside) → `score = max(score, 70)`.
+4. `ELA_SOLO_CAP`: if **no** other pillar has score ≥ 50 and no floor 1–3 applied → `score = min(score, 60)`.
+5. `INJECTION_GUARD`: if LLM output was flagged by the injection detector → `score = max(score, 40)` and `basis` adds `"llm_untrusted"`.
+
+Status: 0–20 `SAFE`, 21–60 `SUSPICIOUS`, 61–100 `TAMPERED`. `SAFE` additionally requires `W ≥ 0.50` (else downgrade to `INSUFFICIENT`) and at least one pillar with `Fact` or `ELA`+`Link` available — "no evidence of risk" ≠ "verified safe" (UI text: "Tidak ditemukan tanda bahaya", never "pasti asli").
+
+### 3.4 Server-side ELA (`internal/forensics`)
+Decode (limit dimensions via `image.DecodeConfig` first; reject > 4096 px side or > 16 MP) → re-encode JPEG q=90 → mean absolute RGB difference → `variance = mean * 3.5` → clamp 0–100. Also compute a coarse 16×16 grid of cell means for hotspot overlap. Mark `reliability` by source decoder format. Add a unit test with a synthetic image (flat gray + pasted noisy patch) asserting score ordering.
+
+### 3.5 Test vectors (must pass)
+| # | ELA (s,r) | AI (s,r) | Fact | Link | Expected score / status |
+|---|---|---|---|---|---|
+| 1 | 88, 1.0 | 95, 0.7 | CONTRADICTS (allowlisted) | n/a | raw = (26.4+9.975+35)/0.755 ≈ 94.5 → 95 → TAMPERED |
+| 2 | n/a | 20, 0.5 | UNVERIFIED | n/a | (0.075·20 + 0.35·40)/0.425 ≈ 36.5 → 36 → SUSPICIOUS |
+| 3 | 80, 0.5 | 10, 0.7 | SUPPORTS | n/a | (12+1.05+0)/0.605 ≈ 21.6 → 22 → SUSPICIOUS |
+| 4 | 10, 1.0 | 10, 0.7 | CONTRADICTS (allowlisted) | n/a | raw ≈ 51.7 → 52 → floor 85 → TAMPERED |
+| 5 | 95, 1.0 | n/a | n/a | n/a | W=0.30 → raw 95 → ELA_SOLO_CAP → 60 → SUSPICIOUS |
+| 6 | n/a | n/a | n/a | n/a | W=0 → INSUFFICIENT |
+| 7 | n/a | n/a | SUPPORTS | 5 | (0+1.0)/0.55 ≈ 1.8 → 2 → W=0.55 → SAFE |
+| 8 | n/a | n/a | n/a | 95 | S_Link ≥ 90 → floor 85 → TAMPERED (W=0.20 → floor still applies; status TAMPERED) |
+
+Row 8 note: floors may rescue an otherwise-`INSUFFICIENT` input to `SUSPICIOUS/TAMPERED` (never to `SAFE`).
+**Agent must recompute vectors 1–7 in tests and fix the table here if arithmetic differs.**
+
+---
+
+## 4. Pipeline orchestration (`internal/pipeline`)
+
+```
+request ctx (12 s hard deadline)
+ ├─ validate + hash (SHA-256) → cache hit? return immediately (TTL 10 min, max 500 entries, LRU)
+ ├─ errgroup (each pillar has its own sub-deadline & never fails the group):
+ │    ela    : 0.8 s  (FILE only)
+ │    link    : 2.5 s  (URL or URLs extracted from text/OCR)
+ │    llm     : 9 s    (single structured call w/ tools; yields ai + fact + anomalies + claim)
+ ├─ each finished pillar → SSE `partial`
+ └─ scoring.Compute → sign token → SSE `verdict`
+```
+- A pillar error/timeout → `available=false` + entry in `verdict.not_checked`; if any pillar degraded, `degraded=true`.
+- Never return cached/demo data for a live request. Cache stores only final Dossier JSON (no raw input).
+- Concurrency limiter: max 20 in-flight LLM calls (semaphore) → excess gets `RATE_LIMITED` with `Retry-After`.
+
+---
+
+## 5. Link analysis (`internal/linkcheck`)
+
+Deterministic, each rule adds capped points; final `S_Link = min(100, Σ)`.
+
+| Code | Rule | Points |
+|---|---|---|
+| `IP_HOST` | host is an IP literal | 35 |
+| `PUNYCODE` | `xn--` label or mixed-script homoglyphs | 40 |
+| `LOOKALIKE_BRAND` | Levenshtein ≤ 2 of brand list (bri, bca, bni, mandiri, dana, gopay, ovo, shopee, tokopedia, bpjs, pln, komdigi, kominfo, tiktok, instagram) but not the exact official domain | 45 |
+| `SUSPICIOUS_TLD` | `.xyz .top .click .icu .cfd .sbs .shop .live` etc. (config list) | 15 |
+| `SCAM_KEYWORDS` | bansos, undian, hadiah, saldo, klaim, gratis, verifikasi-akun in host/path | 20 |
+| `SHORTENER_HIDES` | shortener expanded; final host differs & is rated ≥ 30 | +15 |
+| `AT_SIGN` / `DEEP_SUBDOMAIN` | `@` in authority; > 4 labels | 20 / 10 |
+| `NO_HTTPS` | scheme http | 10 |
+| `SAFE_BROWSING` | Google Safe Browsing v4 Lookup hit (optional, env key) | → 100 |
+
+Redirect unrolling: max 3 hops through the SSRF-safe client, `HEAD` then `GET` with `Range: bytes=0-0` fallback, record chain. Official-domain allowlist (e.g. `kompas.com`, `antaranews.com`, `go.id`) reduces `LOOKALIKE_BRAND` false positives. Table tests with ≥ 25 URLs (good and bad).
+
+---
+
+## 6. LLM integration (`internal/llm`)
+
+- Client speaks OpenAI-compatible API to `NINEROUTER_BASE_URL` using a **separate** `http.Client` (it must reach localhost/tunnel, so it is NOT the SSRF client). Model from `NINEROUTER_MODEL`; at startup call `GET /models` and log (without secrets) whether the model exists.
+- **One** call per audit, `response_format` = JSON schema `LLMFindings`:
+  `{claim, ai_score, ai_indicators[], text_anomalies[{bounding_box, extracted_text, reason}], fact_status, sources[], ocr_text, tactics[{code, phrase}], injection_suspected}`.
+- Tools executed by Go, never by the model: `inspect_social_url(url)` (oEmbed/OG via SSRF client, returns ≤ 2 KB metadata) and `search_verified_news(query)` (search grounding, returns title/publisher/url/snippet). Max 3 tool rounds.
+- **Prompt-injection containment:** all external text wrapped in `<untrusted_content>…</untrusted_content>`; system prompt states content inside is data; model never emits a verdict/score (those fields do not exist in the schema); on schema violation → treat LLM pillars as failed (`available=false`), not retry loops; `injection_suspected` or regex hits on ("ignore previous", "system prompt", "set verdict") → flag `INJECTION_GUARD`.
+- **Source verification (`internal/grounding`):** accept a source only if (a) URL appears in the tool's own result set, (b) host (eTLD+1) is in `configs/trusted_sources.yaml`, (c) scheme https. Else downgrade that source to `UNVERIFIED`. Starter allowlist: turnbackhoax.id, cekfakta.com, komdigi.go.id, kominfo.go.id, antaranews.com, kompas.com, detik.com, tempo.co, cnnindonesia.com, liputan6.com, tirto.id (reviewed by team).
+- **`LLM_MOCK=true`:** deterministic fake responses keyed by input hash prefix so frontend/e2e work without 9router. Required for CI.
+
+### 6.1 Tactics (`internal/tactics`) — informational, never scored
+Fixed enum (Indonesian label and one-line "kenapa mencurigakan" live only in static `tactics.json`):
+`URGENCY` (mendesak), `REWARD_BAIT` (iming-iming hadiah), `FALSE_AUTHORITY` (mengaku otoritas), `FEAR` (menakut-nakuti), `SECRECY` (minta dirahasiakan), `OUTRAGE_BAIT` (memancing emosi/marah), `IMPERSONATION` (menyamar sebagai orang/lembaga), `FAKE_SOCIAL_PROOF` (klaim "sudah dipercaya banyak orang").
+Server verification: normalize (NFKC, lowercase, collapse whitespace) both phrase and source text; keep a tactic only if the phrase is a substring of the input text/caption (`source:"text"`) or of the LLM `ocr_text` for FILE input (`source:"ocr"`). Drop unknown codes, duplicates, phrases > 80 chars; keep max 5. Tactics never enter `scoring.Compute`.
+
+### 6.2 Balas Sopan (`internal/reply`, `POST /reply`)
+- Input is the **signed share token** + tone; the server verifies the token and uses only its payload (`status, title, claim, srcs`). No raw user content is needed or accepted.
+- Small LLM call (schema `{text}`, 4 s timeout, rate-limited like audits). Prompt rules: Indonesian; polite; talks about the content, not the person; ≤ 280 chars; tone `hormat` (honorifics, soft), `santai`, `singkat` (one line); no invented facts; no certainty words ("pasti", "100%").
+- **Validation:** ≤ 280 chars; every URL must be in `{payload.srcs[].url, share link}` else strip the URL (and if text becomes empty/invalid → fallback); no profanity/shaming regex hits; no score or "terbukti" claims.
+- **Fallback:** deterministic templates per status × tone in `configs/reply_templates.json` (embedded in Go; copied to `frontend/src/lib/data/reply-templates.json`, CI diff). Used when LLM is mock/unavailable, validation fails, or in the offline demo (client renders templates directly).
+- Cache by SHA-256(token+tone) for 10 min. `source` in the response tells the UI whether it was LLM or template.
+
+---
+
+## 7. Security specification
+
+### 7.1 SSRF-safe client (`security/ssrf.go`) — replaces v9 code
+```go
+var blockedCIDRs = mustCIDRs(
+  "0.0.0.0/8","10.0.0.0/8","100.64.0.0/10","127.0.0.0/8","169.254.0.0/16",
+  "172.16.0.0/12","192.0.0.0/24","192.0.2.0/24","192.168.0.0/16","198.18.0.0/15",
+  "198.51.100.0/24","203.0.113.0/24","224.0.0.0/4","240.0.0.0/4",
+  "::/128","::1/128","64:ff9b::/96","100::/64","2001:db8::/32","fc00::/7","fe80::/10","fec0::/10","ff00::/8",
+)
+
+func IsBlocked(ip net.IP) bool {
+  if ip == nil { return true }
+  if v4 := ip.To4(); v4 != nil { ip = v4 }            // handles ::ffff:a.b.c.d
+  for _, n := range blockedCIDRs { if n.Contains(ip) { return true } }
+  return false
+}
+
+func NewSafeClient(timeout time.Duration, maxHops int) *http.Client {
+  d := &net.Dialer{
+    Timeout: timeout,
+    // Control runs on the *actual* address being connected, after DNS -> defeats rebinding & multi-A tricks
+    Control: func(network, address string, _ syscall.RawConn) error {
+      host, port, err := net.SplitHostPort(address)
+      if err != nil { return err }
+      if port != "80" && port != "443" { return errors.New("port not allowed") }
+      if IsBlocked(net.ParseIP(host)) { return errors.New("target not allowed") }
+      return nil
+    },
+  }
+  return &http.Client{
+    Timeout: timeout,
+    Transport: &http.Transport{
+      Proxy: nil,                                   // never honour HTTP(S)_PROXY env
+      DialContext: d.DialContext,
+      ResponseHeaderTimeout: timeout,
+      MaxResponseHeaderBytes: 64 << 10,
+      DisableKeepAlives: true,
+    },
+    CheckRedirect: func(r *http.Request, via []*http.Request) error {
+      if len(via) >= maxHops { return errors.New("too many redirects") }
+      if r.URL.Scheme != "http" && r.URL.Scheme != "https" { return errors.New("scheme not allowed") }
+      return nil
+    },
+  }
+}
+// Every body read MUST use io.LimitReader(resp.Body, 2<<20) and check Content-Type.
+```
+Tests (table, `httptest` + custom resolver): 127.0.0.1, `localhost`, 10.x, 172.16.x, 192.168.x, 169.254.169.254, `[::1]`, `::ffff:127.0.0.1`, `2130706433` (decimal IP), `0x7f.1`, redirect-to-private, DNS name resolving to private, port 20128/22/6379, `file://`, `gopher://`, 3+ redirects. ≥ 15 cases.
+
+### 7.2 Upload validation
+Read at most 10 MB + 1; verify magic bytes (JPEG `FFD8FF`, PNG `89504E47`, WebP `RIFF….WEBP`), ignore client MIME; `image.DecodeConfig` for dimensions before full decode; strip nothing server-side (never persisted); reject animated/oversized. Never write to disk (use `bytes.Reader`).
+
+### 7.3 Rate limiting & proxy trust
+`golang.org/x/time/rate`, 15 req/min/client, burst 5, plus global in-flight cap. Client key = forwarded-client header **only if** the immediate peer is in `TRUSTED_PROXY_CIDRS` (empty by default; hosting setup deferred), else `RemoteAddr`. Hash key with a salt rotated at boot; limiter map swept every 5 min (idle > 10 min evicted). Never log the key.
+
+### 7.4 Headers, CSP, CORS
+- Go API (JSON only): `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `Cache-Control: no-store`, `Content-Security-Policy: default-src 'none'; frame-ancestors 'none'`.
+- **Frontend** (authored once in `frontend/security-headers.json`; applied by a Vite dev/preview plugin now, to be emitted into a host-specific file when deployment enters scope): `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' <API_ORIGIN>; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'none'; object-src 'none'` + `Permissions-Policy: camera=(), microphone=(), geolocation=()`. (Remove `https:` wildcards; `img-src` for oEmbed thumbnails is **not** needed — never hotlink external images.)
+- CORS: allow only `PUBLIC_APP_URL` (+ `http://localhost:5173` in dev); methods GET/POST; no credentials.
+
+### 7.5 Signed tokens (`internal/token`)
+`v1.` + base64url(JSON payload) + `.` + base64url(HMAC-SHA256(key=`REPORT_SIGNING_KEY`, msg=`v1.`+payload)). Payload: `{id, ts, status, score, title(≤80), claim?(≤120), srcs:[{pub,url,m}] (≤3)}` ≤ 2 KB. Constant-time compare (`hmac.Equal`). Key ≥ 32 bytes, required in production (server refuses to start otherwise). Mini-token for QR = `{id, ts, status, score}`.
+Frontend puts token in the **URL fragment** (`/hasil#t=…`) so servers/CDNs never see it; it POSTs to `/verify` in the body.
+
+### 7.6 Logging / metrics
+Only the anonymous line format from v9 §14.2 plus counters; no URLs, titles, IPs. Metrics on a separate internal listener (`METRICS_ADDR`, default off).
+
+---
+
+## 8. Frontend specification
+
+- **Routing:** SvelteKit file-based routes (`ssr = false`, `adapter-static` with SPA fallback; code-split per route automatically). `/hasil` reads the in-memory `AuditSession` (live result) or `#t=` (shared token). Nothing is persisted, so a page reload of a live result shows "Hasil tidak tersimpan — periksa lagi" with a one-tap re-check, or the signed-token view if a share link was used.
+- **API client:** typed with Zod schemas generated/copied from `api/openapi.yaml`; unknown `schema_version` → friendly "Perbarui aplikasi" error. `AuditSession` (`$lib/audit.svelte.ts`, Svelte 5 runes) handles SSE, aborts on component destroy (`$effect` cleanup) and retries once on network error; stage changes are announced through a polite `aria-live` region. Frontend tests use Vitest + `@testing-library/svelte`.
+- **ELA worker (`ela.worker.ts`):** receives `ImageBitmap`, uses `OffscreenCanvas`; processes in row bands (yield every ~50 ms); returns heatmap `ImageBitmap`/Blob URL. Max processed size 4096 px longest side (above → downscale with notice). **Revoke all object URLs** on unmount; terminate worker on route leave.
+- **Split slider fixes:**
+  - Render bounding boxes in a layer **outside** the clip-path container so they remain visible on both sides.
+  - Container uses `aspect-ratio` from decoded image; boxes positioned by percentage against that same box (no letterbox mismatch).
+  - Use a real `<input type="range" aria-label="Geser untuk membandingkan gambar asli dan hasil ELA" aria-valuetext="{n}% gambar asli">` visually hidden but focusable, with a visible focus ring on the handle; arrow keys step 2%, PageUp/Down 10%; pointer events via `touch-action: pan-y`.
+  - Provide non-slider alternative tabs (Asli / ELA) and list anomalies as text under the viewer.
+- **Honest-limits panel:** under verdict show "Berdasarkan: …" from `verdict.basis` and "Tidak dapat diperiksa: …" from `not_checked`, plus ELA reliability note when < 1.
+- **Read-aloud:** `speechSynthesis.speak` with `lang="id-ID"`; feature-detect, hide button if unsupported; cancel on route change.
+- **Perf:** code-split per route; `html-to-image` and `qrcode` dynamic-imported on first export; no icon library barrel imports (import individual `lucide-svelte` icons); fonts self-hosted, `font-display: swap`; measure with `vite build --report`/`rollup-plugin-visualizer` in CI (fail > 250 KB gz initial).
+- **Visual system:** see §8.0 and `DESIGN.md` (authoritative). Status colours are tokens, always paired with an icon and a text label.
+- **Error/empty states** for: offline, 429 (show countdown), 504/degraded, unsupported file, no checkable claim, platform-blocked link.
+
+### 8.0 Visual system (authoritative: `DESIGN.md`)
+- **Direction:** dark, atmospheric, technical (fine borders, subtle grid, small status indicators), restrained warm primary accent, sparing cool secondary accent, optional pixel/character details that stay secondary. No glassmorphism, heavy glow, blur or gradients.
+- **Tokens** live in `frontend/src/lib/styles/tokens.css` as CSS custom properties; the Tailwind theme maps to them (no raw hex in components). Groups: colour roles, type scale/roles, spacing, border widths/colours, radii, elevation, motion durations/easing, focus ring, interactive states (hover/focus/active/disabled/selected).
+- **Provisional palette** (must be validated against the approved visual reference before it is frozen, per `DESIGN.md` §3): `--bg #0b0f14`, `--surface #131a22`, `--border #2a3542`, `--text #e6edf3`, `--text-2 #9aa7b4`, `--accent #ffb454` (warm), `--accent-2 #5cc8ff` (cool, sparing), `--ok #3fb950`, `--warn #d29922`, `--err #f85149`. Never convey meaning by colour alone.
+- **Contrast gate:** `tools/check-contrast.mjs` reads the tokens and fails CI if any text/background pair is < 4.5:1 (< 3:1 for large text, UI borders and the focus ring).
+- **Type:** a highly readable sans for body and key information; monospace only for labels, metadata and IDs; a pixel/display face only for short headings; no essential information in tiny uppercase. Self-host OFL-licensed fonts, `font-display: swap`.
+- **Shapes and icons:** one radius scale, fine borders over heavy containers, not everything is a card or pill; one icon set and stroke weight (`lucide-svelte`); action icons have accessible names; decorative graphics are `aria-hidden` and never resemble controls.
+- **Motion:** `--dur-*` tokens; `html[data-motion="calm"]` (forced when `prefers-reduced-motion: reduce`, and always in Essential Mode) sets non-essential durations to ~0, removes looping/ambient effects and swaps `ScanningRadar` for a static labelled progress list. No flashing, no autoplay audio.
+- **Optional character:** a small pixel shield mascot may react to states in Explore Mode only (`aria-hidden`, never blocks content).
+
+### 8.1 PWA share target (F11)
+- `static/manifest.webmanifest`: `display: standalone`, icons, and
+  `share_target: {action:"/share-target", method:"POST", enctype:"multipart/form-data", params:{title:"title", text:"text", url:"url", files:[{name:"media", accept:["image/jpeg","image/png","image/webp"]}]}}`.
+- `src/service-worker.ts` (auto-registered by SvelteKit) intercepts `POST /share-target`: read `formData`; reject files > 10 MB or non-image types; if `url` is empty, extract the first `http(s)` URL from `text` (Android often puts links there); store `{url?, text?, file?}` in Cache Storage (`amba-share-v1`, key `/__share/<random id>`); respond `303` to `/deteksi?share=<id>`.
+- Client reads the entry, **deletes it immediately**, auto-starts the audit with a visible "Batalkan" button. On every app boot sweep entries older than 5 min. This is the **only** client-side persistence of user input and is transient by design.
+- Fallback for unsupported browsers (notably iOS Safari): "Tempel dari clipboard" button using `navigator.clipboard.readText()` on user gesture; detect URL vs text automatically.
+- Limitations to state in README/About: works only for the installed PWA on supporting browsers (Android Chrome); installability needs HTTPS when hosted (`localhost` OK in dev).
+- Tests: unit-test the SW handler with a fake `FormData`/Cache; Playwright cannot exercise the OS share sheet, so add a manual Android checklist to `docs/PROGRESS.md`.
+
+### 8.2 Presentation modes: Mode Jelajah & Mode Esensial (F14)
+- `<html data-mode="explore|essential">` is set from `mode.svelte.ts` (`$state`) and persisted in `localStorage` key `amba.mode`. First visit: a neutral picker ("Pilih tampilan yang paling nyaman", two equal options); preselect `essential` when `prefers-reduced-motion: reduce`. `ModeSwitch` stays visible in the navbar/footer. Modes are never labelled by age, ability or skill.
+- **One component tree, two presentations.** Components do not fork content; modes differ only in decoration density, motion, character moments, type size and layout density (Essential: single column, base text ≥ 18 px, more spacing, plainer labels). Forbidden differences: any data, control, destination or capability.
+- **Parity contract:** every information item carries `data-info-key="<key>"` (e.g. `verdict.score`, `verdict.sentence`, `pillar.ela`, `pillar.fact`, `sources`, `tactics`, `reply`, `share`, `proofcard`, `readaloud`). Playwright renders the same Dossier in both modes and asserts identical key sets and equal text per key.
+- Mode switching never resets input, progress or result (state lives in `AuditSession`, outside mode components). Test it mid-SSE and after the verdict.
+- `explanation_simple` is produced **in Go by deterministic templates** (no LLM): `FACT_CONTRADICTED` → "Kabar ini dibantah sumber terpercaya. Jangan disebarkan."; `LINK_MALICIOUS` → "Tautan ini mirip penipuan. Jangan diklik."; `ELA_CORROBORATED` → "Gambar ini terindikasi diedit. Jangan langsung percaya."; other `SUSPICIOUS` → "Belum jelas benar atau tidak. Cek dulu sebelum menyebarkan."; `INSUFFICIENT` → "Informasinya belum cukup untuk dipastikan."; `SAFE` → "Tidak ditemukan tanda bahaya, tapi tetap bijak sebelum menyebarkan." Unit-tested. It is the lead sentence of every result in both modes.
+- Read-aloud (and optional auto-read) is a setting independent of mode; it speaks `explanation_simple` first, then the explanation.
+
+### 8.3 Tactic highlighter (F13)
+`HighlightedText` renders the input/caption (or OCR text) with `<mark>` around each verified phrase; each mark has an icon + label from `tactics.json` (not colour only) and a focusable "Kenapa ini mencurigakan?" popover. Render via Svelte text interpolation (never `{@html}` on user- or LLM-derived content).
+
+### 8.4 Balas Sopan UI (F12)
+`ReplyCard`: tone chips (hormat/santai/singkat), editable preview, Copy and WhatsApp (`wa.me`) buttons. Fetch `/reply` on chip select; show template instantly while the LLM draft loads, then swap if valid. Demo/offline mode uses `reply-templates.json` only.
+
+### 8.5 Cek Cepat & Sandi Keluarga (F15, client-only)
+- `quickcheck.json`: six yes/no questions with weights — asked for money/transfer 3, urgent 2, keep secret 2, new number claiming to be someone you know 2, asked for OTP/PIN/password 4, could not verify via another channel 1 (max 14).
+- Levels: ≥ 6 **Tinggi**, 3–5 **Waspada**, ≤ 2 **Rendah**. Any "yes" to OTP/PIN forces **Tinggi**. Each level has 3 concrete Indonesian steps (e.g. "Hubungi nomor lama keluarga langsung", "Jangan kirim kode OTP/PIN ke siapa pun").
+- Sandi Keluarga: two words from an Indonesian word list of ≥ 256 common words using `crypto.getRandomValues`; printable card via print CSS (`@media print`), no network.
+- Unit tests: scoring thresholds, OTP override, word-list size/uniqueness, generator uses CSPRNG.
+
+---
+
+## 9. Demo data rules
+- `backend/internal/demo/demo-cases.json` is canonical; CI copies/diffs to `frontend/src/lib/data/demo-cases.json`.
+- Images: generate synthetic screenshots (script `tools/gen_demo_assets.*`), include **real** heatmaps computed from them, embed as small WebP/PNG data URIs (< 150 KB each).
+- Every demo Dossier: `is_demo: true`, visible watermark "CONTOH / SIMULASI", no real person/brand logos, no invented URLs for real publishers — use `https://example.org/contoh-cek-fakta` style placeholders with `publisher: "Sumber Contoh"`.
+- Validate demo JSON against the Dossier JSON Schema in both Go and Vitest tests.
+- Demo Dossiers include `tactics` (phrases must appear in the synthetic caption/OCR text) and `explanation_simple`; the demo Balas Sopan card renders from `reply-templates.json` with zero network calls.
+
+---
+
+## 10. Config (`.env.example`)
+```bash
+SERVER_HOST=0.0.0.0
+SERVER_PORT=8080
+ENVIRONMENT=development            # production requires REPORT_SIGNING_KEY
+PUBLIC_APP_URL=http://localhost:5173
+TRUSTED_PROXY_CIDRS=               # leave empty until hosting is set up
+NINEROUTER_BASE_URL=http://localhost:20128/v1
+NINEROUTER_API_KEY=changeme
+NINEROUTER_MODEL=gemini-3.8-flash  # verify against /models at boot
+LLM_MOCK=true
+REPORT_SIGNING_KEY=                # >=32 random bytes, base64
+GOOGLE_SAFE_BROWSING_KEY=          # optional
+MAX_UPLOAD_SIZE_MB=10
+HARD_TIMEOUT_MS=12000
+CACHE_TTL_SECONDS=600
+METRICS_ADDR=                      # empty = disabled
+```
+Frontend: `VITE_API_BASE_URL`.
+
+## 11. Test matrix
+| Layer | Tool | Must cover |
+|---|---|---|
+| Scoring | `go test` table tests | vectors §3.5, floors/caps, rounding, W thresholds |
+| SSRF | `go test` | ≥ 15 cases §7.1 |
+| Link heuristics | `go test` | ≥ 25 URLs |
+| ELA | `go test` | synthetic patch ordering |
+| Token | `go test` | tamper, truncation, key rotation, size |
+| Handlers | `httptest` | each route, error envelope, SSE order, 429 |
+| Race | `go test -race ./...` | whole backend |
+| FE unit | Vitest + @testing-library/svelte | Zod parsing, token parse, bbox math, a11y helpers, mode store |
+| FE e2e | Playwright | demo (offline), link flow w/ `LLM_MOCK`, upload flow, share-token verify, tamper → invalid |
+| A11y | `@axe-core/playwright` | 0 serious/critical on all routes |
+| Perf | Lighthouse CI | ≥ 90 all, bundle ≤ 250 KB gz |
+| Design tokens | `tools/check-contrast.mjs` | all text/background token pairs ≥ 4.5:1 (UI/large ≥ 3:1) |
+| Security | headers test | CSP/CORS values present on SPA + API |
+| Tactics & reply | `go test` | phrase-substring verification, unknown codes dropped, `/reply` requires valid token, URL stripping, template fallback, length cap |
+| Explanation templates | `go test` | each status/floor → exact simple sentence |
+| Share target | Vitest + manual | SW handler unit test (URL extraction, size/type rejection, delete-on-read, 5-min sweep); manual Android Chrome checklist |
+| Presentation modes | Playwright | link flow ≤ 3 taps in both modes; **parity test** (identical `data-info-key` sets/text in Explore and Essential); mode switch mid-flow keeps input/result; reduced-motion forces calm motion; `speechSynthesis` (mocked) speaks `explanation_simple` |
+| Cek Cepat | Vitest + Playwright | thresholds, OTP override, safe-word generator, works offline, print stylesheet present |

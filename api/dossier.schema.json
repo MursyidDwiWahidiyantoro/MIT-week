@@ -1,0 +1,476 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://amba.local/schemas/dossier-v2.json",
+  "title": "AMBA Dossier v2",
+  "description": "Result object returned by every audit route. Mirrors api/openapi.yaml.",
+  "type": "object",
+  "$defs": {
+    "Status": {
+      "type": "string",
+      "enum": [
+        "SAFE",
+        "SUSPICIOUS",
+        "TAMPERED",
+        "INSUFFICIENT"
+      ]
+    },
+    "FactStatus": {
+      "type": "string",
+      "enum": [
+        "CONTRADICTS",
+        "SUPPORTS",
+        "UNVERIFIED"
+      ]
+    },
+    "InputType": {
+      "type": "string",
+      "enum": [
+        "URL",
+        "FILE",
+        "TEXT"
+      ]
+    },
+    "Anomaly": {
+      "type": "object",
+      "properties": {
+        "bounding_box": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000
+          },
+          "description": "Normalized [ymin, xmin, ymax, xmax] on a 0-1000 scale"
+        },
+        "extracted_text": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "bounding_box"
+      ]
+    },
+    "Source": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "publisher": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        },
+        "match": {
+          "$ref": "#/$defs/FactStatus"
+        }
+      },
+      "required": [
+        "title",
+        "publisher",
+        "url",
+        "match"
+      ]
+    },
+    "LinkReason": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "text"
+      ]
+    },
+    "Tactic": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "enum": [
+            "URGENCY",
+            "REWARD_BAIT",
+            "FALSE_AUTHORITY",
+            "FEAR",
+            "SECRECY",
+            "OUTRAGE_BAIT",
+            "IMPERSONATION",
+            "FAKE_SOCIAL_PROOF"
+          ]
+        },
+        "phrase": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "source": {
+          "type": "string",
+          "enum": [
+            "text",
+            "ocr"
+          ]
+        }
+      },
+      "required": [
+        "code",
+        "phrase",
+        "source"
+      ]
+    },
+    "Verdict": {
+      "type": "object",
+      "properties": {
+        "score": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 100,
+          "description": "RISK score, not confidence. Null when INSUFFICIENT."
+        },
+        "status": {
+          "$ref": "#/$defs/Status"
+        },
+        "short_title": {
+          "type": "string"
+        },
+        "explanation": {
+          "type": "string",
+          "maxLength": 400
+        },
+        "explanation_simple": {
+          "type": "string",
+          "maxLength": 140
+        },
+        "basis": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "ela",
+              "ai",
+              "fact",
+              "link",
+              "llm_untrusted"
+            ]
+          }
+        },
+        "not_checked": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "ela",
+              "ai",
+              "fact",
+              "link"
+            ]
+          }
+        },
+        "floors_applied": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "FACT_CONTRADICTED",
+              "LINK_MALICIOUS",
+              "ELA_CORROBORATED",
+              "ELA_SOLO_CAP",
+              "INJECTION_GUARD"
+            ]
+          }
+        }
+      },
+      "required": [
+        "status",
+        "explanation",
+        "explanation_simple",
+        "basis",
+        "not_checked",
+        "floors_applied"
+      ]
+    },
+    "Pillars": {
+      "type": "object",
+      "properties": {
+        "ela": {
+          "type": "object",
+          "properties": {
+            "available": {
+              "type": "boolean"
+            },
+            "score": {
+              "type": "integer"
+            },
+            "reliability": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "reliability_note": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "anomalies": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Anomaly"
+              }
+            }
+          },
+          "required": [
+            "available",
+            "score",
+            "reliability"
+          ]
+        },
+        "ai": {
+          "type": "object",
+          "properties": {
+            "available": {
+              "type": "boolean"
+            },
+            "score": {
+              "type": "integer"
+            },
+            "indicators": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "caveat": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "available",
+            "score"
+          ]
+        },
+        "fact": {
+          "type": "object",
+          "properties": {
+            "available": {
+              "type": "boolean"
+            },
+            "claim": {
+              "type": "string"
+            },
+            "status": {
+              "$ref": "#/$defs/FactStatus"
+            },
+            "sources": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Source"
+              }
+            }
+          },
+          "required": [
+            "available",
+            "status"
+          ]
+        },
+        "link": {
+          "type": "object",
+          "properties": {
+            "available": {
+              "type": "boolean"
+            },
+            "score": {
+              "type": "integer"
+            },
+            "final_url": {
+              "type": "string"
+            },
+            "redirect_chain": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "reasons": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/LinkReason"
+              }
+            }
+          },
+          "required": [
+            "available",
+            "score"
+          ]
+        }
+      }
+    },
+    "Dossier": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "type": "integer",
+          "enum": [
+            2
+          ]
+        },
+        "id": {
+          "type": "string",
+          "example": "AMBA-20261030-7F3K"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "input_type": {
+          "$ref": "#/$defs/InputType"
+        },
+        "source_reference": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "degraded": {
+          "type": "boolean"
+        },
+        "is_demo": {
+          "type": "boolean"
+        },
+        "verdict": {
+          "$ref": "#/$defs/Verdict"
+        },
+        "pillars": {
+          "$ref": "#/$defs/Pillars"
+        },
+        "tactics": {
+          "type": "array",
+          "maxItems": 5,
+          "items": {
+            "$ref": "#/$defs/Tactic"
+          }
+        },
+        "share_token": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema_version",
+        "id",
+        "timestamp",
+        "input_type",
+        "source_reference",
+        "degraded",
+        "is_demo",
+        "verdict",
+        "pillars",
+        "tactics",
+        "share_token"
+      ]
+    },
+    "ErrorEnvelope": {
+      "type": "object",
+      "properties": {
+        "error": {
+          "type": "object",
+          "properties": {
+            "code": {
+              "type": "string",
+              "enum": [
+                "INVALID_URL",
+                "BLOCKED_TARGET",
+                "UNSUPPORTED_MEDIA",
+                "PAYLOAD_TOO_LARGE",
+                "RATE_LIMITED",
+                "UPSTREAM_TIMEOUT",
+                "INTERNAL"
+              ]
+            },
+            "message": {
+              "type": "string"
+            },
+            "retryable": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "code",
+            "message",
+            "retryable"
+          ]
+        }
+      },
+      "required": [
+        "error"
+      ]
+    }
+  },
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "enum": [
+        2
+      ]
+    },
+    "id": {
+      "type": "string",
+      "example": "AMBA-20261030-7F3K"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "input_type": {
+      "$ref": "#/$defs/InputType"
+    },
+    "source_reference": {
+      "type": "string",
+      "maxLength": 200
+    },
+    "degraded": {
+      "type": "boolean"
+    },
+    "is_demo": {
+      "type": "boolean"
+    },
+    "verdict": {
+      "$ref": "#/$defs/Verdict"
+    },
+    "pillars": {
+      "$ref": "#/$defs/Pillars"
+    },
+    "tactics": {
+      "type": "array",
+      "maxItems": 5,
+      "items": {
+        "$ref": "#/$defs/Tactic"
+      }
+    },
+    "share_token": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "id",
+    "timestamp",
+    "input_type",
+    "source_reference",
+    "degraded",
+    "is_demo",
+    "verdict",
+    "pillars",
+    "tactics",
+    "share_token"
+  ]
+}
