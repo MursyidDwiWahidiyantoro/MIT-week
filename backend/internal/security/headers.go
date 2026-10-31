@@ -1,0 +1,81 @@
+package security
+
+import (
+	"net"
+	"net/http"
+	"strings"
+)
+
+// APISecurityHeaders applies the JSON-only API policy from TECH_SPEC §7.4.
+func APISecurityHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h := w.Header()
+		h.Set("X-Content-Type-Options", "nosniff")
+		h.Set("Referrer-Policy", "no-referrer")
+		h.Set("Cache-Control", "no-store")
+		h.Set("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'")
+		next.ServeHTTP(w, r)
+	})
+}
+
+// CORSConfig lists the origins allowed to call the API.
+type CORSConfig struct {
+	AllowedOrigins []string
+}
+
+// NewCORSConfig builds the allowlist: PUBLIC_APP_URL plus localhost in dev.
+// No credentials are ever allowed, so wildcard-with-credentials mistakes are
+// structurally impossible here.
+func NewCORSConfig(publicAppURL string, development bool) CORSConfig {
+	origins := []string{}
+	if strings.TrimSpace(publicAppURL) != "" {
+		origins = append(origins, strings.TrimRight(publicAppURL, "/"))
+	}
+	if development {
+		origins = append(origins, "http://localhost:5173", "http://127.0.0.1:5173")
+	}
+	return CORSConfig{AllowedOrigins: origins}
+}
+
+func (c CORSConfig) allowed(origin string) bool {
+	origin = strings.TrimRight(origin, "/")
+	for _, o := range c.AllowedOrigins {
+		if o == origin {
+			return true
+		}
+	}
+	return false
+}
+
+// Middleware answers preflights and sets CORS headers for allowed origins only.
+func (c CORSConfig) Middleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		origin := r.Header.Get("Origin")
+		if origin != "" && c.allowed(origin) {
+			h := w.Header()
+			h.Set("Access-Control-Allow-Origin", origin)
+			h.Add("Vary", "Origin")
+			h.Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+			h.Set("Access-Control-Allow-Headers", "Content-Type, Accept")
+			h.Set("Access-Control-Max-Age", "600")
+		}
+		if r.Method == http.MethodOptions {
+			// Preflight never reaches the handler, allowed or not.
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// ParseTrustedProxies converts CIDR strings into networks, skipping bad input
+// rather than failing the whole server at request time.
+func ParseTrustedProxies(cidrs []string) []*net.IPNet {
+	out := make([]*net.IPNet, 0, len(cidrs))
+	for _, c := range cidrs {
+		if _, n, err := net.ParseCIDR(strings.TrimSpace(c)); err == nil {
+			out = append(out, n)
+		}
+	}
+	return out
+}

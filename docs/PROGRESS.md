@@ -59,7 +59,20 @@ contract: api/dossier.schema.json        draft 2020-12, validates
 ```
 
 ## In progress
-- Phase 1 (backend core) and Phase 3 (frontend shell) running in parallel.
+- Phase 1 backend: scoring, security, token, demo — done locally, pending full gate run.
+- Phase 3 frontend: not started.
+
+## Phase 1 — Backend core
+
+| Item | Status | Evidence |
+|---|---|---|
+| `internal/scoring` | Done | 68 tests, all 8 §3.5 vectors |
+| `internal/security` (SSRF) | Done | 20 blocked-address cases + redirect/DNS-rebinding tests |
+| `internal/security` (upload) | Done | magic bytes, dims, animation, size — 13 cases |
+| `internal/security` (ratelimit) | Done | burst, refill, proxy trust, sweep, in-flight cap |
+| `internal/security` (headers/CORS) | Done | allowlist only, no credentials, preflight |
+| `internal/token` | Done | round-trip, tamper, truncation, rotation, size |
+| `internal/demo` + `/demo/{id}` | Done | 3 cases, schema-validated, example.org only |
 
 ## Phase 0 close-out
 All Phase 0 items are done and verified locally. CI has not yet run on GitHub
