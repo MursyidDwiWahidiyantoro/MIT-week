@@ -27,6 +27,7 @@ func NewRouter(cfg *config.Config) http.Handler {
 		TrustedProxies: security.ParseTrustedProxies(cfg.TrustedProxy),
 	})
 	cors := security.NewCORSConfig(cfg.PublicAppURL, !cfg.IsProduction())
+	h := newHandlers(cfg, limiter)
 
 	r.Use(cors.Middleware)
 	r.Use(limiter.Middleware(func(w http.ResponseWriter, _ *http.Request) {
@@ -41,6 +42,11 @@ func NewRouter(cfg *config.Config) http.Handler {
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Get("/healthz", health)
 		r.Get("/demo/{id}", getDemo)
+		r.Post("/audit/url", h.auditURL)
+		r.Post("/audit/text", h.auditText)
+		r.Post("/audit/file", h.auditFile)
+		r.Post("/verify", h.verify)
+		r.Post("/reply", h.reply)
 	})
 
 	return r

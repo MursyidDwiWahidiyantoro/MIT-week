@@ -82,3 +82,69 @@ The implementation guards the cap with `ELA.Available`, matching the floor's
 name and its intent (stop ELA acting alone from reaching TAMPERED). Covered by
 the test "no cap when ela is unavailable". Revisit: if the team wants the
 literal reading, remove the guard and update §3.3 wording and that test.
+
+## 2026-11-01 · ELA is blind to images already saved at the analysis quality
+ELA compares the submitted image against a q=90 re-encode of itself. If the
+input is already a q=90 JPEG the re-encode is effectively a no-op, every
+difference rounds to zero, and the pillar reports a score of 0 even for a
+visibly composited image. Real screenshots and re-saved photos carry a
+different compression history, so this mostly affects synthetic test fixtures
+— but it is a real ceiling on the technique.
+
+Consequences: (a) unit tests must encode fixtures at a quality other than 90,
+(b) the UI must never present a 0 ELA score as "clean" — reliability 0.0 and
+the honest-limits panel exist for this, (c) the demo assets must be generated
+with a realistic compression history or their heatmaps will be empty.
+
+## 2026-11-01 · Fact status is derived from verified sources, never claimed by the model
+The model reports a `fact_status`, but the pipeline only keeps it when at least
+one source survived grounding with the matching verdict. A `CONTRADICTS` claim
+backed solely by a non-allowlisted or invented URL is downgraded to
+`UNVERIFIED`, which caps the fact pillar at 40 and prevents the
+FACT_CONTRADICTED floor from firing.
+
+Found by a live smoke test: a text audit scored 97 / TAMPERED while its only
+"source" was `https://example.org/contoh-cek-fakta` marked UNVERIFIED. The
+score now lands at 47 / SUSPICIOUS, which is what the evidence supports.
+
+Consequence for mock mode: the mock cites `example.org`, so it can never reach
+TAMPERED through the fact pillar. That is intentional — inventing a real
+publisher URL to make a test look better would break CLAUDE.md rule 5. TAMPERED
+coverage in e2e comes from a synthetic lookalike domain in a URL audit
+(`https://bca-login.xyz/...`), where the LINK_MALICIOUS floor fires on real
+heuristics rather than a fabricated citation.
+
+Demo data still shows CONTRADICTS with `example.org` sources because TECH_SPEC
+§9 requires demo sources to be placeholders labelled "Sumber Contoh"; demo
+dossiers are pre-baked and never pass through grounding.
+
+## 2026-11-01 · OPEN — link-only audits always return INSUFFICIENT
+Verified behaviour: a URL audit whose only available pillar is Link returns
+`INSUFFICIENT` with `score: null`, even when the link score is 85 and the
+reasons include a lookalike bank brand, a suspicious TLD and a verification
+path. Cause: Link carries base weight 0.20, and W = 0.20 < 0.30, so the
+formula yields INSUFFICIENT before any floor can apply. Only a link score
+>= 90 reaches the LINK_MALICIOUS floor (spec §3.3 floor 2).
+
+This is literally what §3.2/§3.3 specify, so it is NOT a bug in the code. But
+two product questions are unresolved and must be decided before Phase 6:
+
+1. Should a URL audit with a link score in the 85-89 band produce a verdict?
+   Options: lower the floor threshold to 85, add a weight floor for Link, or
+   accept INSUFFICIENT. Any change must update TECH_SPEC §3.3 and the test
+   vectors together.
+2. Trust UX: "we checked the link and found nothing wrong" currently renders
+   as "Belum cukup data", which reads like a failure rather than a completed
+   check. `amba-trust-ux` should get an explicit INSUFFICIENT-because-single-
+   pillar case before the copy pass.
+
+## 2026-11-01 · Mock mode cannot reach TAMPERED via the fact pillar
+Follows from the verified-source rule above. Mock cites example.org, grounding
+rejects it, fact stays UNVERIFIED. TAMPERED coverage comes from a URL audit
+against a synthetic lookalike domain. Do not "fix" this by allowlisting
+example.org or inventing a real publisher.
+
+## 2026-11-01 · Session paused at Phase 2 complete, Phase 4 not started
+Backend through the pipeline and all audit/verify/reply routes is implemented
+and green. Frontend is at Phase 3. Next: Phase 4 (results experience), then
+the open questions above.

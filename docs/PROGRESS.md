@@ -70,8 +70,21 @@ contract: api/dossier.schema.json        draft 2020-12, validates
 | `/deteksi` (tabs, dropzone, presets, radar) | Done | radar driven only by real stage events |
 | `/hasil` (verdict, honest limits, demo badge) | Done | in-memory store, reload shows "tidak tersimpan" |
 
+## Phase 2 — Pipeline & integrations
+
+| Item | Status | Evidence |
+|---|---|---|
+| `internal/forensics` server ELA | Done | q90 re-encode diff, 16x16 grid, format reliability |
+| `internal/linkcheck` | Done | 29 URL cases, redirect unrolling |
+| `internal/llm` + mock mode | Done | schema-constrained findings, deterministic mock |
+| `internal/grounding` | Done | allowlist + tool-result verification |
+| `internal/pipeline` | Done | errgroup, sub-deadlines, degradation, hashed cache |
+| `/audit/{url,file,text}` JSON + SSE | Done | stage→partial→verdict→done |
+| `internal/tactics` | Done | NFKC + whitespace-normalised substring check |
+| `/verify`, `/reply` | Done | token-only input, template fallback |
+
 ## In progress
-- Phase 2 (pipeline & integrations) not started.
+- Phase 4 (results experience) not started.
 
 ## Phase 1 — Backend core
 
