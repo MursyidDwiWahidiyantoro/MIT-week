@@ -70,3 +70,15 @@ any floor firing (for example ELA 69 + AI 100 + UNVERIFIED + link 89), so
 dulu sebelum menyebarkan." — calm, non-certain, and consistent with the
 vocabulary contract. Revisit: if the team prefers to define this case in the
 spec, update §8.2 and the test table together.
+
+## 2026-10-31 · ELA_SOLO_CAP only applies when ELA is available
+TECH_SPEC §3.3 floor 4 reads literally as "if no other pillar scored >= 50 and
+no floor 1-3 applied, cap at 60" — with no mention of ELA availability. Read
+literally, an input where ELA could not run at all (AI 100 + link 49) would be
+capped to 60 and downgraded to SUSPICIOUS, suppressing two real signals because
+a third was missing.
+
+The implementation guards the cap with `ELA.Available`, matching the floor's
+name and its intent (stop ELA acting alone from reaching TAMPERED). Covered by
+the test "no cap when ela is unavailable". Revisit: if the team wants the
+literal reading, remove the guard and update §3.3 wording and that test.

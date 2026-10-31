@@ -211,6 +211,14 @@ func TestFloors(t *testing.T) {
 			wantScore:  ptr0(80),
 			wantStatus: models.StatusTampered,
 		},
+		{
+			// "no other pillar" is read relative to ELA: without ELA there is
+			// no solo-ELA cap to apply.
+			name:       "no cap when ela is unavailable",
+			in:         Input{AI: sig(100, 1.0), Link: sig(49, 1.0)},
+			wantScore:  ptr0(71),
+			wantStatus: models.StatusTampered,
+		},
 	}
 
 	for _, tt := range tests {

@@ -138,7 +138,7 @@ func Compute(in Input) models.Verdict {
 	// The solo cap is recorded only when it actually lowers the score: it is a
 	// numerical ceiling, not evidence, so listing it for a score already below
 	// 60 would make the honest-limits copy claim a cap that never mattered.
-	if len(v.FloorsApplied) == 0 && score != nil &&
+	if in.ELA.Available && len(v.FloorsApplied) == 0 && score != nil &&
 		!otherPillarAtLeast50(in) && *score > 60 {
 		s := 60
 		score = &s
