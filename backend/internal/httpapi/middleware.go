@@ -27,7 +27,10 @@ func recoverer(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if rec := recover(); rec != nil {
-				slog.Error("panic recovered", "path", r.URL.Path)
+				// Never log the request path: a client can put arbitrary text in
+				// it, and rule 2 forbids logging anything derived from user
+				// input. The method plus a fixed marker is enough to correlate.
+				slog.Error("panic recovered", "method", r.Method)
 				debug.PrintStack()
 				writeError(w, errInternal)
 			}

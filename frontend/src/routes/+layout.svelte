@@ -19,13 +19,21 @@
     textSize.init();
   });
 
-  // Move focus to the main heading on navigation so keyboard and screen-reader
-  // users are not stranded at the old position.
+  // Move focus to the main heading on NAVIGATION only. Focusing on the initial
+  // mount would paint a focus ring on a heading the user never touched, which
+  // reads as a glitch.
+  let previousPath: string | null = null;
   $effect(() => {
-    void page.url.pathname;
+    const path = page.url.pathname;
+    if (previousPath === null) {
+      previousPath = path; // first render: record, do not focus
+      return;
+    }
+    if (path === previousPath) return;
+    previousPath = path;
+
     const main = document.getElementById('main');
-    if (!main) return;
-    const heading = main.querySelector('h1');
+    const heading = main?.querySelector('h1');
     if (heading) {
       heading.setAttribute('tabindex', '-1');
       heading.focus({ preventScroll: true });

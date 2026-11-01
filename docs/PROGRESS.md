@@ -106,8 +106,26 @@ contract: api/dossier.schema.json        draft 2020-12, validates
 | Focus management | Done | focus moves to h1 on route change |
 | axe scan | Done | 0 violations on all 5 routes |
 
+## Phase 6 — Hardening & delivery
+
+| Item | Status | Evidence |
+|---|---|---|
+| axe on all routes | Done | 0 violations, 5 routes |
+| Bundle budget | Done | 102.2 KB gz / 250 KB |
+| Security audit | Done | no URL/IP/text logging, panic path removed from logs |
+| README | Done | architecture, env table, limitations |
+| Focus management | Done | route-change only, not initial load |
+
+## Known open questions
+
+Recorded in `docs/DECISIONS.md`:
+- Link-only audits return `INSUFFICIENT` even at link score 85 (weight 0.20 <
+  0.30 threshold). Literal spec behaviour; needs a product decision.
+- Mock mode cannot reach TAMPERED via the fact pillar, because it cites
+  example.org and grounding rejects it. TAMPERED is covered by URL audits.
+
 ## In progress
-- Phase 6 (hardening) not started.
+- Nothing. All phases implemented; open questions await a product decision.
 
 ## Phase 1 — Backend core
 
