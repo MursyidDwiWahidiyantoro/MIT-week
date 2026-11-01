@@ -26,15 +26,21 @@ bisa terbuang kalau kamu menganggap halaman `/hasil` sudah jalan.
 ## 2. Cara menjalankan
 
 ```bash
-# 1. environment
-cp .env.example .env          # LLM_MOCK=true sudah default, tidak perlu API key
-
-# 2. backend  -> http://localhost:8080
+# 1. backend  -> http://localhost:8080
 cd backend && go run ./cmd/server
 curl localhost:8080/healthz    # {"status":"ok"}
 
-# 3. frontend -> http://localhost:5173
+# 2. frontend -> http://localhost:5173
 cd frontend && npm install && npm run dev
+```
+
+**Penting soal `.env`:** backend **tidak membaca file `.env`**. Tidak ada
+`godotenv` di `go.mod`; config hanya memanggil `os.Getenv`. Jadi
+`cp .env.example .env` tidak berpengaruh apa-apa — default sudah aman
+(`LLM_MOCK=true`), dan kalau perlu mengubah variabel, ekspor di shell:
+
+```bash
+SERVER_PORT=18080 go run ./cmd/server
 ```
 
 **Catatan port:** di mesin dev yang dipakai untuk audit ini, port 5173 sudah
@@ -229,6 +235,17 @@ ada state loading: selama verifikasi berjalan, yang tampil "Hasil tidak tersimpa
 - `docs/PROGRESS.md` saling bertentangan: satu bagian bilang "semua fase selesai",
   bagian lain "berhenti di Phase 2, Phase 4 belum mulai". Angka lama (6 test,
   42,1 KB) juga tidak diperbarui.
+- **Skor risiko tampil dua kali** di `/hasil`: di dalam `StatusBadge` dan lagi di
+  `<p class="meta">` paling bawah.
+- **Tidak ada `+error.svelte`** — error tak tertangani jatuh ke halaman default
+  SvelteKit, bukan ke UI AMBA.
+- **`instruction/CLAUDE.md` bilang Go 1.23**, padahal `go.mod`, CI, dan README
+  memakai 1.24.
+- **CI tidak memeriksa sinkronisasi kontrak.** Job `contract` hanya memastikan
+  string `openapi` diawali `3.`, lalu menjalankan demo-diff. Justru rantai
+  OpenAPI ↔ Go ↔ Zod yang putus (P0-1) tidak pernah diperiksa.
+- **`docs/design/` tidak ada** — artefak `frontend-prd-fidelity`
+  (`00-contract`, `01-brief`, `02-system`, `03-motion`) tidak pernah dibuat.
 - `instruction/CLAUDE.md` dan `.claude/` **di-gitignore**. Rekan yang clone tidak
   mendapat playbook maupun 4 skill proyek. Kalau ini disengaja, sebutkan di README.
 
