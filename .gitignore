@@ -51,3 +51,7 @@ instruction/CLAUDE.md
 .gemini/
 CLAUDE.local.md
 *.local.md
+
+# local rewrite artifacts (never committed)
+*.bundle
+.msgfilter.py
