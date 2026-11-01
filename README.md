@@ -1,4 +1,4 @@
-# AMBA — Aplikasi Mengenali & Bertindak Aman
+# AMBA — Aplikasi Mengenali & Bertindak Aman (IN DEVELOPMENT)
 
 Alat bantu literasi digital untuk memeriksa tautan, tangkapan layar, dan pesan
 yang mencurigakan. Hasil analisis bersifat **indikatif** — bukan bukti pasti,
