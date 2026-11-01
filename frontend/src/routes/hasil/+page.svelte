@@ -11,11 +11,16 @@
   import ProofCardExporter from '$lib/components/hasil/ProofCardExporter.svelte';
   import ShareButton from '$lib/components/share/ShareButton.svelte';
   import ReadAloud from '$lib/components/a11y/ReadAloud.svelte';
+  import ElaViewer from '$lib/components/hasil/ElaViewer.svelte';
   import tacticLabels from '$lib/data/tactics.json';
   import type { DossierParsed } from '$lib/api/schemas';
 
   let live = $state<DossierParsed | null>(result.value);
+  let imageFile = $state<File | null>(result.imageFile);
   let shared = $state<VerifyResult | null>(null);
+  let checking = $state(false);
+  let verdictHeading: HTMLElement | null = $state(null);
+
   const shareOrigin = $derived.by(() =>
     typeof window === 'undefined' ? '' : window.location.origin
   );
@@ -25,8 +30,17 @@
     const token = tokenFromHash(window.location.hash);
     if (!token || live) return;
     const controller = new AbortController();
-    void verifyToken(token, controller.signal).then((r) => (shared = r));
+    checking = true;
+    void verifyToken(token, controller.signal)
+      .then((r) => (shared = r))
+      .finally(() => (checking = false));
     return () => controller.abort();
+  });
+
+  // Move focus to the verdict once it exists, so a screen reader lands on the
+  // answer instead of staying on whatever was focused during the scan.
+  $effect(() => {
+    if (live && verdictHeading) verdictHeading.focus({ preventScroll: true });
   });
 
   const BASIS_LABELS: Record<string, string> = {
@@ -41,11 +55,25 @@
   const shareUrl = $derived(
     live && shareOrigin ? buildShareUrl(shareOrigin, live.share_token) : ''
   );
+  // A demo has no signed token, so its share and reply panels cannot work.
+  const canShare = $derived(!!live && live.share_token.length > 0);
+  const elaAnomalies = $derived(
+    live && live.pillars.ela.available ? live.pillars.ela.anomalies : []
+  );
 </script>
 
 <svelte:head><title>Hasil pemeriksaan — AMBA</title></svelte:head>
 
-{#if shared && !shared.valid && shared.reason === 'unreachable'}
+{#if checking}
+  <h1>Memeriksa laporan…</h1>
+  <p class="lede" aria-live="polite">Mencocokkan tautan ini dengan laporan yang ditandatangani AMBA.</p>
+{:else if shared && !shared.valid && shared.reason === 'invalid'}
+  <h1>Laporan tidak sah</h1>
+  <p class="lede">
+    Tautan ini tidak dapat diverifikasi. Isinya mungkin sudah diubah, atau tautannya tidak lengkap.
+  </p>
+  <a class="cta" href={resolve('/deteksi')}>Periksa sendiri kontennya</a>
+{:else if shared && !shared.valid && shared.reason === 'unreachable'}
   <h1>Laporan belum bisa diperiksa</h1>
   <p class="lede">
     Server tidak dapat dihubungi, jadi laporan ini belum bisa dipastikan sah atau tidak.
@@ -53,11 +81,16 @@
   </p>
   <a class="cta" href={resolve('/deteksi')}>Periksa sendiri kontennya</a>
 {:else if shared && !shared.valid}
-  <h1>Laporan tidak sah</h1>
+  <h1>Laporan sedang tidak bisa diperiksa</h1>
   <p class="lede">
-    Tautan ini tidak dapat diverifikasi. Isinya mungkin sudah diubah, atau tautannya tidak lengkap.
+    Layanan verifikasi sedang sibuk atau bermasalah. Ini bukan tanda laporan Anda palsu.
+    {#if shared.reason === 'unavailable' && shared.retryAfter}
+      Coba lagi dalam {shared.retryAfter} detik.
+    {:else}
+      Coba lagi beberapa saat lagi.
+    {/if}
   </p>
-  <a class="cta" href={resolve('/deteksi')}>Periksa sendiri kontennya</a>
+  <button class="cta" type="button" onclick={() => window.location.reload()}>Coba lagi</button>
 {:else if shared && shared.valid}
   <h1>Laporan terverifikasi</h1>
   <p class="verified" role="status">Terverifikasi AMBA</p>
@@ -83,14 +116,24 @@
     </p>
   {/if}
 
-  <div class="verdict" data-info-key="verdict.score">
-    <StatusBadge status={dossier.verdict.status} score={dossier.verdict.score} />
+  <div class="verdict">
+    <h2 class="verdict-heading" tabindex="-1" bind:this={verdictHeading} data-info-key="verdict.score">
+      <StatusBadge status={dossier.verdict.status} score={dossier.verdict.score} />
+    </h2>
     <p class="sentence" data-info-key="verdict.sentence">{dossier.verdict.explanation_simple}</p>
     <p class="explanation" data-info-key="verdict.explanation">{dossier.verdict.explanation}</p>
     <div class="read-aloud" data-info-key="readaloud">
       <ReadAloud text={`${dossier.verdict.explanation_simple} ${dossier.verdict.explanation}`} />
     </div>
   </div>
+
+  {#if imageFile && dossier.input_type === 'FILE'}
+    <Panel title="Tampilan gambar">
+      <div data-info-key="pillar.ela">
+        <ElaViewer file={imageFile} anomalies={elaAnomalies} />
+      </div>
+    </Panel>
+  {/if}
 
   {#if dossier.tactics.length > 0}
     <Panel title="Pola yang perlu diwaspadai">
@@ -122,25 +165,29 @@
     </p>
   </Panel>
 
-  <Panel title="Bagikan laporan">
-    <div data-info-key="share">
-      <ShareButton token={dossier.share_token} title={dossier.verdict.short_title} />
-    </div>
-  </Panel>
+  {#if canShare}
+    <Panel title="Bagikan laporan">
+      <div data-info-key="share">
+        <ShareButton token={dossier.share_token} title={dossier.verdict.short_title} />
+      </div>
+    </Panel>
 
-  <Panel title="Balas sopan">
-    <div data-info-key="reply">
-      <ReplyCard token={dossier.share_token} status={dossier.verdict.status} />
-    </div>
-  </Panel>
+    <Panel title="Balas sopan">
+      <div data-info-key="reply">
+        <ReplyCard token={dossier.share_token} status={dossier.verdict.status} />
+      </div>
+    </Panel>
 
-  <Panel title="Simpan kartu bukti">
-    <div data-info-key="proofcard">
-      <ProofCardExporter {dossier} {shareUrl} />
-    </div>
-  </Panel>
-
-  <p class="meta">Skor risiko: {formatScore(dossier.verdict.score)}</p>
+    <Panel title="Simpan kartu bukti">
+      <div data-info-key="proofcard">
+        <ProofCardExporter {dossier} {shareUrl} />
+      </div>
+    </Panel>
+  {:else}
+    <p class="note" role="note">
+      Ini data contoh, jadi laporannya tidak bisa dibagikan atau dibalas.
+    </p>
+  {/if}
 {/if}
 
 <style>
@@ -150,8 +197,10 @@
     display: inline-flex; align-items: center; min-height: 44px;
     padding: 0 var(--space-5); margin-top: var(--space-4);
     background: var(--accent); color: #10161d;
-    border-radius: var(--radius-md); text-decoration: none; font-weight: 600;
+    border: 0; border-radius: var(--radius-md);
+    text-decoration: none; font-weight: 600; font: inherit; cursor: pointer;
   }
+  .cta:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
   .demo, .degraded {
     border: var(--border-width) solid var(--warn); border-radius: var(--radius-md);
     padding: var(--space-3); color: var(--warn); font-size: var(--text-sm);
@@ -163,6 +212,9 @@
     color: var(--ok); font-size: var(--text-sm); font-weight: 600;
   }
   .verdict { margin-bottom: var(--space-5); }
+  .verdict-heading { margin: 0; font-size: inherit; line-height: inherit; }
+  .verdict-heading:focus { outline: none; }
+  .verdict-heading:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
   .sentence { font-size: var(--text-xl); margin: var(--space-4) 0 var(--space-2); max-width: var(--measure); }
   .explanation { color: var(--text-2); max-width: var(--measure); margin: 0; }
   .read-aloud { margin-top: var(--space-3); }

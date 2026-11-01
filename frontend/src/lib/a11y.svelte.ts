@@ -43,8 +43,9 @@ export const textSize = {
 
 function apply(value: TextScale): void {
   if (typeof document === 'undefined') return;
-  // Root font size scales every rem-based token at once.
-  document.documentElement.style.fontSize = `${value}%`;
+  // Root font size scales every rem-based token at once. Set as a factor so
+  // Essential Mode's --mode-scale still applies (see tokens.css).
+  document.documentElement.style.setProperty('--text-scale', String(value / 100));
 }
 
 /** Read-aloud uses the browser's own speech synthesis, Indonesian voice. */

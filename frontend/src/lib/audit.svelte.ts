@@ -1,5 +1,5 @@
 import { readSSE, type SSEEvent } from './sse';
-import { parseDossier, SchemaVersionError, type DossierParsed } from './api/schemas';
+import { parseDossier, SchemaVersionError, ContractError, type DossierParsed } from './api/schemas';
 import { result } from './result.svelte';
 
 export type PillarKey = 'ela' | 'ai' | 'fact' | 'link';
@@ -38,9 +38,16 @@ export class AuditSession {
   running = $state(false);
   /** Coalesced, human-readable stage line for the polite live region. */
   announcement = $state('');
+  /**
+   * Pillar payloads as they arrive, before the final verdict exists. Keyed by
+   * pillar so a late partial never clobbers one already shown.
+   */
+  partials = $state<Partial<Record<PillarKey, unknown>>>({});
 
   #controller: AbortController | null = null;
   #announceTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Held only so the verdict handler can hand it to the result store. */
+  #imageFile: File | null = null;
 
   get done(): boolean {
     return this.verdict !== null || this.error !== null;
@@ -58,7 +65,9 @@ export class AuditSession {
     this.verdict = null;
     this.error = null;
     this.running = true;
+    this.#imageFile = payload.file ?? null;
     this.stages = { ela: 'idle', ai: 'idle', fact: 'idle', link: 'idle' };
+    this.partials = {};
 
     if (typeof navigator !== 'undefined' && navigator.onLine === false) {
       this.error = { kind: 'offline', message: 'Kamu sedang offline. Contoh kasus masih bisa dibuka.' };
@@ -75,6 +84,16 @@ export class AuditSession {
       } catch (err) {
         if (err instanceof SchemaVersionError) {
           this.error = { kind: 'schema', message: 'Perbarui aplikasi' };
+          this.running = false;
+          return;
+        }
+        if (err instanceof ContractError) {
+          // The server answered, but not in a shape this build understands.
+          // Retrying cannot fix that, so say so instead of "try again".
+          this.error = {
+            kind: 'schema',
+            message: 'Format hasil tidak dikenali. Coba muat ulang halaman ini.'
+          };
           this.running = false;
           return;
         }
@@ -166,7 +185,7 @@ export class AuditSession {
         break;
       case 'verdict':
         this.verdict = parseDossier(event.data);
-        result.set(this.verdict);
+        result.set(this.verdict, this.#imageFile);
         if (this.verdict.degraded) {
           this.announcement = 'Sebagian pemeriksaan tidak berjalan.';
         }
@@ -174,8 +193,10 @@ export class AuditSession {
       case 'error':
         this.error = { kind: 'network', message: 'Pemeriksaan terhenti sebelum selesai. Coba lagi.' };
         break;
-      case 'done':
       case 'partial':
+        this.partials = { ...this.partials, [event.pillar]: event.data };
+        break;
+      case 'done':
         break;
     }
   }

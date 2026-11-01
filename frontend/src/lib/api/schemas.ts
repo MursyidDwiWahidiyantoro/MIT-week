@@ -64,27 +64,36 @@ export const dossierSchema = z.object({
       available: z.boolean(),
       score: z.number(),
       reliability: z.number().min(0).max(1),
-      reliability_note: z.string().nullable().optional(),
-      anomalies: z.array(anomalySchema)
+      reliability_note: z.string().nullish(),
+      // The server serialises an empty Go slice as null. Accept both and
+      // normalise here so callers only ever see an array.
+      anomalies: z.array(anomalySchema).nullish().transform((v) => v ?? [])
     }),
     ai: z.object({
       available: z.boolean(),
       score: z.number(),
-      indicators: z.array(z.string()).optional(),
+      indicators: z.array(z.string()).nullish().transform((v) => v ?? []),
       caveat: z.string().optional()
     }),
     fact: z.object({
       available: z.boolean(),
       claim: z.string().optional(),
-      status: factStatusSchema,
-      sources: z.array(sourceSchema).optional()
+      // An unavailable fact pillar serialises status as "". Treat that as
+      // UNVERIFIED rather than failing the whole dossier.
+      status: z
+        .union([factStatusSchema, z.literal('')])
+        .transform((v) => (v === '' ? ('UNVERIFIED' as const) : v)),
+      sources: z.array(sourceSchema).nullish().transform((v) => v ?? [])
     }),
     link: z.object({
       available: z.boolean(),
       score: z.number(),
       final_url: z.string().optional(),
-      redirect_chain: z.array(z.string()).optional(),
-      reasons: z.array(z.object({ code: z.string(), text: z.string() })).optional()
+      redirect_chain: z.array(z.string()).nullish().transform((v) => v ?? []),
+      reasons: z
+        .array(z.object({ code: z.string(), text: z.string() }))
+        .nullish()
+        .transform((v) => v ?? [])
     })
   }),
   tactics: z.array(tacticSchema),
@@ -110,6 +119,20 @@ export class SchemaVersionError extends Error {
 }
 
 /**
+ * Raised when a payload does not match the contract at all. Kept separate from
+ * a network failure so the UI can say "this is our problem" instead of
+ * "try again" for something retrying will never fix.
+ */
+export class ContractError extends Error {
+  readonly issues: string[];
+  constructor(issues: string[]) {
+    super('Payload does not match the Dossier contract');
+    this.name = 'ContractError';
+    this.issues = issues;
+  }
+}
+
+/**
  * Parses an unknown payload into a Dossier. A schema_version this build does
  * not know produces a distinct error so the UI can say "Perbarui aplikasi"
  * instead of showing a generic failure.
@@ -123,5 +146,11 @@ export function parseDossier(payload: unknown): DossierParsed {
   ) {
     throw new SchemaVersionError();
   }
-  return dossierSchema.parse(payload);
+  const parsed = dossierSchema.safeParse(payload);
+  if (!parsed.success) {
+    throw new ContractError(
+      parsed.error.issues.map((i) => `${i.path.join('.') || '(root)'}: ${i.message}`)
+    );
+  }
+  return parsed.data;
 }

@@ -26,9 +26,14 @@
       onclick={() => onselect(tab.value)}
       onkeydown={(e) => {
         if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+        e.preventDefault();
         const i = tabs.findIndex((t) => t.value === selected);
         const next = e.key === 'ArrowRight' ? (i + 1) % tabs.length : (i - 1 + tabs.length) % tabs.length;
         onselect(tabs[next].value);
+        // Roving tabindex: focus must follow selection, or the keyboard user
+        // stays on a tab that is no longer the active one.
+        const list = (e.currentTarget as HTMLElement).parentElement;
+        list?.querySelectorAll<HTMLElement>('[role="tab"]')[next]?.focus();
       }}
     >
       {tab.label}

@@ -148,3 +148,54 @@ example.org or inventing a real publisher.
 Backend through the pipeline and all audit/verify/reply routes is implemented
 and green. Frontend is at Phase 3. Next: Phase 4 (results experience), then
 the open questions above.
+
+## 2026-11-01 · OPEN · Server serialises empty slices as null, breaking the contract
+
+Found while verifying the live audit flow, not by a test — which is why the
+frontend now has a Playwright suite.
+
+`backend/internal/models/dossier.go` declares `Anomalies []Anomaly`,
+`RedirectChain []string`, `Reasons []LinkReason` and `Sources []Source` as
+slices. Go marshals a nil slice as `null`, so every live audit emits:
+
+```json
+"ela":  {"anomalies": null}
+"link": {"redirect_chain": null, "reasons": null}
+"fact": {"status": "", "sources": null}
+```
+
+`api/dossier.schema.json` and `frontend/src/lib/api/schemas.ts` both require
+arrays and a `FactStatus` enum, so `parseDossier` threw on every real audit and
+the UI showed "Pemeriksaan terhenti sebelum selesai" — a network message for a
+contract bug.
+
+**Frontend mitigation shipped:** Zod now accepts `null` and normalises to `[]`,
+and `""` to `UNVERIFIED`; `parseDossier` throws a distinct `ContractError` so
+the UI no longer blames the network. This is a safety net, not a fix.
+
+**Owner: backend.** The real fix is to initialise these slices to empty values
+before marshalling (or mark them `omitempty` and make the contract optional),
+then tighten the Zod schema back to plain arrays. Until then the contract
+document and the wire format disagree, and any client that trusts the schema
+strictly will break.
+
+Do not "fix" this by loosening the JSON Schema alone — that hides the drift
+instead of removing it.
+
+## 2026-11-01 · OPEN · Cross-origin `Retry-After` is unreadable until the API exposes it
+
+`internal/httpapi/audit.go` sends `Retry-After` on a 429, and the frontend reads
+it with `response.headers.get('Retry-After')`. Cross-origin, that header is
+**not readable** unless the response carries `Access-Control-Expose-Headers:
+Retry-After` — `security/headers.go` currently sets only `Allow-Origin`,
+`Allow-Methods`, `Allow-Headers` and `Max-Age`.
+
+Consequence: the countdown in "Terlalu banyak pemeriksaan. Coba lagi dalam N
+detik." falls back to the default 30 seconds, which may be wrong.
+
+**Frontend behaviour is correct either way** — it degrades to a sensible
+default rather than showing nothing — so this is not a blocker.
+
+**Owner: backend.** Add `Access-Control-Expose-Headers: Retry-After` to the
+CORS middleware and a test asserting it, then tighten the share spec to assert
+the exact countdown instead of only the retry button.

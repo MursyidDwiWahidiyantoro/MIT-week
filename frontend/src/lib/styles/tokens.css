@@ -34,6 +34,12 @@
   --leading-tight: 1.15;
   --leading-normal: 1.6;
   --measure: 68ch;
+  /* Composable root font-size factors. The text-size toggle sets --text-scale,
+   * Essential Mode sets --mode-scale, and app.css multiplies them. Using
+   * variables (not an inline font-size) keeps the two from overriding each
+   * other. */
+  --text-scale: 1;
+  --mode-scale: 1;
 
   /* ---- spacing (4pt scale) ---- */
   --space-1: 0.25rem;

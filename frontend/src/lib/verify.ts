@@ -15,9 +15,15 @@ export interface VerifiedPayload {
   srcs?: Array<{ pub: string; url: string; m: string }>;
 }
 
+/**
+ * `invalid` means the token itself did not verify: the report was altered or
+ * the link is incomplete. `unavailable` means we could not get an answer at
+ * all (rate limit, server error). Only the first may ever be worded as
+ * "Laporan tidak sah".
+ */
 export type VerifyResult =
   | { valid: true; payload: VerifiedPayload }
-  | { valid: false; reason: 'invalid' | 'unreachable' };
+  | { valid: false; reason: 'invalid' | 'unreachable' | 'unavailable'; retryAfter?: number };
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080/api/v1';
 
@@ -44,6 +50,14 @@ export async function verifyToken(token: string, signal?: AbortSignal): Promise<
       body: JSON.stringify({ token }),
       signal
     });
+    if (res.status === 429) {
+      const retry = Number(res.headers.get('Retry-After') ?? '0');
+      return { valid: false, reason: 'unavailable', retryAfter: retry || undefined };
+    }
+    if (res.status >= 500) {
+      // The server failed; that says nothing about the report's authenticity.
+      return { valid: false, reason: 'unavailable' };
+    }
     if (!res.ok) return { valid: false, reason: 'invalid' };
     const body = (await res.json()) as { valid?: boolean; payload?: VerifiedPayload };
     if (!body.valid || !body.payload) return { valid: false, reason: 'invalid' };

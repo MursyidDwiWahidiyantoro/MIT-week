@@ -1,12 +1,15 @@
 <script lang="ts">
   import { mode } from '$lib/mode.svelte';
+  import { pillarSummary } from '$lib/pillar-summary';
   import type { PillarKey, StageStatus } from '$lib/audit.svelte';
 
   interface Props {
     stages: Record<PillarKey, StageStatus>;
+    /** Pillar payloads already received, rendered under their own row. */
+    partials?: Partial<Record<PillarKey, unknown>>;
   }
 
-  let { stages }: Props = $props();
+  let { stages, partials = {} }: Props = $props();
 
   const labels: Record<PillarKey, string> = {
     ela: 'Analisis gambar',
@@ -27,6 +30,7 @@
     failed: 'tidak dapat diperiksa'
   };
   const statusText = (s: StageStatus): string => STATUS_TEXT[s];
+
 </script>
 
 <div class="radar" data-calm={calm}>
@@ -39,6 +43,9 @@
         <span class="dot" aria-hidden="true"></span>
         <span>{labels[key]}</span>
         <span class="state">{statusText(stages[key])}</span>
+        {#if pillarSummary(key, partials[key])}
+          <span class="detail">{pillarSummary(key, partials[key])}</span>
+        {/if}
       </li>
     {/each}
   </ol>
@@ -59,7 +66,7 @@
     letter-spacing: 0.06em;
   }
   ol { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-3); }
-  li { display: flex; align-items: center; gap: var(--space-3); color: var(--text-2); }
+  li { display: flex; align-items: center; gap: var(--space-3); color: var(--text-2); flex-wrap: wrap; }
   .dot {
     width: 10px; height: 10px; border-radius: 50%;
     border: var(--border-width) solid var(--border-strong);
@@ -74,6 +81,13 @@
   li.failed .dot, li.skipped .dot { border-color: var(--text-3); }
   li.done { color: var(--text); }
   .state { margin-left: auto; font-size: var(--text-xs); color: var(--text-3); }
+  /* The detail sits on its own line so a late arrival never shifts the row. */
+  .detail {
+    flex-basis: 100%;
+    padding-left: calc(10px + var(--space-3));
+    font-size: var(--text-sm);
+    color: var(--text-3);
+  }
 
   @keyframes pulse { from { opacity: 0.4; } to { opacity: 1; } }
 

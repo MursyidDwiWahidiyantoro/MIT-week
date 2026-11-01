@@ -1,12 +1,16 @@
 <script lang="ts">
+  import { goto } from '$app/navigation';
+  import { resolve } from '$app/paths';
   import { page } from '$app/state';
   import { AuditSession } from '$lib/audit.svelte';
+  import { parseDossier } from '$lib/api/schemas';
+  import { result } from '$lib/result.svelte';
   import Field from '$lib/components/ui/Field.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import ModeSelectorTabs, { type InputKind } from '$lib/components/deteksi/ModeSelectorTabs.svelte';
   import DropzoneUploader from '$lib/components/deteksi/DropzoneUploader.svelte';
-  import JurorPresetBar from '$lib/components/deteksi/JurorPresetBar.svelte';
   import ScanningRadar from '$lib/components/deteksi/ScanningRadar.svelte';
+  import demoData from '$lib/data/demo-cases.json';
 
   const session = new AuditSession();
 
@@ -24,11 +28,18 @@
 
   $effect(() => () => session.abort());
 
-  const presets = [
-    { id: 'hoax', label: 'Pesan berantai', value: 'Bantuan Rp 500.000 dibagikan hari ini saja. Sebarkan ke 10 grup!' },
-    { id: 'phish', label: 'Tautan mencurigakan', value: 'Akun Anda akan diblokir. Verifikasi sekarang di tautan berikut.' },
-    { id: 'netral', label: 'Pengumuman warga', value: 'Jadwal posyandu bulan ini: Sabtu, 8 pagi di balai warga.' }
-  ];
+  // Bundled example dossiers. Loading one makes zero network calls (PRD F8).
+  const demos = demoData.cases.map((c) => ({ id: c.id, label: c.caption, dossier: c.dossier }));
+
+  function openDemo(dossier: unknown): void {
+    try {
+      result.set(parseDossier(dossier), null);
+      void goto(resolve('/hasil'));
+    } catch {
+      // A bundled dossier that fails the contract is a build-time bug, not a
+      // user-facing failure. Say nothing and keep the form usable.
+    }
+  }
 
   function validate(): string | null {
     if (kind === 'url') {
@@ -50,7 +61,9 @@
     if (inputError) return;
     await session.start(kind, { url: url.trim(), text: text.trim(), file: file ?? undefined });
     if (session.verdict) {
-      window.location.href = '/hasil';
+      // goto() keeps the in-memory result store; a location.href reload would
+      // wipe it and land on "Hasil tidak tersimpan".
+      await goto(resolve('/hasil'));
     }
   }
 </script>
@@ -75,7 +88,17 @@
   {#if inputError}<p class="error" role="alert">{inputError}</p>{/if}
 {/if}
 
-<JurorPresetBar {presets} onpick={(value) => { kind = 'text'; text = value; inputError = null; }} />
+<div class="demos">
+  <p class="demos-label">Coba contoh</p>
+  <ul>
+    {#each demos as demo (demo.id)}
+      <li>
+        <button type="button" onclick={() => openDemo(demo.dossier)}>{demo.label}</button>
+      </li>
+    {/each}
+  </ul>
+  <p class="demos-note">Contoh dimuat dari perangkat Anda, tanpa koneksi ke server.</p>
+</div>
 
 <div class="actions">
   <Button size="lg" onclick={submit} loading={session.running}>
@@ -89,7 +112,7 @@
 <p class="live" aria-live="polite">{session.announcement}</p>
 
 {#if session.running || session.done}
-  <ScanningRadar stages={session.stages} />
+  <ScanningRadar stages={session.stages} partials={session.partials} />
 {/if}
 
 {#if session.error}
@@ -121,4 +144,18 @@
   }
   .error-panel p { margin: 0; }
   .hint { color: var(--text-2); font-size: var(--text-sm); margin-top: var(--space-2) !important; }
+
+  .demos { margin: 0 0 var(--space-5); }
+  .demos-label { margin: 0 0 var(--space-2); color: var(--text-2); font-size: var(--text-sm); }
+  .demos ul { display: flex; flex-wrap: wrap; gap: var(--space-2); list-style: none; margin: 0; padding: 0; }
+  .demos button {
+    min-height: 44px; padding: 0 var(--space-4);
+    background: var(--surface-2); color: var(--text);
+    border: var(--border-width) solid var(--border-strong);
+    border-radius: var(--radius-md); font: inherit; font-size: var(--text-sm); cursor: pointer;
+    text-align: left;
+  }
+  .demos button:hover { background: var(--hover-overlay); }
+  .demos button:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
+  .demos-note { margin: var(--space-2) 0 0; color: var(--text-3); font-size: var(--text-xs); }
 </style>

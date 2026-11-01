@@ -5,9 +5,47 @@
     { value: 'explore', title: 'Jelajah', detail: 'Lebih banyak detail visual dan animasi.' },
     { value: 'essential', title: 'Esensial', detail: 'Lebih tenang, teks lebih besar, gerak minimal.' }
   ];
+
+  let dialog: HTMLElement | null = $state(null);
+
+  /** Keeps Tab inside the picker while it is open. */
+  function onKeydown(e: KeyboardEvent): void {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      mode.dismiss();
+      return;
+    }
+    if (e.key !== 'Tab' || !dialog) return;
+    const focusable = Array.from(
+      dialog.querySelectorAll<HTMLElement>('button:not([disabled])')
+    );
+    if (focusable.length === 0) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  }
+
+  // Move focus into the picker so keyboard users are not stranded behind it.
+  $effect(() => {
+    dialog?.querySelector<HTMLElement>('button')?.focus();
+  });
 </script>
 
-<div class="picker" role="dialog" aria-labelledby="mode-picker-title" aria-modal="false">
+<div
+  class="picker"
+  role="dialog"
+  aria-labelledby="mode-picker-title"
+  aria-modal="false"
+  tabindex="-1"
+  bind:this={dialog}
+  onkeydown={onKeydown}
+>
   <h2 id="mode-picker-title">Pilih tampilan yang paling nyaman</h2>
   <p>Keduanya menampilkan informasi dan fungsi yang sama.</p>
   <div class="options">

@@ -235,8 +235,9 @@ ada state loading: selama verifikasi berjalan, yang tampil "Hasil tidak tersimpa
 - `docs/PROGRESS.md` saling bertentangan: satu bagian bilang "semua fase selesai",
   bagian lain "berhenti di Phase 2, Phase 4 belum mulai". Angka lama (6 test,
   42,1 KB) juga tidak diperbarui.
-- **Skor risiko tampil dua kali** di `/hasil`: di dalam `StatusBadge` dan lagi di
-  `<p class="meta">` paling bawah.
+- ~~Skor risiko tampil dua kali di `/hasil`~~ — **koreksi:** kemunculan kedua
+  berasal dari kartu bukti yang dirender di luar layar dengan `aria-hidden`, jadi
+  tidak terlihat pengguna. Bukan duplikat.
 - **Tidak ada `+error.svelte`** — error tak tertangani jatuh ke halaman default
   SvelteKit, bukan ke UI AMBA.
 - **`instruction/CLAUDE.md` bilang Go 1.23**, padahal `go.mod`, CI, dan README

@@ -7,6 +7,8 @@
     background: var(--bg);
     color: var(--text);
     font-family: var(--font-sans);
+    /* Text-size toggle and Essential Mode compose instead of fighting. */
+    font-size: calc(100% * var(--text-scale) * var(--mode-scale));
     -webkit-text-size-adjust: 100%;
     overflow-x: clip;
   }
@@ -75,4 +77,29 @@
     letter-spacing: 0.06em;
     color: var(--text-2);
   }
+}
+
+/* ---- Essential Mode (TECH_SPEC §8.2) -------------------------------------
+ * One component tree, two presentations. Essential changes density, type size
+ * and label plainness only: never data, controls, destinations or capability.
+ * `data-mode` is set on <html> by lib/mode.svelte.ts.
+ */
+html[data-mode='essential'] {
+  /* 16px * 1.125 = 18px base, per TECH_SPEC §8.2. */
+  --mode-scale: 1.125;
+}
+
+html[data-mode='essential'] body {
+  line-height: 1.7;
+}
+
+/* Single column: every grid collapses, whatever its declared columns. */
+html[data-mode='essential'] [class*='grid'],
+html[data-mode='essential'] ol {
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+
+/* More room between blocks, less decoration. */
+html[data-mode='essential'] .panel {
+  border-radius: var(--radius-md);
 }
