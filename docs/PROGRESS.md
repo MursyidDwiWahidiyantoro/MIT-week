@@ -83,8 +83,31 @@ contract: api/dossier.schema.json        draft 2020-12, validates
 | `internal/tactics` | Done | NFKC + whitespace-normalised substring check |
 | `/verify`, `/reply` | Done | token-only input, template fallback |
 
+## Phase 4 — Results experience
+
+| Item | Status | Evidence |
+|---|---|---|
+| `ela.worker.ts` | Done | off-thread heatmap, row-band yields, 4096 px cap |
+| `SplitSliderViewer` | Done | boxes outside clip layer, keyboard range, Asli/ELA tabs |
+| `EvidenceAccordion` | Done | 4 pillars, "Tidak dapat diperiksa" instead of omission |
+| Share + `/verify` | Done | token in fragment, POST body, verified/invalid/unreachable states |
+| `ProofCardExporter` | Done | 1200x630, QR, lazy-imported deps, disclaimer line |
+| `HighlightedText` | Done | verified phrases only, label + explanation popover |
+| `ReplyCard` | Done | tone chips, template-first, offline-safe |
+
+## Phase 5 — Edukasi, About, Accessibility
+
+| Item | Status | Evidence |
+|---|---|---|
+| `/tentang` | Done | privacy manifesto, limitations, disclaimer |
+| `/edukasi` + quiz | Done | 3 modus + 3 questions with explanations |
+| Read-aloud (id-ID) | Done | feature-detected, stops on unmount |
+| Text size toggle | Done | 100/125/150, persisted |
+| Focus management | Done | focus moves to h1 on route change |
+| axe scan | Done | 0 violations on all 5 routes |
+
 ## In progress
-- Phase 4 (results experience) not started.
+- Phase 6 (hardening) not started.
 
 ## Phase 1 — Backend core
 

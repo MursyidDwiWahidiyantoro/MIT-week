@@ -10,6 +10,7 @@
   import ReplyCard from '$lib/components/hasil/ReplyCard.svelte';
   import ProofCardExporter from '$lib/components/hasil/ProofCardExporter.svelte';
   import ShareButton from '$lib/components/share/ShareButton.svelte';
+  import ReadAloud from '$lib/components/a11y/ReadAloud.svelte';
   import tacticLabels from '$lib/data/tactics.json';
   import type { DossierParsed } from '$lib/api/schemas';
 
@@ -86,6 +87,9 @@
     <StatusBadge status={dossier.verdict.status} score={dossier.verdict.score} />
     <p class="sentence" data-info-key="verdict.sentence">{dossier.verdict.explanation_simple}</p>
     <p class="explanation" data-info-key="verdict.explanation">{dossier.verdict.explanation}</p>
+    <div class="read-aloud" data-info-key="readaloud">
+      <ReadAloud text={`${dossier.verdict.explanation_simple} ${dossier.verdict.explanation}`} />
+    </div>
   </div>
 
   {#if dossier.tactics.length > 0}
@@ -161,6 +165,7 @@
   .verdict { margin-bottom: var(--space-5); }
   .sentence { font-size: var(--text-xl); margin: var(--space-4) 0 var(--space-2); max-width: var(--measure); }
   .explanation { color: var(--text-2); max-width: var(--measure); margin: 0; }
+  .read-aloud { margin-top: var(--space-3); }
   dl { display: grid; grid-template-columns: max-content 1fr; gap: var(--space-2) var(--space-4); margin: 0; }
   dt { color: var(--text-2); font-size: var(--text-sm); }
   dd { margin: 0; }

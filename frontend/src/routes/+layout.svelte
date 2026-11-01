@@ -1,18 +1,35 @@
 <script lang="ts">
   import { resolve } from '$app/paths';
+  import { page } from '$app/state';
   import '../lib/styles/tokens.css';
   import '../app.css';
   import '@fontsource-variable/geist';
   import '@fontsource-variable/geist-mono';
   import { mode } from '$lib/mode.svelte';
+  import { textSize } from '$lib/a11y.svelte';
   import ModeSwitch from '$lib/components/mode/ModeSwitch.svelte';
   import ModePicker from '$lib/components/mode/ModePicker.svelte';
+  import TextSize from '$lib/components/a11y/TextSize.svelte';
 
   let { children } = $props();
 
   // Read the stored preference once the component is live.
   $effect(() => {
     mode.init();
+    textSize.init();
+  });
+
+  // Move focus to the main heading on navigation so keyboard and screen-reader
+  // users are not stranded at the old position.
+  $effect(() => {
+    void page.url.pathname;
+    const main = document.getElementById('main');
+    if (!main) return;
+    const heading = main.querySelector('h1');
+    if (heading) {
+      heading.setAttribute('tabindex', '-1');
+      heading.focus({ preventScroll: true });
+    }
   });
 </script>
 
@@ -27,13 +44,14 @@
         <li><a href={resolve('/edukasi')}>Edukasi</a></li>
         <li><a href={resolve('/tentang')}>Tentang</a></li>
       </ul>
+      <TextSize />
       <ModeSwitch />
     </div>
   </nav>
 </header>
 
 <main id="main" tabindex="-1">
-  {#if mode.needsPicker}
+  {#if mode.needsPicker && page.url.pathname === '/'}
     <ModePicker />
   {/if}
   {@render children()}

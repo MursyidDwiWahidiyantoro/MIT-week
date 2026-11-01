@@ -8,6 +8,7 @@
 export type Mode = 'explore' | 'essential';
 
 const STORAGE_KEY = 'amba.mode';
+const DISMISS_KEY = 'amba.mode.dismissed';
 
 function prefersReducedMotion(): boolean {
   if (typeof window === 'undefined' || !window.matchMedia) return false;
@@ -61,11 +62,21 @@ export const mode = {
   init(): void {
     if (initialised) return;
     current = readStored();
+    try {
+      dismissed = localStorage.getItem(DISMISS_KEY) === '1';
+    } catch {
+      dismissed = false;
+    }
     applyToDocument(current);
     initialised = true;
   },
   dismiss(): void {
     dismissed = true;
+    try {
+      localStorage.setItem(DISMISS_KEY, '1');
+    } catch {
+      // Storage unavailable: the dismissal still applies for this session.
+    }
   },
   set(next: Mode): void {
     current = next;
