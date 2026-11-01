@@ -32,7 +32,9 @@ func NewCORSConfig(publicAppURL string, development bool) CORSConfig {
 		origins = append(origins, strings.TrimRight(publicAppURL, "/"))
 	}
 	if development {
-		origins = append(origins, "http://localhost:5173", "http://127.0.0.1:5173")
+		// Any localhost port: dev, preview and Playwright all bind different
+		// ports, and pinning one makes CORS failures look like invalid tokens.
+		origins = append(origins, "http://localhost:*", "http://127.0.0.1:*")
 	}
 	return CORSConfig{AllowedOrigins: origins}
 }
@@ -43,8 +45,28 @@ func (c CORSConfig) allowed(origin string) bool {
 		if o == origin {
 			return true
 		}
+		// Development wildcard: "http://localhost:*" matches any port on that
+		// host only. Never used in production.
+		if strings.HasSuffix(o, ":*") {
+			prefix := strings.TrimSuffix(o, "*")
+			if strings.HasPrefix(origin, prefix) {
+				rest := strings.TrimPrefix(origin, prefix)
+				if rest != "" && isAllDigits(rest) {
+					return true
+				}
+			}
+		}
 	}
 	return false
+}
+
+func isAllDigits(s string) bool {
+	for _, r := range s {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 // Middleware answers preflights and sets CORS headers for allowed origins only.

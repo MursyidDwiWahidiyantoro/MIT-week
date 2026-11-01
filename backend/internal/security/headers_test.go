@@ -96,3 +96,40 @@ func TestParseTrustedProxiesSkipsInvalid(t *testing.T) {
 		t.Fatalf("parsed %d networks, want 2", len(nets))
 	}
 }
+
+func TestCORSDevelopmentWildcardAllowsAnyLocalPort(t *testing.T) {
+	cfg := NewCORSConfig("", true)
+	for _, origin := range []string{
+		"http://localhost:5173",
+		"http://localhost:14202",
+		"http://127.0.0.1:4173",
+	} {
+		if !cfg.allowed(origin) {
+			t.Errorf("dev origin %q should be allowed", origin)
+		}
+	}
+}
+
+func TestCORSDevelopmentWildcardRejectsForeignHosts(t *testing.T) {
+	cfg := NewCORSConfig("", true)
+	for _, origin := range []string{
+		"http://localhost.evil.example:5173",
+		"http://evil.example:5173",
+		"http://localhost:abc",
+		"https://localhost:5173",
+	} {
+		if cfg.allowed(origin) {
+			t.Errorf("origin %q must not be allowed", origin)
+		}
+	}
+}
+
+func TestCORSProductionHasNoWildcard(t *testing.T) {
+	cfg := NewCORSConfig("https://amba.example", false)
+	if cfg.allowed("http://localhost:5173") {
+		t.Error("production must not allow localhost")
+	}
+	if !cfg.allowed("https://amba.example") {
+		t.Error("the configured app origin must be allowed")
+	}
+}

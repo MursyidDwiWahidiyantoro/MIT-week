@@ -1,0 +1,34 @@
+{
+  "URGENCY": {
+    "label": "Mendesak",
+    "why": "Pesan mendorong Anda bertindak cepat supaya tidak sempat berpikir atau memeriksa."
+  },
+  "REWARD_BAIT": {
+    "label": "Iming-iming hadiah",
+    "why": "Janji hadiah atau bantuan dipakai untuk menarik perhatian dan data Anda."
+  },
+  "FALSE_AUTHORITY": {
+    "label": "Mengaku otoritas",
+    "why": "Pesan mengaku dari lembaga resmi tanpa bukti yang bisa diperiksa."
+  },
+  "FEAR": {
+    "label": "Menakut-nakuti",
+    "why": "Ancaman seperti pemblokiran akun dipakai agar Anda panik dan menuruti perintah."
+  },
+  "SECRECY": {
+    "label": "Minta dirahasiakan",
+    "why": "Permintaan merahasiakan membuat Anda tidak bertanya ke orang lain."
+  },
+  "OUTRAGE_BAIT": {
+    "label": "Memancing emosi",
+    "why": "Pesan sengaja memancing marah atau geram agar Anda ikut menyebarkan."
+  },
+  "IMPERSONATION": {
+    "label": "Menyamar",
+    "why": "Pesan meniru orang atau lembaga lain agar terlihat dapat dipercaya."
+  },
+  "FAKE_SOCIAL_PROOF": {
+    "label": "Klaim banyak yang percaya",
+    "why": "Klaim bahwa banyak orang sudah ikut dipakai agar Anda merasa aman mengikuti."
+  }
+}
