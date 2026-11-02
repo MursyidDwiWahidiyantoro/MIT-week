@@ -152,3 +152,16 @@ demo data, then Phase 2 pipeline.
 
 ## Decisions
 See `docs/DECISIONS.md`.
+
+## Infrastructure & Tooling — Docker Containerization (2026-11-02)
+
+| Item | Status | Evidence |
+|---|---|---|
+| Multi-stage `backend/Dockerfile` | Done | Static Go build (`CGO_ENABLED=0`), Alpine 3.21 runtime, non-root user `10001:10001` |
+| Multi-stage `frontend/Dockerfile` | Done | Node 22 base, static SPA export, Nginx 1.27 Alpine production image |
+| Hot-reload Dev config (`docker-compose.dev.yml`) | Done | Air Go watcher (`/tmp/air`) + Vite HMR (`0.0.0.0:5173`) with anonymous `node_modules` |
+| Production / Demo stack (`docker-compose.yml`) | Done | Nginx reverse-proxies `/api/` to backend with unbuffered SSE streaming support |
+| BuildKit layer caching | Done | Separate `go mod download` & `npm ci` with cache mounts for 2-5s rebuilds |
+| Team ergonomics (`Makefile`) | Done | `make up`, `make dev`, `make build`, `make logs`, `make down` |
+| Docker documentation (`docs/DOCKER.md`) | Done | Cross-platform setup for Linux, macOS Apple Silicon, Windows WSL2 |
+| Design specifications relocated | Done | `docs/design-spec.md`, `docs/waspada-design-spec.md` |

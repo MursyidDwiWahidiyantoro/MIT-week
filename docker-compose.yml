@@ -1,0 +1,51 @@
+# ponytail: single compose for zero-setup team run; dev hot-reload override separated in compose.dev.yaml
+services:
+  backend:
+    build:
+      context: ./backend
+      target: prod
+    ports:
+      - "${BACKEND_PORT:-8080}:8080"
+    environment:
+      - SERVER_HOST=0.0.0.0
+      - SERVER_PORT=8080
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - PUBLIC_APP_URL=${PUBLIC_APP_URL:-http://localhost:${FRONTEND_PORT:-80}}
+      - LLM_MOCK=${LLM_MOCK:-true}
+      - NINEROUTER_API_KEY=${NINEROUTER_API_KEY:-}
+      - NINEROUTER_MODEL=${NINEROUTER_MODEL:-gemini-3.8-flash}
+      - NINEROUTER_BASE_URL=${NINEROUTER_BASE_URL:-http://host.docker.internal:20128/v1}
+      - REPORT_SIGNING_KEY=${REPORT_SIGNING_KEY:-}
+      - GOOGLE_SAFE_BROWSING_KEY=${GOOGLE_SAFE_BROWSING_KEY:-}
+      - MAX_UPLOAD_SIZE_MB=${MAX_UPLOAD_SIZE_MB:-10}
+      - HARD_TIMEOUT_MS=${HARD_TIMEOUT_MS:-12000}
+      - CACHE_TTL_SECONDS=${CACHE_TTL_SECONDS:-600}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+  frontend:
+    build:
+      context: ./frontend
+      target: prod
+      args:
+        - VITE_API_BASE_URL=/api/v1
+        - VITE_API_MODE=http
+    ports:
+      - "${FRONTEND_PORT:-80}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:80/"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s

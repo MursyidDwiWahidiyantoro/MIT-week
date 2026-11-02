@@ -1,15 +1,19 @@
 <script lang="ts">
   import Button from '$lib/components/ui/Button.svelte';
   import templates from '$lib/data/reply-templates.json';
+  import { isMockMode } from '$lib/api/config';
+  import { isMockToken } from '$lib/api/mock';
   import { Copy, Check, MessageCircle } from '@lucide/svelte';
   import type { Status } from '$lib/api/types';
 
   interface Props {
     token: string;
     status: Status;
+    /** Bundled demo dossiers have no signed token, so never call the API. */
+    demo?: boolean;
   }
 
-  let { token, status }: Props = $props();
+  let { token, status, demo = false }: Props = $props();
 
   type Tone = 'hormat' | 'santai' | 'singkat';
   const TONES: Array<{ value: Tone; label: string }> = [
@@ -36,16 +40,21 @@
   });
 
   async function request(): Promise<void> {
+    // Demo and preview results have no server to call. The bundled template is
+    // the honest answer, and it already meets the length and tone rules.
+    if (demo || isMockMode || isMockToken(token)) {
+      text = templateText;
+      source = 'template';
+      return;
+    }
+
     loading = true;
     try {
-      const res = await fetch(
-        `${import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080/api/v1'}/reply`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token, tone })
-        }
-      );
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080/api/v1'}/reply`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, tone })
+      });
       if (res.ok) {
         const body = (await res.json()) as { text?: string; source?: 'llm' | 'template' };
         if (body.text && body.text.length <= 280) {

@@ -5,6 +5,9 @@
  * server log. Verification POSTs it in a body — never a path or query string.
  */
 
+import { API_BASE, isMockMode } from './api/config';
+import { decodeMockToken, isMockToken } from './api/mock';
+
 export interface VerifiedPayload {
   id: string;
   ts: string;
@@ -13,6 +16,8 @@ export interface VerifiedPayload {
   title?: string;
   claim?: string;
   srcs?: Array<{ pub: string; url: string; m: string }>;
+  /** True for a locally generated preview token, never for a signed report. */
+  preview?: boolean;
 }
 
 /**
@@ -24,8 +29,6 @@ export interface VerifiedPayload {
 export type VerifyResult =
   | { valid: true; payload: VerifiedPayload }
   | { valid: false; reason: 'invalid' | 'unreachable' | 'unavailable'; retryAfter?: number };
-
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080/api/v1';
 
 /** Reads the token from the current fragment, if present. */
 export function tokenFromHash(hash: string): string | null {
@@ -43,6 +46,22 @@ export function buildShareUrl(origin: string, token: string): string {
 
 /** Verifies a token against the API. Never throws: an invalid token is a state. */
 export async function verifyToken(token: string, signal?: AbortSignal): Promise<VerifyResult> {
+  // Preview tokens are deliberately unsigned and only exist while the backend
+  // is stubbed. They are still checked structurally, and the result page labels
+  // them "Laporan contoh" instead of "Terverifikasi AMBA".
+  if (isMockToken(token)) {
+    const payload = decodeMockToken(token);
+    return payload
+      ? { valid: true, payload: { ...payload, preview: true } }
+      : { valid: false, reason: 'invalid' };
+  }
+
+  if (isMockMode) {
+    // A real signed report cannot be checked without the API. That is a
+    // connectivity limitation, not evidence that the report was forged.
+    return { valid: false, reason: 'unreachable' };
+  }
+
   try {
     const res = await fetch(`${API_BASE}/verify`, {
       method: 'POST',

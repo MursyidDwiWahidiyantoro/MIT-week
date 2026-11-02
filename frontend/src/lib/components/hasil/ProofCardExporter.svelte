@@ -6,10 +6,11 @@
 
   interface Props {
     dossier: DossierParsed;
-    shareUrl: string;
+    /** Empty for bundled demos, which have no signed share token. */
+    shareUrl?: string;
   }
 
-  let { dossier, shareUrl }: Props = $props();
+  let { dossier, shareUrl = '' }: Props = $props();
 
   let busy = $state(false);
   let error = $state<string | null>(null);
@@ -23,13 +24,14 @@
       // Both libraries are imported on first use so they never enter the
       // initial bundle.
       const [{ toPng }, QRCode] = await Promise.all([import('html-to-image'), import('qrcode')]);
-      const qrDataUrl = await QRCode.toDataURL(shareUrl, { margin: 1, width: 160 });
 
-      const qrImg = card.querySelector<HTMLImageElement>('[data-qr]');
-      if (qrImg) qrImg.src = qrDataUrl;
-
-      // Wait for the QR image to decode before rasterising.
-      if (qrImg) await qrImg.decode().catch(() => undefined);
+      if (shareUrl) {
+        const qrDataUrl = await QRCode.toDataURL(shareUrl, { margin: 1, width: 160 });
+        const qrImg = card.querySelector<HTMLImageElement>('[data-qr]');
+        if (qrImg) qrImg.src = qrDataUrl;
+        // Wait for the QR image to decode before rasterising.
+        if (qrImg) await qrImg.decode().catch(() => undefined);
+      }
 
       const dataUrl = await toPng(card, { width: 1200, height: 630, pixelRatio: 1 });
       const link = document.createElement('a');
@@ -67,7 +69,11 @@
       <p class="disclaimer">
         INDIKATIF — bukan alat bukti hukum. Skor menunjukkan risiko, bukan tingkat keyakinan.
       </p>
-      <img data-qr alt="" width="160" height="160" />
+      {#if shareUrl}
+        <img data-qr alt="" width="160" height="160" />
+      {:else}
+        <div class="qr-placeholder">CONTOH<br />tanpa tautan</div>
+      {/if}
     </div>
   </div>
 </div>
@@ -101,4 +107,10 @@
   .card-bottom { display: flex; justify-content: space-between; align-items: flex-end; gap: 40px; }
   .disclaimer { margin: 0; font-size: 18px; color: var(--text-2); max-width: 820px; line-height: 1.4; }
   .card img { background: #fff; border-radius: 8px; }
+  .qr-placeholder {
+    width: 160px; height: 160px; display: grid; place-items: center;
+    border: 2px dashed var(--border-strong); border-radius: 8px;
+    color: var(--text-2); font-family: var(--font-mono); font-size: 14px;
+    line-height: 1.4; text-align: center;
+  }
 </style>

@@ -1,0 +1,15 @@
+# ponytail: air in-container tmp outside host mount prevents root permission pollution on host
+root = "."
+tmp_dir = "/tmp/air"
+
+[build]
+cmd = "go build -o /tmp/air/main ./cmd/server"
+bin = "/tmp/air/main"
+delay = 500
+exclude_dir = ["assets", "tmp", "vendor", "bin"]
+include_ext = ["go", "yaml", "json"]
+poll = true
+stop_on_error = true
+
+[screen]
+clear_on_rebuild = true

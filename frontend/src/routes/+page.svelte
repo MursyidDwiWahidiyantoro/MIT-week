@@ -67,6 +67,17 @@
   </div>
 </section>
 
+<section class="quick" aria-labelledby="quick-title">
+  <h2 id="quick-title">Tidak ada tautan atau gambar?</h2>
+  <Panel>
+    <p>
+      Untuk telepon, pesan langsung, atau situasi yang tidak punya tautan,
+      jawab enam pertanyaan singkat. Tidak ada data yang dikirim.
+    </p>
+    <Button href={resolve('/cek-cepat')}>Coba Cek Cepat</Button>
+  </Panel>
+</section>
+
 <section class="steps" aria-labelledby="steps-title">
   <h2 id="steps-title">Cara kerjanya</h2>
   <ol>
@@ -102,6 +113,8 @@
 
   .note { display: flex; align-items: center; gap: var(--space-2); margin-top: var(--space-6); color: var(--text-3); font-size: var(--text-sm); }
 
+  .quick { padding-block: var(--space-7); border-top: var(--border-width) solid var(--border); }
+  .quick p { margin: 0 0 var(--space-4); color: var(--text-2); max-width: var(--measure); }
   .kinds, .steps { padding-block: var(--space-7); border-top: var(--border-width) solid var(--border); }
   h2 { font-size: var(--text-2xl); margin: 0 0 var(--space-5); }
   .grid { display: grid; gap: var(--space-4); }

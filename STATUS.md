@@ -25,6 +25,24 @@ bisa terbuang kalau kamu menganggap halaman `/hasil` sudah jalan.
 
 ## 2. Cara menjalankan
 
+### Paling cepat & praktis: Docker (Linux, macOS, Windows WSL2)
+
+```bash
+# Stack demo / production-like (Web di http://localhost, API di http://localhost:8080)
+make up
+# atau: docker compose up --build
+
+# Stack development dengan hot-reload (Go Air + Vite dev server)
+make dev
+# atau: docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+
+# Hentikan:
+make down
+```
+Panduan lengkap: `docs/DOCKER.md`.
+
+### Manual (Tanpa Docker)
+
 ```bash
 # 1. backend  -> http://localhost:8080
 cd backend && go run ./cmd/server

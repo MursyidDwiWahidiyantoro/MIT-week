@@ -91,6 +91,15 @@
     {/if}
   </p>
   <button class="cta" type="button" onclick={() => window.location.reload()}>Coba lagi</button>
+{:else if shared && shared.valid && shared.payload.preview}
+  <h1>Laporan contoh</h1>
+  <p class="verified preview" role="status">Mode pratinjau</p>
+  <p class="sentence">{shared.payload.title ?? statusLabel(shared.payload.status as never)}</p>
+  <p class="meta">Skor risiko: {formatScore(shared.payload.score)}</p>
+  <p class="note">
+    Laporan ini dibuat di perangkat Anda dari data contoh. Ini bukan laporan
+    yang ditandatangani server dan bukan hasil pemeriksaan sungguhan.
+  </p>
 {:else if shared && shared.valid}
   <h1>Laporan terverifikasi</h1>
   <p class="verified" role="status">Terverifikasi AMBA</p>
@@ -129,9 +138,7 @@
 
   {#if imageFile && dossier.input_type === 'FILE'}
     <Panel title="Tampilan gambar">
-      <div data-info-key="pillar.ela">
-        <ElaViewer file={imageFile} anomalies={elaAnomalies} />
-      </div>
+      <ElaViewer file={imageFile} anomalies={elaAnomalies} />
     </Panel>
   {/if}
 
@@ -165,29 +172,30 @@
     </p>
   </Panel>
 
-  {#if canShare}
-    <Panel title="Bagikan laporan">
-      <div data-info-key="share">
+  <Panel title="Bagikan laporan">
+    <div data-info-key="share">
+      {#if canShare}
         <ShareButton token={dossier.share_token} title={dossier.verdict.short_title} />
-      </div>
-    </Panel>
+      {:else}
+        <p class="note" role="note">
+          Data contoh ini tidak punya tautan bertanda tangan, jadi belum bisa dibagikan.
+          Balas sopan dan kartu bukti tetap tersedia.
+        </p>
+      {/if}
+    </div>
+  </Panel>
 
-    <Panel title="Balas sopan">
-      <div data-info-key="reply">
-        <ReplyCard token={dossier.share_token} status={dossier.verdict.status} />
-      </div>
-    </Panel>
+  <Panel title="Balas sopan">
+    <div data-info-key="reply">
+      <ReplyCard token={dossier.share_token} status={dossier.verdict.status} demo={dossier.is_demo} />
+    </div>
+  </Panel>
 
-    <Panel title="Simpan kartu bukti">
-      <div data-info-key="proofcard">
-        <ProofCardExporter {dossier} {shareUrl} />
-      </div>
-    </Panel>
-  {:else}
-    <p class="note" role="note">
-      Ini data contoh, jadi laporannya tidak bisa dibagikan atau dibalas.
-    </p>
-  {/if}
+  <Panel title="Simpan kartu bukti">
+    <div data-info-key="proofcard">
+      <ProofCardExporter {dossier} {shareUrl} />
+    </div>
+  </Panel>
 {/if}
 
 <style>
@@ -211,6 +219,7 @@
     border: var(--border-width) solid var(--ok); border-radius: var(--radius-md);
     color: var(--ok); font-size: var(--text-sm); font-weight: 600;
   }
+  .verified.preview { border-color: var(--warn); color: var(--warn); }
   .verdict { margin-bottom: var(--space-5); }
   .verdict-heading { margin: 0; font-size: inherit; line-height: inherit; }
   .verdict-heading:focus { outline: none; }

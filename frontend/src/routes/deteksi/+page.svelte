@@ -1,16 +1,20 @@
 <script lang="ts">
+  import { onMount, tick } from 'svelte';
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
   import { AuditSession } from '$lib/audit.svelte';
   import { parseDossier } from '$lib/api/schemas';
+  import { isMockMode } from '$lib/api/config';
   import { result } from '$lib/result.svelte';
+  import { firstHttpUrl, readSharedItem } from '$lib/share-target';
   import Field from '$lib/components/ui/Field.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import ModeSelectorTabs, { type InputKind } from '$lib/components/deteksi/ModeSelectorTabs.svelte';
   import DropzoneUploader from '$lib/components/deteksi/DropzoneUploader.svelte';
   import ScanningRadar from '$lib/components/deteksi/ScanningRadar.svelte';
   import demoData from '$lib/data/demo-cases.json';
+  import { ClipboardPaste } from '@lucide/svelte';
 
   const session = new AuditSession();
 
@@ -19,6 +23,7 @@
   let text = $state('');
   let file = $state<File | null>(null);
   let inputError = $state<string | null>(null);
+  let sharedNotice = $state<string | null>(null);
 
   // The home hero hands a pasted link over as ?q=.
   $effect(() => {
@@ -26,7 +31,78 @@
     if (q && !url) url = q;
   });
 
-  $effect(() => () => session.abort());
+  // A share-target redirect carries a one-time cache id. Read and delete it,
+  // then start the audit immediately because sharing was an explicit action.
+  onMount(() => {
+    const id = page.url.searchParams.get('share');
+    if (id) void openShared(id);
+  });
+
+  async function openShared(id: string): Promise<void> {
+    sharedNotice = 'Membuka konten yang dibagikan…';
+    const item = await readSharedItem(id);
+    if (!item) {
+      sharedNotice = null;
+      inputError = 'Konten yang dibagikan tidak ditemukan atau sudah kedaluwarsa. Tempel manual di bawah.';
+      return;
+    }
+
+    if (item.file) {
+      kind = 'file';
+      file = item.file;
+    } else if (item.url) {
+      kind = 'url';
+      url = item.url;
+    } else if (item.text) {
+      const found = firstHttpUrl(item.text);
+      if (found) {
+        kind = 'url';
+        url = found;
+      } else {
+        kind = 'text';
+        text = item.text;
+      }
+    }
+
+    sharedNotice = null;
+    await tick();
+    await submit();
+  }
+
+  async function pasteClipboard(): Promise<void> {
+    inputError = null;
+    try {
+      if (navigator.clipboard?.read) {
+        const items = await navigator.clipboard.read();
+        for (const item of items) {
+          const type = item.types.find((t) => t.startsWith('image/'));
+          if (type) {
+            const blob = await item.getType(type);
+            const extension = type === 'image/png' ? 'png' : type === 'image/webp' ? 'webp' : 'jpg';
+            kind = 'file';
+            file = new File([blob], `tempelan.${extension}`, { type });
+            return;
+          }
+        }
+      }
+
+      const value = (await navigator.clipboard.readText()).trim();
+      if (!value) {
+        inputError = 'Clipboard kosong. Salin tautan atau teks terlebih dahulu.';
+        return;
+      }
+      const found = firstHttpUrl(value);
+      if (found) {
+        kind = 'url';
+        url = found;
+      } else {
+        kind = 'text';
+        text = value;
+      }
+    } catch {
+      inputError = 'Tidak bisa membaca clipboard. Tempel manual dengan Ctrl+V atau tekan lama lalu pilih Tempel.';
+    }
+  }
 
   // Bundled example dossiers. Loading one makes zero network calls (PRD F8).
   const demos = demoData.cases.map((c) => ({ id: c.id, label: c.caption, dossier: c.dossier }));
@@ -73,7 +149,23 @@
 <h1>Periksa konten</h1>
 <p class="lede">Pilih jenis konten, lalu jalankan pemeriksaan. Hasilnya indikatif, bukan bukti pasti.</p>
 
-<ModeSelectorTabs selected={kind} onselect={(k) => { kind = k; inputError = null; }} />
+{#if isMockMode}
+  <p class="preview-note" role="note">
+    Mode pratinjau aktif: pemeriksaan memakai aturan contoh di perangkat ini,
+    bukan server AMBA. Hasilnya diberi tanda CONTOH.
+  </p>
+{/if}
+
+<div class="input-tools">
+  <ModeSelectorTabs selected={kind} onselect={(k) => { kind = k; inputError = null; }} />
+  <Button variant="quiet" onclick={pasteClipboard}>
+    <ClipboardPaste size={16} aria-hidden="true" /> Tempel dari clipboard
+  </Button>
+</div>
+
+{#if sharedNotice}
+  <p class="shared" aria-live="polite">{sharedNotice}</p>
+{/if}
 
 {#if kind === 'url'}
   <Field id="url" label="Tautan" type="url" bind:value={url} hint="Contoh: https://example.org/artikel" error={inputError ?? undefined} />
@@ -127,6 +219,13 @@
 <style>
   h1 { font-size: var(--text-3xl); margin: 0 0 var(--space-3); }
   .lede { color: var(--text-2); max-width: var(--measure); margin: 0 0 var(--space-6); }
+  .preview-note {
+    margin: 0 0 var(--space-4); padding: var(--space-3);
+    border: var(--border-width) solid var(--warn); border-radius: var(--radius-md);
+    color: var(--warn); font-size: var(--text-sm); max-width: var(--measure);
+  }
+  .input-tools { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
+  .shared { margin: var(--space-3) 0 0; color: var(--text-2); font-size: var(--text-sm); }
   .field { display: grid; gap: var(--space-2); margin-top: var(--space-5); }
   label { font-weight: 600; font-size: var(--text-sm); }
   textarea {

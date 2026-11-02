@@ -10,6 +10,7 @@
   import ModeSwitch from '$lib/components/mode/ModeSwitch.svelte';
   import ModePicker from '$lib/components/mode/ModePicker.svelte';
   import TextSize from '$lib/components/a11y/TextSize.svelte';
+  import PreviewBadge from '$lib/components/ui/PreviewBadge.svelte';
 
   let { children } = $props();
 
@@ -43,12 +44,15 @@
 
 <a class="skip-link" href="#main">Langsung ke isi utama</a>
 
+<PreviewBadge />
+
 <header class="site-header">
   <nav aria-label="Navigasi utama">
     <a class="wordmark" href={resolve('/')}>AMBA</a>
     <div class="right">
       <ul>
         <li><a href={resolve('/deteksi')}>Periksa</a></li>
+        <li><a href={resolve('/cek-cepat')}>Cek Cepat</a></li>
         <li><a href={resolve('/edukasi')}>Edukasi</a></li>
         <li><a href={resolve('/tentang')}>Tentang</a></li>
       </ul>

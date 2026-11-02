@@ -27,6 +27,31 @@ pillar signals and applies the floors from TECH_SPEC §3.3.
 
 ## Menjalankan
 
+### Cara Cepat (Docker — Rekomendasi Tim)
+
+Semua dependensi terisolasi, siap jalan di Linux, macOS (Apple Silicon / Intel), dan Windows (WSL2):
+
+```bash
+# 1. Jalankan stack demo / production-like (Web di http://localhost, API di http://localhost:8080)
+docker compose up --build
+# Atau menggunakan Makefile:
+make up
+
+# 2. Mode development dengan hot-reload (Go Air :8080 + SvelteKit Vite :5173)
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+# Atau:
+make dev
+
+# 3. Hentikan container
+docker compose down
+# Atau:
+make down
+```
+
+Port frontend dapat diatur melalui variabel lingkungan `FRONTEND_PORT` (default: 80, ganti ke 3000 bila port 80 terpakai).
+
+### Cara Manual (Tanpa Docker)
+
 ```bash
 # backend
 cd backend

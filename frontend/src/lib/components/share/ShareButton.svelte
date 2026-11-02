@@ -1,6 +1,7 @@
 <script lang="ts">
   import Button from '$lib/components/ui/Button.svelte';
   import { buildShareUrl } from '$lib/verify';
+  import { isMockToken } from '$lib/api/mock';
   import { Link2, Check, MessageCircle } from '@lucide/svelte';
 
   interface Props {
@@ -18,6 +19,9 @@
   const url = $derived.by(() =>
     typeof window === 'undefined' ? '' : buildShareUrl(window.location.origin, token)
   );
+  // Preview tokens are generated in the browser and are not signed. Say so
+  // instead of borrowing the real report's "digital signature" wording.
+  const preview = $derived(isMockToken(token));
 
   async function copy(): Promise<void> {
     error = null;
@@ -55,9 +59,16 @@
   </label>
 
   {#if error}<p class="error" role="alert">{error}</p>{/if}
-  <p class="note">
-    Tautan memuat tanda tangan digital. Jika isinya diubah, laporan akan ditandai tidak sah.
-  </p>
+  {#if preview}
+    <p class="note">
+      Ini tautan contoh dari mode pratinjau. Tautan tidak ditandatangani server
+      dan hanya bisa dibuka sebagai laporan contoh.
+    </p>
+  {:else}
+    <p class="note">
+      Tautan memuat tanda tangan digital. Jika isinya diubah, laporan akan ditandai tidak sah.
+    </p>
+  {/if}
 </div>
 
 <style>

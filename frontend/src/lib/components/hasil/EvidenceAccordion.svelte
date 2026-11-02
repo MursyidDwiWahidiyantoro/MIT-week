@@ -20,6 +20,12 @@
   type Key = keyof typeof LABELS;
   const order: Key[] = ['ela', 'ai', 'fact', 'link'];
 
+  const FACT_LABELS = {
+    CONTRADICTS: 'dibantah sumber',
+    SUPPORTS: 'didukung sumber',
+    UNVERIFIED: 'belum terverifikasi'
+  } as const;
+
   const available = (k: Key) => pillars[k].available;
 
   // The pillar union has no shared `score`; narrow by key instead of casting.
@@ -39,13 +45,15 @@
 
 <div class="accordion">
   {#each order as key (key)}
-    <details class="item" open={available(key)}>
+    <details class="item" data-info-key={`pillar.${key}`} open={available(key)}>
       <summary>
         <span class="name">{LABELS[key]}</span>
         {#if pending}
           <span class="state pending">memeriksa…</span>
         {:else if !available(key)}
           <span class="state skipped">Tidak dapat diperiksa</span>
+        {:else if key === 'fact'}
+          <span class="state done">{FACT_LABELS[pillars.fact.status]}</span>
         {:else}
           <span class="state done">skor {pillarScore(pillars, key)}</span>
         {/if}
@@ -75,8 +83,9 @@
             </ul>
           {/if}
         {:else if key === 'fact'}
-          {#if pillars.fact.claim}<p>Klaim: “{pillars.fact.claim}”</p>{/if}
-          <p>Status: {pillars.fact.status}</p>
+          <div data-info-key="sources">
+            {#if pillars.fact.claim}<p>Klaim: “{pillars.fact.claim}”</p>{/if}
+          <p>Status: {FACT_LABELS[pillars.fact.status]}</p>
           {#if (pillars.fact.sources ?? []).length}
             <ul>
               {#each pillars.fact.sources ?? [] as s (s.url)}
@@ -94,6 +103,7 @@
           {:else}
             <p class="note">Tidak ada sumber terverifikasi untuk klaim ini.</p>
           {/if}
+          </div>
         {:else if key === 'link'}
           {#if pillars.link.final_url}<p>Alamat akhir: {pillars.link.final_url}</p>{/if}
           {#if (pillars.link.reasons ?? []).length}

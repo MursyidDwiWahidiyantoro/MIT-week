@@ -1,0 +1,10 @@
+.git
+.github
+.claude
+docs/
+instruction/
+tools/
+.rewrite-backup
+.audit-out
+*.log
+.env*

@@ -1,5 +1,7 @@
 import { readSSE, type SSEEvent } from './sse';
 import { parseDossier, SchemaVersionError, ContractError, type DossierParsed } from './api/schemas';
+import { API_BASE, isMockMode } from './api/config';
+import { mockAuditStream, type MockKind, type MockPayload } from './api/mock';
 import { result } from './result.svelte';
 
 export type PillarKey = 'ela' | 'ai' | 'fact' | 'link';
@@ -19,8 +21,6 @@ export interface AuditError {
   message: string;
   retryAfter?: number;
 }
-
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080/api/v1';
 
 /**
  * One audit session: owns the abort controller, the stage map, partial pillars
@@ -46,6 +46,8 @@ export class AuditSession {
 
   #controller: AbortController | null = null;
   #announceTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Distinguishes a user cancellation from a real network failure. */
+  #aborted = false;
   /** Held only so the verdict handler can hand it to the result store. */
   #imageFile: File | null = null;
 
@@ -54,6 +56,7 @@ export class AuditSession {
   }
 
   abort(): void {
+    this.#aborted = true;
     this.#controller?.abort();
     this.#controller = null;
     this.running = false;
@@ -62,6 +65,7 @@ export class AuditSession {
   /** Runs an audit. Retries exactly once on a network error, never on 4xx. */
   async start(kind: 'url' | 'text' | 'file', payload: { url?: string; text?: string; file?: File }): Promise<void> {
     this.abort();
+    this.#aborted = false;
     this.verdict = null;
     this.error = null;
     this.running = true;
@@ -82,6 +86,10 @@ export class AuditSession {
         this.running = false;
         return;
       } catch (err) {
+        if (this.#aborted) {
+          this.running = false;
+          return;
+        }
         if (err instanceof SchemaVersionError) {
           this.error = { kind: 'schema', message: 'Perbarui aplikasi' };
           this.running = false;
@@ -119,6 +127,15 @@ export class AuditSession {
   async #run(kind: 'url' | 'text' | 'file', payload: { url?: string; text?: string; file?: File }): Promise<void> {
     this.#controller = new AbortController();
     const { signal } = this.#controller;
+
+    // Frontend-only preview: same event contract, no server required.
+    if (isMockMode) {
+      for await (const event of mockAuditStream(kind as MockKind, payload as MockPayload, signal)) {
+        this.#apply(event);
+        if (event.type === 'done') return;
+      }
+      return;
+    }
 
     const init: RequestInit = {
       method: 'POST',

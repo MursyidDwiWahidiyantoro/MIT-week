@@ -1,0 +1,541 @@
+/**
+ * Frontend-only stand-in for the Go audit API.
+ *
+ * It is intentionally honest: every dossier it builds is `is_demo: true`, the
+ * UI shows a "Mode pratinjau" badge, and shared preview tokens are rendered as
+ * "Laporan contoh" rather than "Terverifikasi AMBA".
+ *
+ * Replace this module with the real transport when the backend is wired up;
+ * the AuditSession already speaks the same SSE event shape.
+ */
+import { parseDossier, type DossierParsed } from './schemas';
+import type { FactStatus, Status, Tactic, TacticCode } from './types';
+import type { SSEEvent } from '../sse';
+
+export type MockKind = 'url' | 'text' | 'file';
+
+export interface MockPayload {
+  url?: string;
+  text?: string;
+  file?: File;
+}
+
+export interface MockTokenPayload {
+  preview: true;
+  id: string;
+  ts: string;
+  status: Status;
+  score: number | null;
+  title: string;
+  claim?: string;
+  srcs?: Array<{ pub: string; url: string; m: string }>;
+}
+
+const TOKEN_PREFIX = 'mock.v1.';
+
+/* ------------------------------------------------------------------ tokens */
+
+export function isMockToken(token: string): boolean {
+  return token.startsWith(TOKEN_PREFIX);
+}
+
+function base64urlEncode(text: string): string {
+  const bytes = new TextEncoder().encode(text);
+  let binary = '';
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function base64urlDecode(value: string): string {
+  const base64 = value.replace(/-/g, '+').replace(/_/g, '/');
+  const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
+  const binary = atob(padded);
+  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
+}
+
+/** Decodes a preview token. Returns null for anything that is not one. */
+export function decodeMockToken(token: string): MockTokenPayload | null {
+  if (!isMockToken(token)) return null;
+  try {
+    const payload = JSON.parse(base64urlDecode(token.slice(TOKEN_PREFIX.length))) as MockTokenPayload;
+    if (!payload || payload.preview !== true || typeof payload.id !== 'string') return null;
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
+function makeToken(dossier: Omit<DossierParsed, 'share_token'>): string {
+  const payload: MockTokenPayload = {
+    preview: true,
+    id: dossier.id,
+    ts: dossier.timestamp,
+    status: dossier.verdict.status,
+    score: dossier.verdict.score,
+    title: dossier.verdict.short_title,
+    claim: dossier.pillars.fact.claim || undefined,
+    srcs: dossier.pillars.fact.sources.slice(0, 3).map((s) => ({
+      pub: s.publisher,
+      url: s.url,
+      m: s.match
+    }))
+  };
+  return TOKEN_PREFIX + base64urlEncode(JSON.stringify(payload));
+}
+
+/* ------------------------------------------------------------- heuristics */
+
+const TACTIC_PATTERNS: Array<{ code: TacticCode; pattern: RegExp }> = [
+  { code: 'URGENCY', pattern: /(hari ini saja|sekarang|segera|jangan sampai ketinggalan|batas waktu)/i },
+  { code: 'REWARD_BAIT', pattern: /(bantuan|hadiah|menang|gratis|Rp\s?[\d.]+)/i },
+  { code: 'FEAR', pattern: /(diblokir|denda|ditangkap|akun anda|akan dihapus)/i },
+  { code: 'SECRECY', pattern: /(jangan bilang|rahasia|jangan beri tahu)/i },
+  { code: 'IMPERSONATION', pattern: /(admin|petugas|pemerintah|bank resmi)/i },
+  { code: 'OUTRAGE_BAIT', pattern: /(memalukan|skandal|heboh|viral)/i },
+  { code: 'FAKE_SOCIAL_PROOF', pattern: /(sudah banyak|semua orang|sebarkan ke|10 grup)/i }
+];
+
+const TACTIC_INDICATORS: Record<TacticCode, string> = {
+  URGENCY: 'Tekanan waktu',
+  REWARD_BAIT: 'Iming-iming hadiah',
+  FALSE_AUTHORITY: 'Mengaku pihak berwenang',
+  FEAR: 'Ancaman atau rasa takut',
+  SECRECY: 'Meminta dirahasiakan',
+  OUTRAGE_BAIT: 'Membangkitkan kemarahan',
+  IMPERSONATION: 'Meniru pihak lain',
+  FAKE_SOCIAL_PROOF: 'Ajakan menyebarkan'
+};
+
+function detectTactics(text: string): Tactic[] {
+  const found: Tactic[] = [];
+  for (const { code, pattern } of TACTIC_PATTERNS) {
+    const match = text.match(pattern);
+    if (match?.[0]) found.push({ code, phrase: match[0], source: 'text' });
+    if (found.length >= 5) break;
+  }
+  return found;
+}
+
+const SHORTENERS = ['bit.ly', 'tinyurl.com', 't.co', 'is.gd', 'cutt.ly', 'shorturl.at', 's.id'];
+const LOOKALIKE_BRANDS = [
+  'whatsapp',
+  'instagram',
+  'facebook',
+  'bca',
+  'bri',
+  'mandiri',
+  'dana',
+  'ovo',
+  'gopay',
+  'shopee',
+  'tokopedia',
+  'telkomsel',
+  'pln'
+];
+
+interface LinkSignals {
+  score: number;
+  status: Status;
+  finalUrl: string;
+  redirectChain: string[];
+  reasons: Array<{ code: string; text: string }>;
+}
+
+function analyzeUrl(raw: string): LinkSignals {
+  const reasons: Array<{ code: string; text: string }> = [];
+  let host = '';
+  let finalUrl = raw;
+  let pathAndQuery = '';
+
+  try {
+    const parsed = new URL(raw);
+    host = parsed.hostname.toLowerCase();
+    finalUrl = parsed.href;
+    pathAndQuery = `${parsed.pathname}${parsed.search}`;
+  } catch {
+    reasons.push({ code: 'MALFORMED', text: 'Alamat tautan tidak dapat dibaca dengan benar.' });
+  }
+
+  if (host.startsWith('xn--') || host.includes('.xn--')) {
+    reasons.push({ code: 'PUNYCODE', text: 'Domain memakai huruf yang mirip nama situs lain.' });
+  }
+  if (SHORTENERS.some((shortener) => host === shortener || host.endsWith(`.${shortener}`))) {
+    reasons.push({ code: 'SHORTENER', text: 'Tautan pendek menyembunyikan alamat tujuan.' });
+  }
+  if (LOOKALIKE_BRANDS.some((brand) => host.includes(brand) && !host.endsWith(`.${brand}.com`))) {
+    reasons.push({ code: 'LOOKALIKE_BRAND', text: 'Domain meniru nama layanan populer.' });
+  }
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host)) {
+    reasons.push({ code: 'IP_ADDRESS', text: 'Alamat memakai nomor IP, bukan nama situs.' });
+  }
+  if (/(login|masuk|verifikasi|verify|akun|password|otp|pin|klaim|hadiah|promo)/i.test(`${host}${pathAndQuery}`)) {
+    reasons.push({ code: 'CREDENTIAL_REQUEST', text: 'Alamat meminta data akun atau data pribadi.' });
+  }
+  if (raw.startsWith('http://')) {
+    reasons.push({ code: 'NO_TLS', text: 'Tautan tidak memakai koneksi aman (https).' });
+  }
+
+  const score = reasons.length === 0 ? 8 : Math.min(95, 18 + reasons.length * 20);
+  return {
+    score,
+    status: score >= 61 ? 'TAMPERED' : score >= 21 ? 'SUSPICIOUS' : 'SAFE',
+    finalUrl,
+    redirectChain: [finalUrl],
+    reasons
+  };
+}
+
+const SCAM_MARKERS =
+  /(otp|pin|kata sandi|password|transfer|rekening|hadiah|menang|bantuan|diblokir|verifikasi|klik|sebarkan|grup|hari ini|segera)/i;
+const BENIGN_MARKERS = /(jadwal|posyandu|undangan|rapat|pengumuman|kerja bakti|gotong royong)/i;
+
+function firstSentence(text: string): string {
+  const trimmed = text.trim().replace(/\s+/g, ' ');
+  const end = trimmed.search(/[.!?]/);
+  return (end === -1 ? trimmed : trimmed.slice(0, end + 1)).slice(0, 200);
+}
+
+function basisFor(available: { ai: boolean; fact: boolean; link: boolean; ela: boolean }) {
+  const basis: Array<'ela' | 'ai' | 'fact' | 'link'> = [];
+  if (available.ela) basis.push('ela');
+  if (available.ai) basis.push('ai');
+  if (available.fact) basis.push('fact');
+  if (available.link) basis.push('link');
+  return basis;
+}
+
+function notCheckedFor(available: { ai: boolean; fact: boolean; link: boolean; ela: boolean }) {
+  const all: Array<'ela' | 'ai' | 'fact' | 'link'> = ['ela', 'ai', 'fact', 'link'];
+  return all.filter((key) => !available[key]);
+}
+
+function simpleSentence(status: Status, fact: FactStatus): string {
+  if (fact === 'CONTRADICTS') return 'Kabar ini dibantah sumber terpercaya. Jangan disebarkan.';
+  if (status === 'TAMPERED') return 'Pesan ini memakai pola yang sering muncul pada penipuan. Jangan langsung percaya.';
+  if (status === 'SUSPICIOUS') return 'Belum jelas benar atau tidak. Cek dulu sebelum menyebarkan.';
+  if (status === 'SAFE') return 'Tidak ditemukan tanda bahaya, tapi tetap bijak sebelum menyebarkan.';
+  return 'Informasinya belum cukup untuk dipastikan.';
+}
+
+function explanationFor(status: Status, fact: FactStatus, tactics: Tactic[], link: LinkSignals | null): string {
+  if (fact === 'CONTRADICTS') {
+    return 'Sumber terverifikasi membantah klaim utama pada konten ini. Pesan juga memakai pola yang sering muncul pada hoaks, seperti tekanan waktu atau ajakan menyebarkan. Ini data contoh dari mode pratinjau.';
+  }
+  if (status === 'TAMPERED') {
+    return 'Konten memakai beberapa pola yang sering muncul pada penipuan: permintaan data pribadi, tekanan waktu, atau tautan yang menyembunyikan tujuan. Jangan klik, jangan kirim data, dan periksa ke sumber resmi. Ini data contoh dari mode pratinjau.';
+  }
+  if (status === 'SUSPICIOUS') {
+    const parts: string[] = [];
+    if (tactics.length > 0) parts.push('Ada pola bujukan yang perlu diwaspadai');
+    if (link) parts.push('tautan memiliki tanda yang belum jelas tujuannya');
+    return `${parts.join(', ') || 'Ada tanda yang belum bisa dipastikan'}. Periksa sumber resminya sebelum menyebarkan. Ini data contoh dari mode pratinjau.`;
+  }
+  if (status === 'SAFE') {
+    return 'Tidak ditemukan pola penipuan yang jelas pada konten ini. Tetap periksa ke sumber resmi, terutama bila pesan meminta tindakan. Ini data contoh dari mode pratinjau.';
+  }
+  return 'Konten ini belum cukup untuk dinilai. Tidak ada klaim yang bisa dicocokkan dengan sumber terverifikasi. Ini data contoh dari mode pratinjau.';
+}
+
+function baseDossier(
+  inputType: 'URL' | 'TEXT' | 'FILE',
+  sourceReference: string,
+  overrides: {
+    status: Status;
+    score: number | null;
+    shortTitle: string;
+    explanation: string;
+    explanationSimple: string;
+    basis: Array<'ela' | 'ai' | 'fact' | 'link'>;
+    notChecked: Array<'ela' | 'ai' | 'fact' | 'link'>;
+    floors: string[];
+    pillars: DossierParsed['pillars'];
+    tactics: Tactic[];
+  }
+): DossierParsed {
+  const withoutToken: Omit<DossierParsed, 'share_token'> = {
+    schema_version: 2,
+    id: `AMBA-PREVIEW-${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
+    timestamp: new Date().toISOString(),
+    input_type: inputType,
+    source_reference: sourceReference,
+    degraded: false,
+    is_demo: true,
+    verdict: {
+      score: overrides.score,
+      status: overrides.status,
+      short_title: overrides.shortTitle,
+      explanation: overrides.explanation.slice(0, 400),
+      explanation_simple: overrides.explanationSimple.slice(0, 140),
+      basis: overrides.basis,
+      not_checked: overrides.notChecked,
+      floors_applied: overrides.floors
+    },
+    pillars: overrides.pillars,
+    tactics: overrides.tactics
+  };
+
+  return parseDossier({ ...withoutToken, share_token: makeToken(withoutToken) });
+}
+
+function unavailablePillar() {
+  return { available: false, score: 0, reliability: 0, reliability_note: null, anomalies: [] };
+}
+
+function unavailableFact() {
+  return { available: false, claim: '', status: 'UNVERIFIED' as const, sources: [] };
+}
+
+function unavailableLink() {
+  return {
+    available: false,
+    score: 0,
+    final_url: '',
+    redirect_chain: [],
+    reasons: []
+  };
+}
+
+/* ------------------------------------------------------------- builders */
+
+function textDossier(payload: MockPayload): DossierParsed {
+  const text = (payload.text ?? '').trim();
+  const tactics = detectTactics(text);
+  const linkMatch = text.match(/https?:\/\/[^\s]+/i);
+  const link = linkMatch ? analyzeUrl(linkMatch[0]) : null;
+  const strong = SCAM_MARKERS.test(text);
+  // A benign announcement that carries a suspicious link is not benign.
+  const benign = BENIGN_MARKERS.test(text) && !strong && (!link || link.score < 21);
+
+  let status: Status;
+  let score: number | null;
+  let fact: FactStatus = 'UNVERIFIED';
+
+  if (strong) {
+    status = 'TAMPERED';
+    score = Math.min(90, 62 + tactics.length * 6 + (link ? 8 : 0));
+    fact = 'CONTRADICTS';
+  } else if (benign) {
+    status = 'SAFE';
+    score = 8;
+    fact = 'SUPPORTS';
+  } else if (tactics.length > 0 || link) {
+    status = 'SUSPICIOUS';
+    score = Math.min(60, 28 + tactics.length * 8 + (link ? 8 : 0));
+  } else {
+    status = 'INSUFFICIENT';
+    score = null;
+  }
+
+  const factAvailable = status === 'TAMPERED' || status === 'SAFE';
+  const aiScore = status === 'TAMPERED' ? 78 : status === 'SUSPICIOUS' ? 46 : status === 'SAFE' ? 8 : 22;
+  const indicators = tactics.map((tactic) => TACTIC_INDICATORS[tactic.code]);
+  if (link) indicators.push('Tautan menyembunyikan tujuan');
+
+  const available = { ela: false, ai: true, fact: factAvailable, link: !!link };
+  const floors: string[] = [];
+  if (fact === 'CONTRADICTS') floors.push('FACT_CONTRADICTED');
+  if (link && link.score >= 85) floors.push('LINK_MALICIOUS');
+
+  return baseDossier('TEXT', text, {
+    status,
+    score,
+    shortTitle: status === 'SAFE' ? 'Pesan tanpa tanda bahaya' : status === 'INSUFFICIENT' ? 'Pesan belum bisa dinilai' : 'Pesan memakai pola penipuan',
+    explanation: explanationFor(status, fact, tactics, link),
+    explanationSimple: simpleSentence(status, fact),
+    basis: basisFor(available),
+    notChecked: notCheckedFor(available),
+    floors,
+    pillars: {
+      ela: unavailablePillar(),
+      ai: {
+        available: true,
+        score: aiScore,
+        indicators,
+        caveat: 'Indikatif, bukan bukti pasti. Mode pratinjau memakai aturan kata kunci.'
+      },
+      fact: factAvailable
+        ? {
+            available: true,
+            claim: firstSentence(text),
+            status: fact,
+            sources: [
+              {
+                title: fact === 'CONTRADICTS' ? 'Contoh artikel pemeriksaan fakta' : 'Contoh pengumuman resmi',
+                publisher: 'Sumber Contoh',
+                url: fact === 'CONTRADICTS' ? 'https://example.org/contoh-cek-fakta' : 'https://example.org/contoh-pengumuman',
+                match: fact
+              }
+            ]
+          }
+        : unavailableFact(),
+      link: link
+        ? {
+            available: true,
+            score: link.score,
+            final_url: link.finalUrl,
+            redirect_chain: link.redirectChain,
+            reasons: link.reasons
+          }
+        : unavailableLink()
+    },
+    tactics
+  });
+}
+
+function urlDossier(payload: MockPayload): DossierParsed {
+  const url = (payload.url ?? '').trim();
+  const link = analyzeUrl(url);
+  const status = link.status;
+  const available = { ela: false, ai: true, fact: false, link: true };
+  const tactics: Tactic[] = [];
+  const indicators = link.reasons.map((reason) => reason.text);
+
+  return baseDossier('URL', url, {
+    status,
+    score: link.score,
+    shortTitle:
+      status === 'TAMPERED'
+        ? 'Tautan meniru halaman masuk'
+        : status === 'SUSPICIOUS'
+          ? 'Tautan perlu diperiksa'
+          : 'Tautan tanpa tanda bahaya',
+    explanation: explanationFor(status, 'UNVERIFIED', tactics, link),
+    explanationSimple: simpleSentence(status, 'UNVERIFIED'),
+    basis: basisFor(available),
+    notChecked: notCheckedFor(available),
+    floors: link.score >= 85 ? ['LINK_MALICIOUS'] : [],
+    pillars: {
+      ela: unavailablePillar(),
+      ai: {
+        available: true,
+        score: Math.min(88, 20 + link.reasons.length * 18),
+        indicators,
+        caveat: 'Indikatif, bukan bukti pasti. Mode pratinjau memakai aturan alamat.'
+      },
+      fact: unavailableFact(),
+      link: {
+        available: true,
+        score: link.score,
+        final_url: link.finalUrl,
+        redirect_chain: link.redirectChain,
+        reasons: link.reasons
+      }
+    },
+    tactics
+  });
+}
+
+function fileDossier(payload: MockPayload): DossierParsed {
+  const type = payload.file?.type ?? 'image/png';
+  const reliability = type === 'image/png' ? 0.55 : type === 'image/webp' ? 0.62 : 0.72;
+  const status: Status = 'SUSPICIOUS';
+  const score = 56;
+  const available = { ela: true, ai: true, fact: false, link: false };
+  const reliabilityNote =
+    type === 'image/png'
+      ? 'PNG dan tangkapan layar sudah disimpan ulang, sehingga analisis kompresi kurang andal.'
+      : 'Analisis kompresi hanya menunjukkan area yang perlu dilihat, bukan bukti suntingan.';
+
+  return baseDossier('FILE', 'Gambar yang diunggah', {
+    status,
+    score,
+    shortTitle: 'Gambar perlu diperiksa',
+    explanation:
+      'Ada area dengan perbedaan kompresi yang menonjol, tetapi analisis gambar tidak bisa memastikan suntingan. Periksa konteks gambar dan sumber aslinya. Ini data contoh dari mode pratinjau.',
+    explanationSimple: simpleSentence(status, 'UNVERIFIED'),
+    basis: basisFor(available),
+    notChecked: notCheckedFor(available),
+    floors: [],
+    pillars: {
+      ela: {
+        available: true,
+        score: 58,
+        reliability,
+        reliability_note: reliabilityNote,
+        anomalies: [
+          {
+            bounding_box: [280, 300, 520, 720],
+            reason: 'Area ini memiliki perbedaan kompresi yang menonjol (contoh).'
+          }
+        ]
+      },
+      ai: {
+        available: true,
+        score: 54,
+        indicators: ['Teks dalam gambar memuat ajakan mendesak'],
+        caveat: 'Indikatif, bukan bukti pasti. Mode pratinjau tidak membaca isi gambar.'
+      },
+      fact: unavailableFact(),
+      link: unavailableLink()
+    },
+    tactics: []
+  });
+}
+
+/** Builds a deterministic-enough example dossier for any input. */
+export function buildMockDossier(kind: MockKind, payload: MockPayload): DossierParsed {
+  switch (kind) {
+    case 'url':
+      return urlDossier(payload);
+    case 'file':
+      return fileDossier(payload);
+    case 'text':
+    default:
+      return textDossier(payload);
+  }
+}
+
+/* --------------------------------------------------------------- stream */
+
+function delay(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal.aborted) {
+      reject(new DOMException('Aborted', 'AbortError'));
+      return;
+    }
+    const timer = setTimeout(() => {
+      signal.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(new DOMException('Aborted', 'AbortError'));
+    };
+    signal.addEventListener('abort', onAbort, { once: true });
+  });
+}
+
+/**
+ * Emits the same stage → partial → verdict → done sequence as the Go SSE
+ * endpoint. `timing` lets tests run without waiting.
+ */
+export async function* mockAuditStream(
+  kind: MockKind,
+  payload: MockPayload,
+  signal: AbortSignal,
+  timing: { step?: number; settle?: number } = {}
+): AsyncGenerator<SSEEvent, void, unknown> {
+  const dossier = buildMockDossier(kind, payload);
+  const step = timing.step ?? 220;
+  const settle = timing.settle ?? 90;
+  const order: Array<'ela' | 'ai' | 'fact' | 'link'> = ['ela', 'ai', 'fact', 'link'];
+
+  for (const pillar of order) {
+    if (signal.aborted) return;
+    if (!dossier.pillars[pillar].available) {
+      yield { type: 'stage', pillar, status: 'skipped' };
+      if (step > 0) await delay(settle, signal);
+      continue;
+    }
+    yield { type: 'stage', pillar, status: 'running' };
+    if (step > 0) await delay(step, signal);
+    yield { type: 'partial', pillar, data: dossier.pillars[pillar] };
+    if (settle > 0) await delay(settle, signal);
+    yield { type: 'stage', pillar, status: 'done' };
+  }
+
+  yield { type: 'verdict', data: dossier };
+  if (settle > 0) await delay(settle, signal);
+  yield { type: 'done' };
+}

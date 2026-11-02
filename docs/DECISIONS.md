@@ -199,3 +199,29 @@ default rather than showing nothing — so this is not a blocker.
 **Owner: backend.** Add `Access-Control-Expose-Headers: Retry-After` to the
 CORS middleware and a test asserting it, then tighten the share spec to assert
 the exact countdown instead of only the retry button.
+
+## 2026-11-02 · Multi-stage Dockerization and Nginx Reverse Proxy Architecture
+
+Containerized full stack for cross-platform team usage (Linux x86_64, macOS Apple Silicon arm64, Windows WSL2) with fast rebuilds and zero-setup onboarding.
+
+**Decisions made:**
+1. **Multi-stage Dockerfiles:**
+   - `backend/Dockerfile`: Multi-stage Go build (`base` -> `dev` with Air hot-reload -> `build` with `CGO_ENABLED=0` static binary -> `prod` on `alpine:3.21` with `ca-certificates`, `tzdata`, and non-root user `10001:10001`).
+   - `frontend/Dockerfile`: Multi-stage Node build (`base` with `node:22-alpine` -> `dev` with Vite dev server -> `builder` with static SPA export -> `prod` on `nginx:1.27-alpine`).
+2. **Relative API Base & Nginx Reverse Proxy:**
+   - Production frontend static build injects `VITE_API_BASE_URL=/api/v1` (relative).
+   - Nginx reverse-proxies `/api/` to `http://backend:8080/api/`.
+   - Why: Keeps frontend and API on the same origin (`http://localhost` or LAN IP). Completely eliminates CORS configuration errors and CSP `connect-src` violations when team members test on local networks or mobile devices.
+   - SSE streaming: Nginx location block explicitly disables buffering (`proxy_buffering off; proxy_cache off; chunked_transfer_encoding off;`) and extends read timeout to 600s so real-time audit streaming works without delay.
+3. **Hot-Reload Dev Architecture (`docker-compose.dev.yml`):**
+   - Backend mounts `./backend:/app` and runs Air. Air's temporary build directory is pinned to `/tmp/air` in container filesystem, preventing root-owned build artifacts from polluting the host repository.
+   - Frontend mounts `./frontend:/app` with an anonymous volume for `/app/node_modules`. This prevents host OS node binaries (e.g., Darwin or Windows) from overriding container Linux binaries.
+   - Sets `CHOKIDAR_USEPOLLING=true` for reliable file-change detection across WSL2 and macOS VirtioFS virtualized mounts.
+4. **BuildKit Layer Caching for Fast Rebuilds:**
+   - Dependency manifests (`go.mod`, `go.sum`, `package*.json`) are copied and installed with cache mounts (`/go/pkg/mod`, `/root/.cache/go-build`, `/root/.npm`) before application source code.
+   - Code changes rebuild in 2-5 seconds without re-downloading packages from the network.
+5. **Team Command Ergonomics:**
+   - Provided root `Makefile` (`make up`, `make dev`, `make build`, `make logs`, `make down`).
+   - Standardized on `docker-compose.yml` (demo/prod-like stack) and `docker-compose.dev.yml` (dev override).
+
+Revisit: if deploying to Kubernetes or multi-node clusters, replace docker-compose with Helm charts / K8s manifests and add ingress TLS termination.

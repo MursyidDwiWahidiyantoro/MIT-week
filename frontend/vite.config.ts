@@ -24,6 +24,9 @@ export default defineConfig({
           'font-src': ['self'],
           'connect-src': ['self', 'http://localhost:8080'],
           'worker-src': ['self', 'blob:'],
+          // Required by Svelte's runtime and SvelteKit's service-worker
+          // registration. Narrowing this list further blocks hydration.
+          'trusted-types': ['svelte-trusted-html', 'sveltekit-trusted-url'],
           'frame-ancestors': ['none'],
           'base-uri': ['none'],
           'object-src': ['none']
