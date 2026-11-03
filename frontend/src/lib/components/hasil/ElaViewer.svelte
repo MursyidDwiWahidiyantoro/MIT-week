@@ -111,6 +111,6 @@
 {/if}
 
 <style>
-  .note { margin: var(--space-2) 0 0; color: var(--text-2); font-size: var(--text-sm); }
+  .note { margin: var(--space-3) 0 0; color: var(--body-2); font-size: var(--text-sm); }
   .waiting { display: grid; gap: var(--space-2); }
 </style>

@@ -1,4 +1,6 @@
 <script lang="ts">
+  import Icon from '$lib/components/ui/Icon.svelte';
+
   const MAX_BYTES = 10 * 1024 * 1024;
   const ACCEPTED = ['image/jpeg', 'image/png', 'image/webp'];
 
@@ -50,7 +52,10 @@
       document.getElementById('amba-file')?.click();
     }
   }}
-  ondragover={(e) => { e.preventDefault(); dragging = true; }}
+  ondragover={(e) => {
+    e.preventDefault();
+    dragging = true;
+  }}
   ondragleave={() => (dragging = false)}
   ondrop={(e) => {
     e.preventDefault();
@@ -65,34 +70,42 @@
     accept="image/jpeg,image/png,image/webp"
     onchange={(e) => accept(e.currentTarget.files?.[0])}
   />
+  <span class="icon" aria-hidden="true"><Icon name="image" size={34} /></span>
   <p class="title">{fileName ?? 'Pilih gambar atau lepas di sini'}</p>
   <p class="hint">JPG, PNG, atau WebP. Maksimal 10 MB.</p>
 </div>
 
 {#if error}
-  <p class="error" role="alert">{error}</p>
+  <p class="error-text" role="alert">{error}</p>
 {/if}
 
 <style>
   .dropzone {
     display: grid;
     place-items: center;
-    gap: var(--space-1);
-    min-height: 140px;
-    padding: var(--space-5);
+    gap: var(--space-2);
+    min-height: 180px;
+    padding: var(--space-6) var(--space-5);
     text-align: center;
-    border: var(--border-width-strong) dashed var(--border-strong);
+    border: var(--border-width-strong) dashed var(--ink);
     border-radius: var(--radius-lg);
-    background: var(--surface);
+    background: var(--white);
+    box-shadow: var(--shadow-hard);
     cursor: pointer;
+    transition: background-color var(--dur-fast) var(--ease-out);
   }
-  .dropzone:hover, .dropzone.dragging { background: var(--surface-2); }
+  .dropzone:hover,
+  .dropzone.dragging { background: var(--indigo-tint); }
   .dropzone:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
-  .title { margin: 0; font-weight: 600; }
-  .hint { margin: 0; color: var(--text-2); font-size: var(--text-sm); }
-  .error { margin: var(--space-2) 0 0; color: var(--err); font-size: var(--text-sm); }
-  .sr-only {
-    position: absolute; width: 1px; height: 1px;
-    overflow: hidden; clip-path: inset(50%);
+  .icon {
+    display: grid;
+    place-items: center;
+    width: 64px;
+    height: 64px;
+    background: var(--indigo-soft);
+    border: var(--border-width) solid var(--ink);
+    border-radius: 20px;
   }
+  .title { margin: 0; font-family: var(--font-display); font-weight: 800; font-size: 1.15em; }
+  .hint { margin: 0; color: var(--muted); font-size: var(--text-sm); }
 </style>

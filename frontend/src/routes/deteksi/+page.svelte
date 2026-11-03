@@ -14,7 +14,7 @@
   import DropzoneUploader from '$lib/components/deteksi/DropzoneUploader.svelte';
   import ScanningRadar from '$lib/components/deteksi/ScanningRadar.svelte';
   import demoData from '$lib/data/demo-cases.json';
-  import { ClipboardPaste } from '@lucide/svelte';
+  import Icon from '$lib/components/ui/Icon.svelte';
 
   const session = new AuditSession();
 
@@ -144,64 +144,87 @@
   }
 </script>
 
-<svelte:head><title>Periksa konten — AMBA</title></svelte:head>
+<svelte:head>
+  <title>Periksa konten — AMBA</title>
+  <meta
+    name="description"
+    content="Tempel tautan, teks pesan, atau unggah tangkapan layar. AMBA menjelaskan tanda bahaya dengan kata sederhana."
+  />
+</svelte:head>
 
-<h1>Periksa konten</h1>
-<p class="lede">Pilih jenis konten, lalu jalankan pemeriksaan. Hasilnya indikatif, bukan bukti pasti.</p>
+<section class="head">
+  <p class="eyebrow">Pemeriksaan</p>
+  <h1 class="h1">Periksa konten</h1>
+  <p class="lede">
+    Pilih jenis konten, lalu jalankan pemeriksaan. Hasilnya indikatif, bukan bukti pasti.
+  </p>
+</section>
 
 {#if isMockMode}
-  <p class="preview-note" role="note">
-    Mode pratinjau aktif: pemeriksaan memakai aturan contoh di perangkat ini,
+  <p class="notice" role="note">
+    <strong>Mode pratinjau.</strong> Pemeriksaan memakai aturan contoh di perangkat ini,
     bukan server AMBA. Hasilnya diberi tanda CONTOH.
   </p>
 {/if}
 
-<div class="input-tools">
-  <ModeSelectorTabs selected={kind} onselect={(k) => { kind = k; inputError = null; }} />
-  <Button variant="quiet" onclick={pasteClipboard}>
-    <ClipboardPaste size={16} aria-hidden="true" /> Tempel dari clipboard
-  </Button>
-</div>
-
-{#if sharedNotice}
-  <p class="shared" aria-live="polite">{sharedNotice}</p>
-{/if}
-
-{#if kind === 'url'}
-  <Field id="url" label="Tautan" type="url" bind:value={url} hint="Contoh: https://example.org/artikel" error={inputError ?? undefined} />
-{:else if kind === 'text'}
-  <div class="field">
-    <label for="teks">Teks pesan</label>
-    <textarea id="teks" rows="6" bind:value={text} aria-invalid={inputError ? 'true' : undefined}></textarea>
-    {#if inputError}<p class="error" role="alert">{inputError}</p>{/if}
+<section class="console card" aria-label="Formulir pemeriksaan">
+  <div class="console-top">
+    <ModeSelectorTabs selected={kind} onselect={(k) => { kind = k; inputError = null; }} />
+    <Button variant="quiet" onclick={pasteClipboard}>
+      <Icon name="copy" size={18} /> Tempel dari clipboard
+    </Button>
   </div>
-{:else}
-  <DropzoneUploader onselect={(f) => { file = f; inputError = null; }} />
-  {#if inputError}<p class="error" role="alert">{inputError}</p>{/if}
-{/if}
 
-<div class="demos">
-  <p class="demos-label">Coba contoh</p>
-  <ul>
-    {#each demos as demo (demo.id)}
-      <li>
-        <button type="button" onclick={() => openDemo(demo.dossier)}>{demo.label}</button>
-      </li>
-    {/each}
-  </ul>
-  <p class="demos-note">Contoh dimuat dari perangkat Anda, tanpa koneksi ke server.</p>
-</div>
-
-<div class="actions">
-  <Button size="lg" onclick={submit} loading={session.running}>
-    {session.running ? 'Memeriksa…' : 'Mulai periksa'}
-  </Button>
-  {#if session.running}
-    <Button variant="quiet" onclick={() => session.abort()}>Batalkan</Button>
+  {#if sharedNotice}
+    <p class="shared" aria-live="polite">{sharedNotice}</p>
   {/if}
-</div>
 
-<p class="live" aria-live="polite">{session.announcement}</p>
+  {#if kind === 'url'}
+    <Field id="url" label="Tautan" type="url" bind:value={url} hint="Contoh: https://example.org/artikel" error={inputError ?? undefined} />
+  {:else if kind === 'text'}
+    <div class="field">
+      <label for="teks">Teks pesan</label>
+      <textarea
+        class="textarea"
+        id="teks"
+        rows="6"
+        bind:value={text}
+        aria-invalid={inputError ? 'true' : undefined}
+        placeholder="Tempel pesan yang Anda terima di sini."
+      ></textarea>
+      {#if inputError}<p class="error-text" role="alert">{inputError}</p>{/if}
+    </div>
+  {:else}
+    <DropzoneUploader onselect={(f) => { file = f; inputError = null; }} />
+    {#if inputError}<p class="error-text" role="alert">{inputError}</p>{/if}
+  {/if}
+
+  <div class="demos">
+    <p class="demos-label">Coba contoh</p>
+    <ul>
+      {#each demos as demo (demo.id)}
+        <li>
+          <button class="demo-btn" type="button" onclick={() => openDemo(demo.dossier)}>
+            {demo.label}
+          </button>
+        </li>
+      {/each}
+    </ul>
+    <p class="demos-note">Contoh dimuat dari perangkat Anda, tanpa koneksi ke server.</p>
+  </div>
+
+  <div class="actions">
+    <Button size="lg" onclick={submit} loading={session.running}>
+      <Icon name="sparkle" size={18} />
+      {session.running ? 'Memeriksa…' : 'Mulai periksa'}
+    </Button>
+    {#if session.running}
+      <Button variant="quiet" onclick={() => session.abort()}>Batalkan</Button>
+    {/if}
+  </div>
+
+  <p class="live" aria-live="polite">{session.announcement}</p>
+</section>
 
 {#if session.running || session.done}
   <ScanningRadar stages={session.stages} partials={session.partials} />
@@ -209,6 +232,7 @@
 
 {#if session.error}
   <div class="error-panel" role="alert">
+    <p class="error-title">Pemeriksaan tidak selesai</p>
     <p>{session.error.message}</p>
     {#if session.error.retryAfter}
       <p class="hint">Tunggu {session.error.retryAfter} detik sebelum mencoba lagi.</p>
@@ -217,44 +241,83 @@
 {/if}
 
 <style>
-  h1 { font-size: var(--text-3xl); margin: 0 0 var(--space-3); }
-  .lede { color: var(--text-2); max-width: var(--measure); margin: 0 0 var(--space-6); }
-  .preview-note {
-    margin: 0 0 var(--space-4); padding: var(--space-3);
-    border: var(--border-width) solid var(--warn); border-radius: var(--radius-md);
-    color: var(--warn); font-size: var(--text-sm); max-width: var(--measure);
+  .head { max-width: 44rem; margin-bottom: var(--space-6); }
+  h1 { margin-bottom: var(--space-3); }
+  .notice {
+    margin: 0 0 var(--space-5);
+    padding: var(--space-3) var(--space-4);
+    background: var(--yellow);
+    border: var(--border-width) solid var(--ink);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-hard-xs);
+    font-size: var(--text-sm);
+    max-width: 46rem;
   }
-  .input-tools { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
-  .shared { margin: var(--space-3) 0 0; color: var(--text-2); font-size: var(--text-sm); }
-  .field { display: grid; gap: var(--space-2); margin-top: var(--space-5); }
-  label { font-weight: 600; font-size: var(--text-sm); }
-  textarea {
-    padding: var(--space-3); background: var(--surface-2); color: var(--text);
-    border: var(--border-width) solid var(--border-strong);
-    border-radius: var(--radius-md); font: inherit; resize: vertical;
+  .console { padding: clamp(1.25rem, 3vw, 2rem); }
+  .console-top {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    margin-bottom: var(--space-5);
   }
-  textarea:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
-  .error { margin: 0; color: var(--err); font-size: var(--text-sm); }
-  .actions { display: flex; gap: var(--space-3); margin: var(--space-5) 0; flex-wrap: wrap; }
-  .live { min-height: 1.5em; color: var(--text-2); font-size: var(--text-sm); margin: 0 0 var(--space-4); }
+  .console :global(.field) { margin-bottom: var(--space-5); }
+  .console > :global(.field) { margin-bottom: var(--space-5); }
+  .shared { margin: var(--space-3) 0 0; color: var(--body-2); font-size: var(--text-sm); }
+  .field { display: grid; gap: var(--space-2); margin-bottom: var(--space-5); }
+  label { font-weight: 700; }
+  .actions { display: flex; gap: var(--space-3); margin: var(--space-5) 0 0; flex-wrap: wrap; }
+  .live { min-height: 1.5em; color: var(--body-2); font-size: var(--text-sm); margin: var(--space-3) 0 0; }
   .error-panel {
-    border: var(--border-width) solid var(--err); border-radius: var(--radius-md);
-    padding: var(--space-4); margin-top: var(--space-4);
+    border: var(--border-width) solid var(--ink);
+    border-radius: var(--radius-lg);
+    background: var(--coral-tint);
+    box-shadow: var(--shadow-hard);
+    padding: var(--space-5);
+    margin-top: var(--space-5);
   }
   .error-panel p { margin: 0; }
-  .hint { color: var(--text-2); font-size: var(--text-sm); margin-top: var(--space-2) !important; }
+  .error-title { font-family: var(--font-display); font-weight: 800; font-size: 1.15em; margin-bottom: var(--space-2) !important; }
+  .hint { color: var(--body-2); font-size: var(--text-sm); margin-top: var(--space-2) !important; }
 
-  .demos { margin: 0 0 var(--space-5); }
-  .demos-label { margin: 0 0 var(--space-2); color: var(--text-2); font-size: var(--text-sm); }
-  .demos ul { display: flex; flex-wrap: wrap; gap: var(--space-2); list-style: none; margin: 0; padding: 0; }
-  .demos button {
-    min-height: 44px; padding: 0 var(--space-4);
-    background: var(--surface-2); color: var(--text);
-    border: var(--border-width) solid var(--border-strong);
-    border-radius: var(--radius-md); font: inherit; font-size: var(--text-sm); cursor: pointer;
-    text-align: left;
+  .demos {
+    margin-top: var(--space-5);
+    padding-top: var(--space-4);
+    border-top: var(--border-width) dashed var(--ink);
   }
-  .demos button:hover { background: var(--hover-overlay); }
-  .demos button:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
-  .demos-note { margin: var(--space-2) 0 0; color: var(--text-3); font-size: var(--text-xs); }
+  .demos-label { margin: 0 0 var(--space-3); font-family: var(--font-display); font-weight: 800; font-size: var(--text-sm); text-transform: uppercase; letter-spacing: 0.06em; color: var(--indigo-text); }
+  .demos ul { display: flex; flex-wrap: wrap; gap: var(--space-2); list-style: none; margin: 0; padding: 0; }
+  .demo-btn {
+    min-height: 44px;
+    padding: 10px var(--space-4);
+    background: var(--indigo-tint);
+    color: var(--ink);
+    border: var(--border-width) solid var(--ink);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-hard-xs);
+    font: inherit;
+    font-size: var(--text-sm);
+    font-weight: 700;
+    cursor: pointer;
+    text-align: left;
+    transition: transform var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
+  }
+  .demo-btn:hover { transform: translate(-2px, -2px); box-shadow: 5px 5px 0 var(--ink); }
+  .demo-btn:active { transform: translate(2px, 2px); box-shadow: none; }
+  .demo-btn:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
+  .demos-note { margin: var(--space-3) 0 0; color: var(--muted); font-size: var(--text-sm); }
+
+  .console + :global(.radar) { margin-top: var(--space-5); }
+
+  /* Phone: the tab row gets the full width so three tabs share one line, and
+   * the clipboard action drops below instead of squeezing them. */
+  @media (max-width: 44rem) {
+    .console-top { flex-direction: column; align-items: stretch; }
+    .console-top :global(.tabs) { display: flex; width: 100%; }
+    /* min-width:0 is required: flex-basis:0 alone still refuses to shrink
+     * below the icon+label intrinsic width, which wrapped the third tab. */
+    .console-top :global(.tabs button) { flex: 1 1 0; min-width: 0; padding: 0 8px; }
+    .console-top :global(.btn) { width: 100%; }
+  }
 </style>

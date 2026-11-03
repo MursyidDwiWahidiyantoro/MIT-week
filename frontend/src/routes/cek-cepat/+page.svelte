@@ -1,13 +1,12 @@
 <script lang="ts">
   import Button from '$lib/components/ui/Button.svelte';
-  import Panel from '$lib/components/ui/Panel.svelte';
   import {
     evaluateQuickCheck,
     generateFamilyCode,
     quickCheckQuestions,
     type QuickCheckResult
   } from '$lib/quickcheck';
-  import { Printer, RefreshCw, Copy, Check, KeyRound } from '@lucide/svelte';
+  import Icon from '$lib/components/ui/Icon.svelte';
 
   let answers = $state<Record<string, boolean>>({});
   let result = $state<QuickCheckResult | null>(null);
@@ -58,24 +57,29 @@
   />
 </svelte:head>
 
-<h1>Cek cepat</h1>
-<p class="lede">
-  Untuk pesan, telepon, atau situasi yang tidak punya tautan atau gambar. Enam
-  pertanyaan, tanpa mengirim data ke mana pun.
-</p>
+<section class="head">
+  <p class="eyebrow">Tanpa tautan</p>
+  <h1 class="h1">Cek cepat</h1>
+  <p class="lede">
+    Untuk pesan, telepon, atau situasi yang tidak punya tautan atau gambar. Enam
+    pertanyaan, tanpa mengirim data ke mana pun.
+  </p>
+</section>
 
 <section class="questions no-print" aria-labelledby="questions-title">
-  <h2 id="questions-title">Jawab sejujur mungkin</h2>
-  <p class="hint">
-    Pilih “Ya” atau “Tidak”. Hasil muncul setelah pertanyaan terakhir dijawab.
-  </p>
+  <h2 class="h2" id="questions-title">Jawab sejujur mungkin</h2>
+  <p class="hint">Pilih “Ya” atau “Tidak”. Hasil muncul setelah pertanyaan terakhir dijawab.</p>
 
   {#each quickCheckQuestions as question, i (question.id)}
-    <fieldset>
-      <legend><span class="num" aria-hidden="true">{i + 1}</span>{question.text}</legend>
+    <div class="q" role="group" aria-labelledby={`qc-label-${question.id}`}>
+      <p class="q-legend" id={`qc-label-${question.id}`}>
+        <span class="q-num" aria-hidden="true">{i + 1}</span>
+        {question.text}
+      </p>
       <div class="choices">
         <button
           type="button"
+          class="choice"
           class:selected={answers[question.id] === true}
           aria-pressed={answers[question.id] === true}
           onclick={() => choose(question.id, true)}
@@ -84,6 +88,7 @@
         </button>
         <button
           type="button"
+          class="choice"
           class:selected={answers[question.id] === false}
           aria-pressed={answers[question.id] === false}
           onclick={() => choose(question.id, false)}
@@ -91,7 +96,7 @@
           Tidak
         </button>
       </div>
-    </fieldset>
+    </div>
   {/each}
 
   {#if answered}
@@ -100,7 +105,8 @@
 </section>
 
 {#if result}
-  <Panel title="Hasil cek cepat">
+  <section class="result-panel card" aria-labelledby="result-title">
+    <h2 id="result-title" class="h2">Hasil cek cepat</h2>
     <div class="result" role="status" aria-live="polite">
       <p class="level" data-level={result.level}>{result.label}</p>
       <p class="summary">{result.summary}</p>
@@ -118,118 +124,183 @@
         dikirim ke server.
       </p>
       <Button variant="quiet" onclick={reset}>
-        <RefreshCw size={16} aria-hidden="true" /> Ulangi
+        <Icon name="refresh" size={18} /> Ulangi
       </Button>
     </div>
-  </Panel>
+  </section>
 {/if}
 
 <section class="family no-print" aria-labelledby="family-title">
-  <h2 id="family-title">Sandi Keluarga</h2>
-  <p class="lede">
-    Sepakati dua kata rahasia dengan keluarga. Saat ada yang mengaku sebagai
-    kerabat lewat nomor baru, minta sandi ini untuk memastikan.
-  </p>
+  <div class="family-panel card--soft">
+    <h2 class="h2" id="family-title">Sandi Keluarga</h2>
+    <p class="family-lede">
+      Sepakati dua kata rahasia dengan keluarga. Saat ada yang mengaku sebagai
+      kerabat lewat nomor baru, minta sandi ini untuk memastikan.
+    </p>
 
-  <div class="family-actions">
-    <Button onclick={makeCode}>
-      <KeyRound size={16} aria-hidden="true" /> Buat sandi
-    </Button>
+    <div class="family-actions">
+      <Button onclick={makeCode}>
+        <Icon name="lock" size={18} /> Buat sandi
+      </Button>
+      {#if code}
+        <Button variant="quiet" onclick={copyCode}>
+          <Icon name={copied ? 'check' : 'copy'} size={18} /> {copied ? 'Tersalin' : 'Salin'}
+        </Button>
+        <Button variant="quiet" onclick={printCard}>
+          <Icon name="print" size={18} /> Cetak kartu
+        </Button>
+      {/if}
+    </div>
+
     {#if code}
-      <Button variant="quiet" onclick={copyCode}>
-        {#if copied}<Check size={16} aria-hidden="true" /> Tersalin{:else}<Copy size={16} aria-hidden="true" /> Salin{/if}
-      </Button>
-      <Button variant="quiet" onclick={printCard}>
-        <Printer size={16} aria-hidden="true" /> Cetak kartu
-      </Button>
+      <div class="print-card" data-testid="family-card">
+        <p class="card-label">SANDI KELUARGA AMBA</p>
+        <p class="card-code">{code}</p>
+        <p class="card-copy">
+          Jangan berikan sandi ini lewat pesan. Saat ada yang mengaku keluarga
+          lewat nomor baru, telepon nomor lama dan minta sandi ini.
+        </p>
+        <p class="card-foot">Simpan di tempat yang hanya keluarga tahu.</p>
+      </div>
+      <p class="note no-print">
+        Sandi dibuat di perangkat Anda dengan pengacak aman. Tidak ada yang dikirim
+        atau disimpan di server.
+      </p>
     {/if}
   </div>
-
-  {#if code}
-    <div class="print-card" data-testid="family-card">
-      <p class="card-label">SANDI KELUARGA AMBA</p>
-      <p class="card-code">{code}</p>
-      <p class="card-copy">
-        Jangan berikan sandi ini lewat pesan. Saat ada yang mengaku keluarga
-        lewat nomor baru, telepon nomor lama dan minta sandi ini.
-      </p>
-      <p class="card-foot">Simpan di tempat yang hanya keluarga tahu.</p>
-    </div>
-    <p class="note no-print">
-      Sandi dibuat di perangkat Anda dengan pengacak aman. Tidak ada yang dikirim
-      atau disimpan di server.
-    </p>
-  {/if}
 </section>
 
 <style>
-  h1 { font-size: var(--text-3xl); margin: 0 0 var(--space-3); }
-  .lede { color: var(--text-2); max-width: var(--measure); margin: 0 0 var(--space-5); }
-  h2 { font-size: var(--text-2xl); margin: var(--space-7) 0 var(--space-3); }
-  h3 { font-size: var(--text-lg); margin: var(--space-5) 0 var(--space-2); }
-  .hint, .note { color: var(--text-2); font-size: var(--text-sm); max-width: var(--measure); }
-  .hint { margin: 0 0 var(--space-4); }
+  .head { max-width: 46rem; margin-bottom: var(--space-6); }
+  h1 { margin-bottom: var(--space-3); }
+  .hint, .note { color: var(--body-2); font-size: var(--text-sm); max-width: var(--measure); }
+  .hint { margin: var(--space-3) 0 var(--space-5); }
 
-  fieldset {
-    border: var(--border-width) solid var(--border);
-    border-radius: var(--radius-md);
-    padding: var(--space-4);
+  .q {
     margin: 0 0 var(--space-3);
+    padding: var(--space-4) var(--space-5);
+    background: var(--white);
+    border: var(--border-width) solid var(--ink);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-hard);
   }
-  legend { padding: 0 var(--space-2); font-weight: 600; max-width: var(--measure); }
-  .num {
-    display: inline-grid; place-items: center; width: 24px; height: 24px;
-    margin-right: var(--space-2);
-    border: var(--border-width) solid var(--border-strong); border-radius: 50%;
-    font-family: var(--font-mono); font-size: var(--text-xs); font-weight: 400;
+  .q-legend {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-3);
+    padding: 0;
+    margin: 0;
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 1.1em;
+    line-height: 1.35;
+    max-width: 46rem;
   }
-  .choices { display: flex; gap: var(--space-2); margin-top: var(--space-3); }
-  .choices button {
-    min-width: 88px; min-height: 44px; padding: 0 var(--space-4);
-    background: var(--surface-2); color: var(--text);
-    border: var(--border-width) solid var(--border-strong); border-radius: var(--radius-md);
-    font: inherit; cursor: pointer;
+  .q-num {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    flex: none;
+    background: var(--ink);
+    color: var(--lime);
+    border-radius: 10px;
+    font-size: 0.85em;
   }
-  .choices button:hover { background: var(--hover-overlay); }
-  .choices button.selected { background: var(--selected-bg); border-color: var(--accent); font-weight: 600; }
-  .choices button:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
-  .answered { color: var(--text-2); font-size: var(--text-sm); }
+  .choices { display: flex; gap: var(--space-2); margin-top: var(--space-4); }
+  .choice {
+    min-width: 96px;
+    min-height: 48px;
+    padding: 0 var(--space-5);
+    background: var(--white);
+    color: var(--ink);
+    border: var(--border-width) solid var(--ink);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-hard-xs);
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
+  }
+  .choice:hover { transform: translate(-2px, -2px); box-shadow: 5px 5px 0 var(--ink); }
+  .choice.selected { background: var(--indigo); color: var(--white); }
+  .choice:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
+  .answered { color: var(--body-2); font-weight: 700; font-size: var(--text-sm); }
 
-  .result { display: grid; gap: var(--space-2); justify-items: start; }
+  .result-panel { padding: clamp(1.25rem, 3vw, 2rem); margin-top: var(--space-5); }
+  .result { display: grid; gap: var(--space-3); justify-items: start; }
   .level {
-    margin: 0; padding: var(--space-1) var(--space-4);
-    border: var(--border-width) solid currentColor; border-radius: var(--radius-md);
-    font-family: var(--font-mono); font-size: var(--text-sm); font-weight: 600;
+    margin: 0;
+    padding: 6px 18px;
+    border: var(--border-width) solid var(--ink);
+    border-radius: var(--radius-pill);
+    box-shadow: var(--shadow-hard-xs);
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 1.15em;
+    color: var(--ink);
   }
-  .level[data-level='high'] { color: var(--err); }
-  .level[data-level='wary'] { color: var(--warn); }
-  .level[data-level='low'] { color: var(--ok); }
-  .summary { margin: 0; font-size: var(--text-lg); max-width: var(--measure); }
-  .override { margin: 0; color: var(--warn); font-size: var(--text-sm); max-width: var(--measure); }
+  .level[data-level='high'] { background: var(--coral); }
+  .level[data-level='wary'] { background: var(--yellow); }
+  .level[data-level='low'] { background: var(--lime); }
+  .summary {
+    margin: 0;
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: clamp(1.2rem, 2.6vw, 1.55rem);
+    line-height: 1.25;
+    max-width: 32ch;
+  }
+  .override { margin: 0; color: var(--err); font-weight: 700; font-size: var(--text-sm); max-width: var(--measure); }
+  .result h3 { font-size: 1.15em; margin: var(--space-2) 0 0; }
   .steps { margin: 0; padding-left: var(--space-5); display: grid; gap: var(--space-2); max-width: var(--measure); }
 
-  .family { border-top: var(--border-width) solid var(--border); margin-top: var(--space-7); }
-  .family-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-bottom: var(--space-4); }
+  .family { margin-top: var(--space-8); }
+  .family-panel {
+    padding: clamp(1.5rem, 4vw, 2.25rem);
+    border: var(--border-width) solid var(--ink);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-hard-lg);
+  }
+  .family-lede { margin: var(--space-3) 0 0; max-width: var(--measure); }
+  .family-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); margin: var(--space-5) 0 var(--space-4); }
 
   .print-card {
-    border: var(--border-width-strong) solid var(--border-strong);
-    border-radius: var(--radius-md);
-    padding: var(--space-5);
-    max-width: 28rem;
-    background: var(--surface);
+    margin-top: var(--space-4);
+    padding: var(--space-6);
+    max-width: 30rem;
+    background: var(--white);
+    border: var(--border-width-strong) solid var(--ink);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-hard);
   }
-  .card-label { margin: 0; font-family: var(--font-mono); font-size: var(--text-xs); letter-spacing: 0.08em; color: var(--text-2); }
-  .card-code { margin: var(--space-3) 0; font-family: var(--font-mono); font-size: var(--text-2xl); font-weight: 700; overflow-wrap: anywhere; }
+  .card-label {
+    margin: 0;
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: var(--text-xs);
+    letter-spacing: 0.1em;
+    color: var(--indigo-text);
+  }
+  .card-code {
+    margin: var(--space-3) 0;
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: clamp(1.5rem, 5vw, 2.25rem);
+    letter-spacing: 0.02em;
+    overflow-wrap: anywhere;
+  }
   .card-copy { margin: 0 0 var(--space-3); max-width: var(--measure); }
-  .card-foot { margin: 0; color: var(--text-3); font-size: var(--text-sm); }
+  .card-foot { margin: 0; color: var(--muted); font-size: var(--text-sm); }
 
   @media print {
     :global(.site-header), :global(.site-footer), :global(.skip-link) { display: none !important; }
     :global(body) { background: #fff; color: #000; }
     :global(main) { padding: 0; max-width: none; }
-    h1, .lede, .no-print { display: none !important; }
+    h1, .lede, .eyebrow, .no-print { display: none !important; }
     .family { border: 0; margin: 0; }
-    .print-card { border: 2px solid #000; background: #fff; color: #000; max-width: none; }
+    .family-panel { border: 0; box-shadow: none; padding: 0; }
+    .print-card { border: 3px solid #000; background: #fff; color: #000; max-width: none; box-shadow: none; }
     .card-label, .card-foot { color: #333; }
   }
 </style>

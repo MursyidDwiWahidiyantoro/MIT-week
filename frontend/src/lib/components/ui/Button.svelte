@@ -2,7 +2,7 @@
   import type { Snippet } from 'svelte';
 
   interface Props {
-    variant?: 'primary' | 'quiet' | 'danger';
+    variant?: 'primary' | 'quiet' | 'danger' | 'ink' | 'lime';
     size?: 'md' | 'lg';
     type?: 'button' | 'submit';
     disabled?: boolean;
@@ -24,7 +24,19 @@
   }: Props = $props();
 
   const inert = $derived(disabled || loading);
-  const classes = $derived(`btn btn-${variant} btn-${size}${loading ? ' is-loading' : ''}`);
+  const classes = $derived(
+    [
+      'btn',
+      variant === 'primary' ? 'btn--primary' : '',
+      variant === 'quiet' ? 'btn--quiet' : '',
+      variant === 'danger' ? 'btn--ink' : '',
+      variant === 'ink' ? 'btn--ink' : '',
+      variant === 'lime' ? 'btn--lime' : '',
+      size === 'lg' ? 'btn--lg' : ''
+    ]
+      .filter(Boolean)
+      .join(' ')
+  );
 </script>
 
 {#if href && !inert}
@@ -37,46 +49,14 @@
 {/if}
 
 <style>
-  .btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: var(--space-2);
-    min-height: 44px;
-    padding: 0 var(--space-5);
-    border-radius: var(--radius-md);
-    border: var(--border-width) solid transparent;
-    font: inherit;
-    font-weight: 600;
-    text-decoration: none;
-    cursor: pointer;
-    transition: background-color var(--dur-fast) var(--ease-out),
-      border-color var(--dur-fast) var(--ease-out),
-      transform var(--dur-fast) var(--ease-out);
+  .btn--quiet {
+    background: var(--white);
+    color: var(--ink);
   }
-  .btn-lg { min-height: 52px; padding: 0 var(--space-6); font-size: var(--text-lg); }
-
-  .btn-primary { background: var(--accent); color: #10161d; }
-  .btn-primary:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 88%, white); }
-  .btn-primary:active:not(:disabled) { transform: translateY(1px); }
-
-  .btn-quiet {
-    background: transparent;
-    color: var(--text);
-    border-color: var(--border-strong);
+  .btn--lg {
+    min-height: 62px;
+    padding: 0 var(--space-6);
+    font-size: 1.15em;
   }
-  .btn-quiet:hover:not(:disabled) { background: var(--hover-overlay); }
-
-  .btn-danger { background: var(--err); color: #14090a; }
-  .btn-danger:hover:not(:disabled) { background: color-mix(in srgb, var(--err) 88%, white); }
-
-  .btn:disabled {
-    opacity: var(--disabled-opacity);
-    cursor: not-allowed;
-  }
-  .btn.is-loading { cursor: progress; }
-  .btn:focus-visible {
-    outline: var(--focus-ring);
-    outline-offset: var(--focus-offset);
-  }
+  .btn[aria-busy='true'] { cursor: progress; }
 </style>

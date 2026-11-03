@@ -6,102 +6,53 @@
     { value: 'essential', title: 'Esensial', detail: 'Lebih tenang, teks lebih besar, gerak minimal.' }
   ];
 
-  let dialog: HTMLElement | null = $state(null);
-
-  /** Keeps Tab inside the picker while it is open. */
-  function onKeydown(e: KeyboardEvent): void {
-    if (e.key === 'Escape') {
-      e.preventDefault();
-      mode.dismiss();
-      return;
-    }
-    if (e.key !== 'Tab' || !dialog) return;
-    const focusable = Array.from(
-      dialog.querySelectorAll<HTMLElement>('button:not([disabled])')
-    );
-    if (focusable.length === 0) return;
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
-    if (e.shiftKey && document.activeElement === first) {
-      e.preventDefault();
-      last.focus();
-    } else if (!e.shiftKey && document.activeElement === last) {
-      e.preventDefault();
-      first.focus();
-    }
-  }
-
-  // Move focus into the picker so keyboard users are not stranded behind it.
-  $effect(() => {
-    dialog?.querySelector<HTMLElement>('button')?.focus();
-  });
+  /**
+   * This is an inline, non-modal choice sitting in the page flow, not a dialog.
+   * It must not trap Tab or grab focus on load: the hero is the first thing a
+   * visitor should meet, and a trap would make the rest of the page unreachable
+   * by keyboard. Dismissal is the explicit button below, which is in the tab
+   * order, so no key handler is needed.
+   */
 </script>
 
-<div
-  class="picker"
-  role="dialog"
-  aria-labelledby="mode-picker-title"
-  aria-modal="false"
-  tabindex="-1"
-  bind:this={dialog}
-  onkeydown={onKeydown}
->
+<section class="picker card" aria-labelledby="mode-picker-title">
   <h2 id="mode-picker-title">Pilih tampilan yang paling nyaman</h2>
-  <p>Keduanya menampilkan informasi dan fungsi yang sama.</p>
+  <p class="intro">Keduanya menampilkan informasi dan fungsi yang sama.</p>
   <div class="options">
     {#each options as option (option.value)}
-      <button type="button" onclick={() => mode.set(option.value)}>
+      <button class="option lift" type="button" onclick={() => mode.set(option.value)}>
         <strong>{option.title}</strong>
         <span>{option.detail}</span>
       </button>
     {/each}
   </div>
-  <button class="later" type="button" onclick={() => mode.dismiss()}>
+  <button class="later btn btn--quiet btn--sm" type="button" onclick={() => mode.dismiss()}>
     Pakai pengaturan saat ini
   </button>
-</div>
+</section>
 
 <style>
-  .picker {
-    border: var(--border-width) solid var(--border);
-    border-radius: var(--radius-lg);
-    background: var(--surface);
-    padding: var(--space-5);
-    max-width: 34rem;
-  }
-  h2 { margin: 0 0 var(--space-2); font-size: var(--text-xl); }
-  p { margin: 0 0 var(--space-4); color: var(--text-2); }
-  .options { display: grid; gap: var(--space-3); }
+  .picker { padding: clamp(1.25rem, 4vw, 1.75rem); max-width: 38rem; margin-top: var(--space-6); }
+  h2 { font-size: var(--text-xl); margin: 0 0 var(--space-2); }
+  .intro { margin: 0 0 var(--space-4); color: var(--body-2); }
+  .options { display: grid; gap: var(--space-3); margin-bottom: var(--space-4); }
   @media (min-width: 40rem) {
     .options { grid-template-columns: 1fr 1fr; }
   }
-  button {
+  .option {
     display: grid;
     gap: var(--space-1);
     text-align: left;
     min-height: 44px;
     padding: var(--space-4);
-    background: var(--surface-2);
-    color: var(--text);
-    border: var(--border-width) solid var(--border-strong);
+    background: var(--indigo-tint);
+    color: var(--ink);
+    border: var(--border-width) solid var(--ink);
     border-radius: var(--radius-md);
+    box-shadow: var(--shadow-hard-xs);
     font: inherit;
     cursor: pointer;
   }
-  button:hover { background: var(--hover-overlay); }
-  button:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
-  span { color: var(--text-2); font-size: var(--text-sm); }
-  .later {
-    margin-top: var(--space-4);
-    min-height: 44px;
-    padding: 0 var(--space-4);
-    background: transparent;
-    color: var(--text-2);
-    border: var(--border-width) solid var(--border);
-    border-radius: var(--radius-md);
-    font: inherit;
-    cursor: pointer;
-  }
-  .later:hover { color: var(--text); background: var(--hover-overlay); }
-  .later:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
+  .option strong { font-family: var(--font-display); font-size: 1.1em; }
+  .option span { color: var(--body-2); font-size: var(--text-sm); }
 </style>

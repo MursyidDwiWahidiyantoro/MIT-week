@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { ShieldCheck, AlertTriangle, AlertOctagon, HelpCircle } from '@lucide/svelte';
+  import Icon, { type IconName } from './Icon.svelte';
   import type { Status } from '$lib/api/types';
   import { statusLabel } from '$lib/format';
 
@@ -10,19 +10,20 @@
 
   let { status, score = null }: Props = $props();
 
-  // Status is never conveyed by colour alone: icon + text label always ship.
-  const TONES: Record<Status, { icon: typeof ShieldCheck; tone: string }> = {
-    SAFE: { icon: ShieldCheck, tone: 'ok' },
-    SUSPICIOUS: { icon: AlertTriangle, tone: 'warn' },
-    TAMPERED: { icon: AlertOctagon, tone: 'err' },
-    INSUFFICIENT: { icon: HelpCircle, tone: 'neutral' }
+  /* Status is never conveyed by colour alone: icon + text label always ship.
+   * Tones are the saturated sticker fills, with ink text for AA contrast. */
+  const TONES: Record<Status, { icon: IconName; tone: string }> = {
+    SAFE: { icon: 'shield-check', tone: 'tone--safe' },
+    SUSPICIOUS: { icon: 'alert', tone: 'tone--warn' },
+    TAMPERED: { icon: 'alert', tone: 'tone--danger' },
+    INSUFFICIENT: { icon: 'chat', tone: 'tone--neutral' }
   };
   const config = $derived(TONES[status]);
 </script>
 
 <p class="badge {config.tone}">
-  <span class="icon" aria-hidden="true"><config.icon size={18} /></span>
-  <span>{statusLabel(status)}</span>
+  <span class="icon" aria-hidden="true"><Icon name={config.icon} size={20} /></span>
+  <span class="label">{statusLabel(status)}</span>
   {#if score !== null}
     <span class="score">Skor risiko {score} dari 100</span>
   {/if}
@@ -35,21 +36,24 @@
     gap: var(--space-2);
     flex-wrap: wrap;
     margin: 0;
-    padding: var(--space-2) var(--space-3);
-    border-radius: var(--radius-md);
-    border: var(--border-width) solid currentColor;
-    font-weight: 600;
-    font-size: var(--text-sm);
+    padding: 6px 14px;
+    border: var(--border-width) solid var(--ink);
+    border-radius: var(--radius-pill);
+    box-shadow: var(--shadow-hard-xs);
+    color: var(--ink);
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: var(--text-base);
+    line-height: 1.25;
   }
   .icon { display: inline-flex; }
-  .ok { color: var(--ok); }
-  .warn { color: var(--warn); }
-  .err { color: var(--err); }
-  .neutral { color: var(--text-2); }
+  .tone--safe { background: var(--lime); }
+  .tone--warn { background: var(--yellow); }
+  .tone--danger { background: var(--coral); }
+  .tone--neutral { background: var(--indigo-soft); }
   .score {
-    color: var(--text-2);
-    font-weight: 400;
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
+    font-family: var(--font-sans);
+    font-weight: 700;
+    font-size: var(--text-sm);
   }
 </style>

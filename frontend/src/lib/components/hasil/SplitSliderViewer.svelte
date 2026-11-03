@@ -105,9 +105,12 @@
   <ul class="anomalies">
     {#each boxes as box, i (i)}
       <li>
-        <strong>Area {i + 1}</strong>
-        {#if box.text}<span class="quote">“{box.text}”</span>{/if}
-        {#if box.reason}<span class="reason">{box.reason}</span>{/if}
+        <span class="anomaly-num" aria-hidden="true">{i + 1}</span>
+        <span>
+          <strong>Area {i + 1}</strong>
+          {#if box.text}<span class="quote">“{box.text}”</span>{/if}
+          {#if box.reason}<span class="reason">{box.reason}</span>{/if}
+        </span>
       </li>
     {/each}
   </ul>
@@ -116,20 +119,38 @@
 <style>
   .viewer { display: grid; gap: var(--space-3); }
   .tabs {
-    display: inline-flex; gap: var(--space-1); padding: var(--space-1);
-    border: var(--border-width) solid var(--border); border-radius: var(--radius-md);
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
     justify-self: start;
+    padding: var(--space-1);
+    background: var(--white);
+    border: var(--border-width) solid var(--ink);
+    border-radius: var(--radius-md);
   }
   .tabs button {
-    min-height: 36px; padding: 0 var(--space-3); background: transparent; color: var(--text-2);
-    border: 0; border-radius: var(--radius-sm); font: inherit; font-size: var(--text-sm); cursor: pointer;
+    min-height: 44px;
+    padding: 0 var(--space-4);
+    background: var(--white);
+    color: var(--ink);
+    border: 0;
+    border-radius: 11px;
+    font: inherit;
+    font-weight: 700;
+    font-size: var(--text-sm);
+    cursor: pointer;
   }
-  .tabs button[aria-selected='true'] { background: var(--selected-bg); color: var(--text); font-weight: 600; }
+  .tabs button:hover { background: var(--indigo-tint); }
+  .tabs button[aria-selected='true'] { background: var(--ink); color: var(--lime); }
   .tabs button:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
 
   .stage {
-    position: relative; line-height: 0;
-    border-radius: var(--radius-md); overflow: hidden; background: var(--surface-2);
+    position: relative;
+    line-height: 0;
+    border: var(--border-width) solid var(--ink);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    background: var(--paper);
   }
   .base { width: 100%; height: auto; display: block; }
   .fill { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; }
@@ -138,16 +159,43 @@
   .boxes { position: absolute; inset: 0; pointer-events: none; }
   .box {
     position: absolute;
-    border: 2px solid var(--err);
-    border-radius: 2px;
-    box-shadow: 0 0 0 1px rgb(0 0 0 / 0.4);
+    border: 3px solid var(--coral);
+    border-radius: 4px;
+    box-shadow: 0 0 0 2px var(--ink);
   }
-  .handle { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--accent); transform: translateX(-1px); }
+  .handle {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: var(--ink);
+    transform: translateX(-2px);
+  }
 
-  input[type='range'] { width: 100%; min-height: 44px; accent-color: var(--accent); }
+  input[type='range'] { width: 100%; min-height: 44px; accent-color: var(--indigo); }
   input[type='range']:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
 
-  .anomalies { list-style: none; margin: var(--space-3) 0 0; padding: 0; display: grid; gap: var(--space-2); }
-  .anomalies li { display: flex; flex-wrap: wrap; gap: var(--space-2); font-size: var(--text-sm); color: var(--text-2); }
-  .quote { color: var(--text); }
+  .anomalies {
+    list-style: none;
+    margin: var(--space-4) 0 0;
+    padding: 0;
+    display: grid;
+    gap: var(--space-3);
+  }
+  .anomalies li { display: flex; align-items: flex-start; gap: var(--space-3); font-size: var(--text-base); }
+  .anomaly-num {
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    flex: none;
+    background: var(--coral);
+    border: 2px solid var(--ink);
+    border-radius: 50%;
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: var(--text-sm);
+  }
+  .quote { display: block; color: var(--body-2); }
+  .reason { display: block; color: var(--muted); font-size: var(--text-sm); }
 </style>

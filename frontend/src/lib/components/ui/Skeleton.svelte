@@ -13,21 +13,20 @@
 </div>
 
 <style>
-  .skeleton {
-    display: grid;
-    gap: var(--space-2);
-  }
+  .skeleton { display: grid; gap: var(--space-2); }
   .skeleton span {
     display: block;
     border-radius: var(--radius-sm);
-    background: var(--surface-2);
+    background: var(--indigo-soft);
+    border: 2px dashed var(--ink);
     animation: pulse var(--dur-slow) var(--ease-in-out) infinite alternate;
   }
   @keyframes pulse {
-    from { opacity: 0.55; }
+    from { opacity: 0.5; }
     to { opacity: 1; }
   }
   @media (prefers-reduced-motion: reduce) {
-    .skeleton span { animation: none; opacity: 0.7; }
+    .skeleton span { animation: none; opacity: 0.75; }
   }
+  :global(html[data-motion='calm']) .skeleton span { animation: none; opacity: 0.75; }
 </style>

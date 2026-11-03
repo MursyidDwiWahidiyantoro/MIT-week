@@ -1,134 +1,197 @@
 <script lang="ts">
   import { resolve } from '$app/paths';
-  import { ArrowRight, ShieldCheck, Link2, Image, MessageSquare } from '@lucide/svelte';
-  import Button from '$lib/components/ui/Button.svelte';
-  import Panel from '$lib/components/ui/Panel.svelte';
+  import Icon from '$lib/components/ui/Icon.svelte';
+  import ScannerCard from '$lib/components/home/ScannerCard.svelte';
+  import HowItWorks from '$lib/components/home/HowItWorks.svelte';
+  import ScamSchool from '$lib/components/home/ScamSchool.svelte';
+  import MadeForEveryone from '$lib/components/home/MadeForEveryone.svelte';
+  import ModePicker from '$lib/components/mode/ModePicker.svelte';
+  import { mode } from '$lib/mode.svelte';
 
-  let link = $state('');
-
-  function go(): void {
-    const value = link.trim();
-    window.location.href = value
-      ? `${resolve('/deteksi')}?q=${encodeURIComponent(value)}`
-      : resolve('/deteksi');
-  }
-
-  const kinds = [
-    { icon: Link2, title: 'Tautan', detail: 'Tempel alamat situs yang mengirim pesan mencurigakan.' },
-    { icon: Image, title: 'Tangkapan layar', detail: 'Unggah gambar percakapan atau unggahan.' },
-    { icon: MessageSquare, title: 'Teks pesan', detail: 'Salin isi pesan berantai yang Anda terima.' }
-  ];
-
-  const steps = [
-    { title: 'Masukkan konten', detail: 'Tempel tautan, unggah gambar, atau salin teks.' },
-    { title: 'AMBA memeriksa', detail: 'Beberapa pemeriksaan berjalan bersamaan dan hasilnya muncul bertahap.' },
-    { title: 'Baca hasilnya', detail: 'Lihat tanda bahaya, batas pemeriksaan, dan langkah berikutnya.' }
-  ];
+  const TRUST = ['Tanpa jargon', 'Huruf bisa diperbesar', 'Aman untuk seisi rumah'];
 </script>
 
 <svelte:head>
   <title>AMBA — Periksa sebelum percaya</title>
-  <meta name="description" content="Periksa tautan, tangkapan layar, dan pesan yang mencurigakan. Hasilnya indikatif, bukan bukti pasti." />
+  <meta
+    name="description"
+    content="Tempel tautan, pesan, atau nomor telepon. AMBA memeriksanya dalam hitungan detik dan menjelaskan alasannya dengan kata-kata sederhana."
+  />
 </svelte:head>
 
-<section class="hero">
-  <p class="mono-label">ALAT BANTU LITERASI DIGITAL</p>
-  <h1>Periksa dulu sebelum menyebarkan.</h1>
-  <p class="lede">
-    Tempel tautan, unggah tangkapan layar, atau salin pesan. AMBA menunjukkan
-    tanda-tanda yang perlu Anda waspadai — bukan menghakimi.
-  </p>
+<section class="hero" id="top">
+  <span class="blob blob--lime" aria-hidden="true"></span>
+  <span class="blob blob--soft" aria-hidden="true"></span>
 
-  <form class="instant" onsubmit={(e) => { e.preventDefault(); go(); }}>
-    <label class="sr-only" for="hero-link">Tautan yang ingin diperiksa</label>
-    <input id="hero-link" type="url" bind:value={link} placeholder="https://contoh.com/artikel" />
-    <Button type="submit" size="lg">
-      Mulai periksa
-      <span class="icon" aria-hidden="true"><ArrowRight size={16} /></span>
-    </Button>
-  </form>
+  <div class="hero-grid">
+    <div class="hero-copy">
+      <p class="pill pill--lime">
+        <Icon name="sparkle" size={14} />
+        Pemindai scam AI + sekolah scam gratis
+      </p>
 
-  <p class="note">
-    <ShieldCheck size={16} aria-hidden="true" />
-    Kami tidak menyimpan tautan, teks, atau gambar Anda.
-  </p>
+      <h1 class="h1">
+        Kenali scam <span class="mark">sebelum</span> kena.
+      </h1>
+
+      <p class="lede">
+        Tempel pesan, tautan, atau nomor telepon. Pemeriksaan berjalan dalam hitungan
+        detik, dan alasannya dijelaskan dengan kata-kata sederhana. Semakin sering
+        dipakai, semakin peka Anda.
+      </p>
+
+      <div class="cta-row">
+        <a class="btn btn--primary" href="#scan">
+          Periksa sekarang
+          <Icon name="arrow-right" size={20} />
+        </a>
+        <a class="btn btn--quiet" href="#learn">Ambil satu pelajaran</a>
+      </div>
+
+      <ul class="trust">
+        {#each TRUST as item (item)}
+          <li>
+            <span class="tick" aria-hidden="true"><Icon name="check" size={16} /></span>
+            {item}
+          </li>
+        {/each}
+      </ul>
+    </div>
+
+    <div class="hero-scan">
+      <ScannerCard />
+    </div>
+  </div>
 </section>
 
-<section class="kinds" aria-labelledby="kinds-title">
-  <h2 id="kinds-title">Tiga hal yang bisa diperiksa</h2>
-  <div class="grid">
-    {#each kinds as kind (kind.title)}
-      <Panel>
-        <span class="kind-icon" aria-hidden="true"><kind.icon size={20} /></span>
-        <h3>{kind.title}</h3>
-        <p>{kind.detail}</p>
-      </Panel>
+{#if mode.needsPicker}
+  <ModePicker />
+{/if}
+
+<section class="marquee" aria-label="Jenis scam yang bisa dikenali">
+  <div class="marquee__track">
+    {#each [0, 1] as copy (copy)}
+      <div class="marquee__group" aria-hidden={copy === 1 ? 'true' : undefined}>
+        {#each ['Hadiah palsu', 'Phishing bank', 'Paket tertahan', 'Romansa online', 'Lowongan palsu', 'Investasi bodong', 'Penyamaran', 'Tagihan palsu'] as item (item)}
+          <span class="marquee__item">{item}<Icon name="sparkle" size={20} /></span>
+        {/each}
+      </div>
     {/each}
   </div>
 </section>
 
-<section class="quick" aria-labelledby="quick-title">
-  <h2 id="quick-title">Tidak ada tautan atau gambar?</h2>
-  <Panel>
-    <p>
-      Untuk telepon, pesan langsung, atau situasi yang tidak punya tautan,
-      jawab enam pertanyaan singkat. Tidak ada data yang dikirim.
-    </p>
-    <Button href={resolve('/cek-cepat')}>Coba Cek Cepat</Button>
-  </Panel>
-</section>
+<HowItWorks />
+<ScamSchool />
+<MadeForEveryone />
 
-<section class="steps" aria-labelledby="steps-title">
-  <h2 id="steps-title">Cara kerjanya</h2>
-  <ol>
-    {#each steps as step, i (step.title)}
-      <li>
-        <span class="num" aria-hidden="true">{i + 1}</span>
-        <h3>{step.title}</h3>
-        <p>{step.detail}</p>
-      </li>
-    {/each}
-  </ol>
+<section class="family section" id="family">
+  <div class="family-panel card--indigo">
+    <span class="blob blob--lime" aria-hidden="true"></span>
+    <span class="blob blob--yellow" aria-hidden="true"></span>
+    <div class="family-body">
+      <h2 class="h2">Ada pesan aneh masuk sekarang?</h2>
+      <p class="family-lede">
+        Periksa dulu, baru teruskan. Setelah itu kirim panduan keluarga ke orang yang
+        Anda sayangi, supaya satu grup tetap selangkah lebih aman.
+      </p>
+      <div class="cta-row">
+        <a class="btn btn--lime" href={resolve('/deteksi')}>Periksa gratis</a>
+        <a class="btn btn--quiet" href={resolve('/cek-cepat')}>Buka panduan keluarga</a>
+      </div>
+    </div>
+  </div>
 </section>
 
 <style>
-  .hero { max-width: 46rem; padding-block: var(--space-8); }
-  h1 {
-    font-size: clamp(2.25rem, 6vw, var(--text-display));
-    letter-spacing: -0.02em;
-    margin: var(--space-3) 0 var(--space-5);
-    max-width: 18ch;
+  .hero {
+    position: relative;
+    overflow: hidden;
+    padding-block: clamp(1.5rem, 4vw, 2.5rem) clamp(3rem, 7vw, 5rem);
   }
-  .lede { font-size: var(--text-lg); color: var(--text-2); max-width: var(--measure); margin: 0 0 var(--space-6); }
-
-  .instant { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: stretch; }
-  .instant input {
-    flex: 1 1 20rem; min-height: 52px; padding: 0 var(--space-4);
-    background: var(--surface-2); color: var(--text);
-    border: var(--border-width) solid var(--border-strong);
-    border-radius: var(--radius-md); font: inherit;
+  .blob { z-index: 0; }
+  .blob--lime {
+    width: 440px;
+    height: 440px;
+    background: var(--lime);
+    right: -140px;
+    top: -90px;
   }
-  .instant input:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
-  .icon { display: grid; place-items: center; width: 24px; height: 24px; }
-
-  .note { display: flex; align-items: center; gap: var(--space-2); margin-top: var(--space-6); color: var(--text-3); font-size: var(--text-sm); }
-
-  .quick { padding-block: var(--space-7); border-top: var(--border-width) solid var(--border); }
-  .quick p { margin: 0 0 var(--space-4); color: var(--text-2); max-width: var(--measure); }
-  .kinds, .steps { padding-block: var(--space-7); border-top: var(--border-width) solid var(--border); }
-  h2 { font-size: var(--text-2xl); margin: 0 0 var(--space-5); }
-  .grid { display: grid; gap: var(--space-4); }
-  @media (min-width: 48rem) { .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-  .kind-icon { color: var(--accent); display: inline-flex; margin-bottom: var(--space-3); }
-  h3 { font-size: var(--text-lg); margin: 0 0 var(--space-2); }
-  .grid p, .steps p { margin: 0; color: var(--text-2); font-size: var(--text-sm); }
-
-  ol { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-5); }
-  @media (min-width: 48rem) { ol { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-  .num {
-    display: grid; place-items: center; width: 32px; height: 32px; margin-bottom: var(--space-3);
-    border: var(--border-width) solid var(--border-strong); border-radius: 50%;
-    font-family: var(--font-mono); font-size: var(--text-sm);
+  .blob--soft {
+    width: 300px;
+    height: 300px;
+    background: var(--indigo-soft);
+    left: -110px;
+    bottom: -80px;
   }
-  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .hero-grid {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: clamp(2rem, 5vw, 3.5rem);
+  }
+  .hero-copy { flex: 1 1 460px; min-width: 0; }
+  .hero-scan { flex: 1 1 420px; min-width: 0; }
+
+  .pill--lime { background: var(--lime); }
+  h1 { margin: var(--space-4) 0 var(--space-5); max-width: 15ch; }
+  .mark {
+    display: inline-block;
+    padding: 0 10px;
+    background: var(--lime);
+    border: var(--border-width) solid var(--ink);
+    border-radius: 12px;
+    transform: rotate(-1.5deg);
+  }
+  .cta-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-4);
+    margin-top: var(--space-6);
+  }
+  .trust {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3) var(--space-5);
+    margin: var(--space-6) 0 0;
+    padding: 0;
+    list-style: none;
+    font-weight: 700;
+    font-size: 0.95em;
+  }
+  .trust li { display: inline-flex; align-items: center; gap: var(--space-2); }
+  .tick {
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    background: var(--ink);
+    color: var(--lime);
+    border-radius: 50%;
+    flex: none;
+  }
+
+  .family-panel {
+    position: relative;
+    overflow: hidden;
+    padding: clamp(2rem, 5vw, 3.25rem);
+    border: var(--border-width) solid var(--ink);
+    border-radius: var(--radius-xl);
+  }
+  .family-panel .blob--lime { width: 240px; height: 240px; right: -70px; top: -70px; }
+  .family-panel .blob--yellow { width: 120px; height: 120px; right: 120px; bottom: -60px; }
+  .family-body { position: relative; z-index: 1; max-width: 44rem; }
+  .family-lede {
+    margin: var(--space-4) 0 0;
+    color: var(--on-indigo-text);
+    font-size: 1.2em;
+    max-width: 34em;
+  }
+  .family-panel :global(.btn--quiet) { color: var(--ink); }
+
+  @media (max-width: 40rem) {
+    .blob--lime { width: 260px; height: 260px; right: -120px; top: -80px; }
+    .blob--soft { width: 180px; height: 180px; }
+  }
 </style>

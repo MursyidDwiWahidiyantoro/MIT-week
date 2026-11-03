@@ -34,6 +34,7 @@
     <p class="hint" id={`${id}-hint`}>{hint}</p>
   {/if}
   <input
+    class="input"
     {id}
     {type}
     {placeholder}
@@ -44,27 +45,10 @@
     oninput={(e) => oninput?.(e.currentTarget.value)}
   />
   {#if error}
-    <p class="error" id={`${id}-error`} role="alert">{error}</p>
+    <p class="error-text" id={`${id}-error`} role="alert">{error}</p>
   {/if}
 </div>
 
 <style>
-  .field { display: grid; gap: var(--space-2); }
-  label { font-weight: 600; font-size: var(--text-sm); }
-  .hint { margin: 0; color: var(--text-2); font-size: var(--text-sm); }
-  input {
-    min-height: 44px;
-    padding: 0 var(--space-3);
-    background: var(--surface-2);
-    color: var(--text);
-    border: var(--border-width) solid var(--border-strong);
-    border-radius: var(--radius-md);
-    font: inherit;
-  }
-  input:focus-visible {
-    outline: var(--focus-ring);
-    outline-offset: var(--focus-offset);
-  }
-  input[aria-invalid='true'] { border-color: var(--err); }
-  .error { margin: 0; color: var(--err); font-size: var(--text-sm); }
+  .hint { margin: 0; color: var(--muted); font-size: var(--text-sm); }
 </style>

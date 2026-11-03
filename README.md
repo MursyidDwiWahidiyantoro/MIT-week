@@ -27,53 +27,210 @@ pillar signals and applies the floors from TECH_SPEC §3.3.
 
 ## Menjalankan
 
-### Cara Cepat (Docker — Rekomendasi Tim)
+Ada tiga cara. Pilih satu sesuai kebutuhan.
 
-Semua dependensi terisolasi, siap jalan di Linux, macOS (Apple Silicon / Intel), dan Windows (WSL2):
+| Cara | Perintah | Dipakai untuk |
+|---|---|---|
+| **Docker** | `make up` | Demo ke juri, atau cek cepat tanpa setup |
+| **Manual** (dua terminal) | `go run` + `npm run dev` | Kerja harian backend / frontend |
+| **Preview produksi** | `npm run build` + `npm run preview` | Melihat hasil akhir sebelum demo |
+
+---
+
+### 1. Docker — paling cepat, paling aman untuk demo
 
 ```bash
-# 1. Jalankan stack demo / production-like (Web di http://localhost, API di http://localhost:8080)
-docker compose up --build
-# Atau menggunakan Makefile:
-make up
-
-# 2. Mode development dengan hot-reload (Go Air :8080 + SvelteKit Vite :5173)
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
-# Atau:
-make dev
-
-# 3. Hentikan container
-docker compose down
-# Atau:
-make down
+cd /home/riko/Projects/AMBA
+make up                 # atau: docker compose up --build
 ```
 
-Port frontend dapat diatur melalui variabel lingkungan `FRONTEND_PORT` (default: 80, ganti ke 3000 bila port 80 terpakai).
+- Aplikasi: **http://localhost** (port 80)
+- API: **http://localhost:8080**
+- Hentikan: `make down`
 
-### Cara Manual (Tanpa Docker)
+Ini stack **sungguhan**: nginx menyajikan SPA hasil build dan mem-proxy `/api/`
+ke Go. Tidak ada mock.
+
+Kalau port 80 sudah terpakai:
 
 ```bash
-# backend
-cd backend
-cp ../.env.example ../.env
-go run ./cmd/server            # http://localhost:8080
-curl localhost:8080/healthz
+FRONTEND_PORT=3000 make up      # aplikasi pindah ke http://localhost:3000
+```
 
-# frontend
+Mode hot-reload (Go Air + Vite di dalam container):
+
+```bash
+make dev                        # API :8080, web :5173
+```
+
+---
+
+### 2. Manual — dua terminal
+
+**Terminal 1, backend:**
+
+```bash
+cd backend
+go run ./cmd/server             # http://localhost:8080
+curl localhost:8080/healthz     # {"status":"ok"}
+```
+
+`LLM_MOCK=true` adalah default, jadi **tidak perlu kredensial model** untuk
+mencoba semuanya.
+
+> **Backend tidak membaca file `.env`.** Tidak ada `godotenv` di `go.mod`;
+> config hanya memakai `os.Getenv`, jadi `cp .env.example .env` **tidak
+> berpengaruh**. Default sudah aman. Untuk mengubah variabel, ekspor di shell:
+>
+> ```bash
+> SERVER_PORT=18080 go run ./cmd/server
+> ```
+
+**Terminal 2, frontend:**
+
+```bash
 cd frontend
 npm install
-npm run dev                    # http://localhost:5173
+npm run dev                     # http://localhost:5173
 ```
 
-`LLM_MOCK=true` is the default, so no model credentials are needed.
+> **Kalau port 5173 sudah dipakai proyek lain** (umum di mesin dev), pilih port
+> lain. CORS backend menerima origin `localhost` mana pun, jadi tidak perlu
+> setting tambahan:
+>
+> ```bash
+> npm run dev -- --port 5199 --strictPort
+> ```
 
-## Pemeriksaan
+#### Penting: `npm run dev` memakai **mode mock**
+
+Tanpa variabel tambahan, `vite dev` menjalankan `VITE_API_MODE=mock`
+(lihat `src/lib/api/config.ts`). Artinya seluruh UI berjalan dari data contoh
+di dalam bundle, dan muncul banner kuning **“Mode pratinjau”**.
+
+Ini disengaja: kerja frontend tidak boleh tergantung backend hidup. Tapi
+artinya **`npm run dev` biasa tidak memanggil Go sama sekali** — jangan pakai
+ini untuk demo atau untuk menguji kontrak API.
+
+Untuk memakai backend sungguhan, set dua variabel sekaligus:
 
 ```bash
-cd backend  && go test -race ./... && go vet ./...
+VITE_API_MODE=http VITE_API_BASE_URL=http://localhost:8080/api/v1 \
+  npm run dev -- --port 5199
+```
+
+Cara memastikan sudah benar:
+
+- Banner kuning “Mode pratinjau” **hilang**.
+- Di DevTools → Network ada `POST http://localhost:8080/api/v1/audit/text`
+  saat menekan **Mulai periksa**.
+- Halaman `/hasil` **tidak** menampilkan pita merah “CONTOH / SIMULASI”.
+
+Kalau ketiganya terpenuhi, hasilnya datang dari Go, bukan dari mock.
+
+---
+
+### 3. Preview build produksi
+
+Untuk melihat hasil akhir persis seperti yang akan dinilai (bundle, CSP, dan
+aspek statis lainnya):
+
+```bash
+cd frontend
+npm run build
+npm run preview -- --port 4400
+```
+
+Buka **http://localhost:4400**.
+
+Build produksi default-nya `VITE_API_MODE=http`, jadi ia memang mencari backend
+di `:8080`. Untuk preview **tanpa** backend:
+
+```bash
+VITE_API_MODE=mock npm run build && npm run preview -- --port 4400
+```
+
+Yang perlu dicek di preview:
+
+- Semua halaman terbuka: `/`, `/deteksi`, `/hasil`, `/edukasi`, `/cek-cepat`,
+  `/tentang`, dan satu URL ngawur untuk melihat 404.
+- Tidak ada scroll horizontal di 360px, 390px, 768px, 1280px.
+- Toggle **A / A+ / A++** memperbesar seluruh halaman dan tersimpan setelah reload.
+- Toggle **Jelajah / Esensial**: Esensial menjadi satu kolom dan tanpa animasi.
+- Tab / Shift+Tab: skip link **“Langsung ke isi utama”** muncul pertama, setiap
+  perhentian punya ring fokus hitam 4px.
+- Tab **Pesan / Tautan / Telepon** di kartu hero mengganti teks contoh, meter
+  risiko, dan tiga tanda bahaya.
+- Kuis “Asli atau scam?” memberi umpan balik lalu bisa diulang.
+
+---
+
+## Tes & pemeriksaan
+
+### Pemeriksaan statis (wajib lulus sebelum commit)
+
+```bash
+cd backend  && go vet ./... && go test -race ./...
 cd frontend && npm run typecheck && npm run lint && npm run test
 cd frontend && npm run build && npm run size && npm run contrast
 ```
+
+| Perintah | Menjaga apa |
+|---|---|
+| `npm run typecheck` | Svelte + TypeScript, 0 error / 0 warning |
+| `npm run lint` | ESLint, termasuk aturan a11y Svelte |
+| `npm run test` | 56 unit test (Vitest + jsdom) |
+| `npm run contrast` | 41 pasang warna ≥ 4.5:1, dibaca langsung dari `tokens.css` |
+| `npm run size` | JS awal ≤ 250 KB gzip |
+
+### End-to-end (membuktikan backend sungguhan)
+
+```bash
+cd frontend
+npx playwright test
+```
+
+Tes ini **menyalakan sendiri** Go (`LLM_MOCK=true`, port 8080) dan preview build
+(port 4173), lalu menjalankan 8 skenario: audit teks sampai `/hasil`, keempat
+pilar, demo offline tanpa panggilan API, unggah gambar sampai slider ELA,
+token yang diubah, rate limit, dan error server.
+
+Butuh Chromium sekali saja:
+
+```bash
+npx playwright install chromium
+```
+
+### Audit tampilan (aksesibilitas, keyboard, performa)
+
+Hasil akhir desain diverifikasi di browser sungguhan, bukan dari kode:
+
+| Yang diukur | Target | Hasil terakhir |
+|---|---|---|
+| axe WCAG 2.1 AA | 0 pelanggaran | 0 di 7 permukaan |
+| Ring fokus | semua perhentian terlihat | 14/14 |
+| Target sentuh | ≥ 44px | 0 di bawah 44px |
+| Hover target utama | bergerak, bukan cuma ganti warna | semua bergerak |
+| LCP / CLS (mobile) | < 2.5 s / < 0.05 | 464 ms / 0 |
+| Scroll horizontal | 0 di 360–1280px | 0 |
+
+Catatan desain lengkap ada di [`docs/DESIGN-SYSTEM.md`](docs/DESIGN-SYSTEM.md),
+riwayat pengerjaan dan daftar bug yang ditemukan ada di
+[`docs/PROGRESS.md`](docs/PROGRESS.md).
+
+---
+
+## Kalau ada masalah
+
+| Gejala | Sebab | Solusi |
+|---|---|---|
+| Banner “Mode pratinjau” tidak hilang | masih mode mock | set `VITE_API_MODE=http` |
+| “Pemeriksaan terhenti” / gagal konek | backend belum jalan | `curl localhost:8080/healthz` |
+| `EADDRINUSE :5173` | port dipakai proyek lain | `npm run dev -- --port 5199 --strictPort` |
+| Halaman kosong setelah build | CSP memblokir bootstrap | jangan ubah `csp.mode` di `svelte.config.js` |
+| `/hasil` kosong setelah reload | memang tidak disimpan | ulangi pemeriksaan; hasil hanya ada di memori |
+| Port 80 terpakai (Docker) | ada web server lain | `FRONTEND_PORT=3000 make up` |
+
 
 ## Environment
 
@@ -89,6 +246,8 @@ cd frontend && npm run build && npm run size && npm run contrast
 | `MAX_UPLOAD_SIZE_MB` | `10` | |
 | `HARD_TIMEOUT_MS` | `12000` | past this, a degraded verdict or a 504 |
 | `CACHE_TTL_SECONDS` | `600` | in-memory verdict cache only |
+| `VITE_API_MODE` | `mock` saat `vite dev`, `http` saat build | `http` untuk memakai Go sungguhan |
+| `VITE_API_BASE_URL` | `http://localhost:8080/api/v1` | alamat API yang dipanggil browser |
 
 ## Prinsip
 
@@ -116,7 +275,16 @@ cd frontend && npm run build && npm run size && npm run contrast
 api/          OpenAPI contract + Dossier JSON Schema
 backend/      Go 1.24 + chi
 frontend/     SvelteKit 3 (Svelte 5, TS, Tailwind 3) SPA
+  src/lib/styles/tokens.css     satu-satunya sumber warna, tipe, bayangan
+  src/lib/components/home/      bagian-bagian beranda
+  src/lib/components/ui/Icon.svelte   set ikon stroke inline
 configs/      reply templates, trusted-source allowlist
-docs/         PROGRESS.md, DECISIONS.md
+docs/         PROGRESS.md, DECISIONS.md, DESIGN-SYSTEM.md
 instruction/  PRD, tech spec, design reference
 ```
+
+Dokumen desain:
+
+- `docs/waspada-design-spec.md` — spesifikasi visual sumber (neo-brutalist).
+- `docs/DESIGN-SYSTEM.md` — bagaimana spesifikasi itu diterapkan di app ini,
+  termasuk penyimpangan yang disengaja beserta alasannya.

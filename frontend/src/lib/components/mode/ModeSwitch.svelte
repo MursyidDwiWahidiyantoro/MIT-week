@@ -25,10 +25,11 @@
   .mode-switch {
     display: inline-flex;
     align-items: center;
-    gap: var(--space-1);
+    gap: 4px;
     margin: 0;
-    padding: var(--space-1);
-    border: var(--border-width) solid var(--border);
+    padding: 5px;
+    background: var(--white);
+    border: var(--border-width) solid var(--ink);
     border-radius: var(--radius-md);
   }
   legend {
@@ -39,24 +40,18 @@
     clip-path: inset(50%);
   }
   button {
-    min-height: 36px;
-    padding: 0 var(--space-3);
-    background: transparent;
-    color: var(--text-2);
+    min-height: 44px;
+    padding: 0 14px;
+    background: var(--white);
+    color: var(--ink);
     border: 0;
-    border-radius: var(--radius-sm);
-    font: inherit;
+    border-radius: 11px;
+    font-family: var(--font-display);
+    font-weight: 800;
     font-size: var(--text-sm);
     cursor: pointer;
   }
-  button:hover { background: var(--hover-overlay); color: var(--text); }
-  button.selected {
-    background: var(--selected-bg);
-    color: var(--text);
-    font-weight: 600;
-  }
-  button:focus-visible {
-    outline: var(--focus-ring);
-    outline-offset: var(--focus-offset);
-  }
+  button:hover { background: var(--indigo-tint); }
+  button.selected { background: var(--ink); color: var(--lime); }
+  button:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
 </style>

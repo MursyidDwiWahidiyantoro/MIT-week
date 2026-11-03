@@ -13,6 +13,7 @@
   import ReadAloud from '$lib/components/a11y/ReadAloud.svelte';
   import ElaViewer from '$lib/components/hasil/ElaViewer.svelte';
   import tacticLabels from '$lib/data/tactics.json';
+  import Icon from '$lib/components/ui/Icon.svelte';
   import type { DossierParsed } from '$lib/api/schemas';
 
   let live = $state<DossierParsed | null>(result.value);
@@ -65,68 +66,97 @@
 <svelte:head><title>Hasil pemeriksaan — AMBA</title></svelte:head>
 
 {#if checking}
-  <h1>Memeriksa laporan…</h1>
-  <p class="lede" aria-live="polite">Mencocokkan tautan ini dengan laporan yang ditandatangani AMBA.</p>
+  <section class="state">
+    <p class="eyebrow">Verifikasi</p>
+    <h1 class="h1">Memeriksa laporan…</h1>
+    <p class="lede" aria-live="polite">
+      Mencocokkan tautan ini dengan laporan yang ditandatangani AMBA.
+    </p>
+  </section>
 {:else if shared && !shared.valid && shared.reason === 'invalid'}
-  <h1>Laporan tidak sah</h1>
-  <p class="lede">
-    Tautan ini tidak dapat diverifikasi. Isinya mungkin sudah diubah, atau tautannya tidak lengkap.
-  </p>
-  <a class="cta" href={resolve('/deteksi')}>Periksa sendiri kontennya</a>
+  <section class="state">
+    <p class="eyebrow">Verifikasi</p>
+    <h1 class="h1">Laporan tidak sah</h1>
+    <p class="lede">
+      Tautan ini tidak dapat diverifikasi. Isinya mungkin sudah diubah, atau tautannya tidak lengkap.
+    </p>
+    <a class="btn btn--primary" href={resolve('/deteksi')}>Periksa sendiri kontennya</a>
+  </section>
 {:else if shared && !shared.valid && shared.reason === 'unreachable'}
-  <h1>Laporan belum bisa diperiksa</h1>
-  <p class="lede">
-    Server tidak dapat dihubungi, jadi laporan ini belum bisa dipastikan sah atau tidak.
-    Periksa koneksi Anda lalu buka tautannya lagi.
-  </p>
-  <a class="cta" href={resolve('/deteksi')}>Periksa sendiri kontennya</a>
+  <section class="state">
+    <p class="eyebrow">Verifikasi</p>
+    <h1 class="h1">Laporan belum bisa diperiksa</h1>
+    <p class="lede">
+      Server tidak dapat dihubungi, jadi laporan ini belum bisa dipastikan sah atau tidak.
+      Periksa koneksi Anda lalu buka tautannya lagi.
+    </p>
+    <a class="btn btn--primary" href={resolve('/deteksi')}>Periksa sendiri kontennya</a>
+  </section>
 {:else if shared && !shared.valid}
-  <h1>Laporan sedang tidak bisa diperiksa</h1>
-  <p class="lede">
-    Layanan verifikasi sedang sibuk atau bermasalah. Ini bukan tanda laporan Anda palsu.
-    {#if shared.reason === 'unavailable' && shared.retryAfter}
-      Coba lagi dalam {shared.retryAfter} detik.
-    {:else}
-      Coba lagi beberapa saat lagi.
-    {/if}
-  </p>
-  <button class="cta" type="button" onclick={() => window.location.reload()}>Coba lagi</button>
+  <section class="state">
+    <p class="eyebrow">Verifikasi</p>
+    <h1 class="h1">Laporan sedang tidak bisa diperiksa</h1>
+    <p class="lede">
+      Layanan verifikasi sedang sibuk atau bermasalah. Ini bukan tanda laporan Anda palsu.
+      {#if shared.reason === 'unavailable' && shared.retryAfter}
+        Coba lagi dalam {shared.retryAfter} detik.
+      {:else}
+        Coba lagi beberapa saat lagi.
+      {/if}
+    </p>
+    <button class="btn btn--primary" type="button" onclick={() => window.location.reload()}>Coba lagi</button>
+  </section>
 {:else if shared && shared.valid && shared.payload.preview}
-  <h1>Laporan contoh</h1>
-  <p class="verified preview" role="status">Mode pratinjau</p>
-  <p class="sentence">{shared.payload.title ?? statusLabel(shared.payload.status as never)}</p>
-  <p class="meta">Skor risiko: {formatScore(shared.payload.score)}</p>
-  <p class="note">
-    Laporan ini dibuat di perangkat Anda dari data contoh. Ini bukan laporan
-    yang ditandatangani server dan bukan hasil pemeriksaan sungguhan.
-  </p>
+  <section class="state">
+    <p class="eyebrow">Verifikasi</p>
+    <h1 class="h1">Laporan contoh</h1>
+    <p class="verified verified--preview" role="status">Mode pratinjau</p>
+    <p class="sentence">{shared.payload.title ?? statusLabel(shared.payload.status as never)}</p>
+    <p class="score-line">Skor risiko: {formatScore(shared.payload.score)}</p>
+    <p class="note">
+      Laporan ini dibuat di perangkat Anda dari data contoh. Ini bukan laporan
+      yang ditandatangani server dan bukan hasil pemeriksaan sungguhan.
+    </p>
+  </section>
 {:else if shared && shared.valid}
-  <h1>Laporan terverifikasi</h1>
-  <p class="verified" role="status">Terverifikasi AMBA</p>
-  <p class="sentence">{shared.payload.title ?? statusLabel(shared.payload.status as never)}</p>
-  <p class="meta">Skor risiko: {formatScore(shared.payload.score)}</p>
-  <p class="note">
-    Laporan ini hanya memuat ringkasan. Gambar dan teks aslinya tidak disimpan.
-  </p>
+  <section class="state">
+    <p class="eyebrow">Verifikasi</p>
+    <h1 class="h1">Laporan terverifikasi</h1>
+    <p class="verified" role="status"><Icon name="shield-check" size={18} /> Terverifikasi AMBA</p>
+    <p class="sentence">{shared.payload.title ?? statusLabel(shared.payload.status as never)}</p>
+    <p class="score-line">Skor risiko: {formatScore(shared.payload.score)}</p>
+    <p class="note">
+      Laporan ini hanya memuat ringkasan. Gambar dan teks aslinya tidak disimpan.
+    </p>
+  </section>
 {:else if !dossier}
-  <h1>Hasil tidak tersimpan</h1>
-  <p class="lede">Hasil pemeriksaan hanya tersimpan selama halaman ini terbuka. Silakan periksa lagi.</p>
-  <a class="cta" href={resolve('/deteksi')}>Periksa lagi</a>
+  <section class="state">
+    <p class="eyebrow">Hasil</p>
+    <h1 class="h1">Hasil tidak tersimpan</h1>
+    <p class="lede">
+      Hasil pemeriksaan hanya tersimpan selama halaman ini terbuka. Silakan periksa lagi.
+    </p>
+    <a class="btn btn--primary" href={resolve('/deteksi')}>Periksa lagi</a>
+  </section>
 {:else}
-  <h1>Hasil pemeriksaan</h1>
+  <section class="result-head">
+    <h1 class="h1">Hasil pemeriksaan</h1>
+  </section>
 
   {#if dossier.is_demo}
-    <p class="demo" role="note">CONTOH / SIMULASI — ini bukan hasil pemeriksaan sungguhan.</p>
+    <p class="notice notice--demo" role="note">
+      CONTOH / SIMULASI — ini bukan hasil pemeriksaan sungguhan.
+    </p>
   {/if}
 
   {#if dossier.degraded}
-    <p class="degraded" role="note">
+    <p class="notice" role="note">
       Sebagian pemeriksaan tidak berjalan. Hasil ini tetap berguna, tetapi belum lengkap.
     </p>
   {/if}
 
-  <div class="verdict">
-    <h2 class="verdict-heading" tabindex="-1" bind:this={verdictHeading} data-info-key="verdict.score">
+  <section class="verdict card" aria-labelledby="verdict-title">
+    <h2 id="verdict-title" class="verdict-heading" tabindex="-1" bind:this={verdictHeading} data-info-key="verdict.score">
       <StatusBadge status={dossier.verdict.status} score={dossier.verdict.score} />
     </h2>
     <p class="sentence" data-info-key="verdict.sentence">{dossier.verdict.explanation_simple}</p>
@@ -134,7 +164,7 @@
     <div class="read-aloud" data-info-key="readaloud">
       <ReadAloud text={`${dossier.verdict.explanation_simple} ${dossier.verdict.explanation}`} />
     </div>
-  </div>
+  </section>
 
   {#if imageFile && dossier.input_type === 'FILE'}
     <Panel title="Tampilan gambar">
@@ -158,7 +188,7 @@
     <EvidenceAccordion pillars={dossier.pillars} />
   </Panel>
 
-  <Panel title="Batas pemeriksaan ini">
+  <Panel title="Batas pemeriksaan ini" tone="soft">
     <dl data-info-key="verdict.limits">
       <dt>Berdasarkan</dt>
       <dd>{dossier.verdict.basis.map((b) => BASIS_LABELS[b] ?? b).join(', ') || '—'}</dd>
@@ -199,37 +229,63 @@
 {/if}
 
 <style>
-  h1 { font-size: var(--text-3xl); margin: 0 0 var(--space-4); }
-  .lede { color: var(--text-2); max-width: var(--measure); }
-  .cta {
-    display: inline-flex; align-items: center; min-height: 44px;
-    padding: 0 var(--space-5); margin-top: var(--space-4);
-    background: var(--accent); color: #10161d;
-    border: 0; border-radius: var(--radius-md);
-    text-decoration: none; font-weight: 600; font: inherit; cursor: pointer;
+  .state { max-width: 46rem; padding-block: var(--space-6); }
+  .state .lede { margin-bottom: var(--space-5); }
+  .state :global(.btn) { margin-top: var(--space-2); }
+
+  .result-head { margin-bottom: var(--space-4); }
+  .result-head .h1 { margin-top: var(--space-1); }
+
+  .notice {
+    margin: 0 0 var(--space-4);
+    padding: var(--space-3) var(--space-4);
+    background: var(--yellow);
+    border: var(--border-width) solid var(--ink);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-hard-xs);
+    font-weight: 700;
+    font-size: var(--text-sm);
   }
-  .cta:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
-  .demo, .degraded {
-    border: var(--border-width) solid var(--warn); border-radius: var(--radius-md);
-    padding: var(--space-3); color: var(--warn); font-size: var(--text-sm);
-  }
+  .notice--demo { background: var(--coral); }
+
   .verified {
-    display: inline-block; margin: 0 0 var(--space-3);
-    padding: var(--space-1) var(--space-3);
-    border: var(--border-width) solid var(--ok); border-radius: var(--radius-md);
-    color: var(--ok); font-size: var(--text-sm); font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin: var(--space-2) 0 var(--space-4);
+    padding: 6px 16px;
+    background: var(--lime);
+    border: var(--border-width) solid var(--ink);
+    border-radius: var(--radius-pill);
+    box-shadow: var(--shadow-hard-xs);
+    font-weight: 700;
+    font-size: var(--text-sm);
   }
-  .verified.preview { border-color: var(--warn); color: var(--warn); }
-  .verdict { margin-bottom: var(--space-5); }
+  .verified--preview { background: var(--yellow); }
+
+  .verdict { padding: clamp(1.25rem, 3vw, 2rem); margin-bottom: var(--space-5); }
   .verdict-heading { margin: 0; font-size: inherit; line-height: inherit; }
   .verdict-heading:focus { outline: none; }
-  .verdict-heading:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
-  .sentence { font-size: var(--text-xl); margin: var(--space-4) 0 var(--space-2); max-width: var(--measure); }
-  .explanation { color: var(--text-2); max-width: var(--measure); margin: 0; }
-  .read-aloud { margin-top: var(--space-3); }
-  dl { display: grid; grid-template-columns: max-content 1fr; gap: var(--space-2) var(--space-4); margin: 0; }
-  dt { color: var(--text-2); font-size: var(--text-sm); }
+  .verdict-heading:focus-visible { outline: var(--focus-ring); outline-offset: 6px; border-radius: 99px; }
+  .sentence {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: clamp(1.35rem, 3vw, 1.9rem);
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+    margin: var(--space-5) 0 var(--space-3);
+    max-width: 28ch;
+  }
+  .explanation { color: var(--body-2); max-width: var(--measure); margin: 0; }
+  .read-aloud { margin-top: var(--space-4); }
+  .score-line { margin: var(--space-2) 0 0; font-weight: 700; }
+  .note { margin: var(--space-4) 0 0; color: var(--body-2); font-size: var(--text-sm); max-width: var(--measure); }
+
+  dl { display: grid; grid-template-columns: max-content 1fr; gap: var(--space-2) var(--space-5); margin: 0; }
+  dt { font-weight: 700; font-size: var(--text-sm); }
   dd { margin: 0; }
-  .note { margin: var(--space-4) 0 0; color: var(--text-2); font-size: var(--text-sm); max-width: var(--measure); }
-  .meta { color: var(--text-3); font-family: var(--font-mono); font-size: var(--text-xs); margin: var(--space-2) 0 0; }
+  @media (max-width: 40rem) {
+    dl { grid-template-columns: 1fr; gap: var(--space-1); }
+    dd { margin-bottom: var(--space-3); }
+  }
 </style>

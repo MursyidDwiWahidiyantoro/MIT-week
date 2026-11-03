@@ -1,9 +1,9 @@
 <script lang="ts">
   import Button from '$lib/components/ui/Button.svelte';
+  import Icon from '$lib/components/ui/Icon.svelte';
   import templates from '$lib/data/reply-templates.json';
   import { isMockMode } from '$lib/api/config';
   import { isMockToken } from '$lib/api/mock';
-  import { Copy, Check, MessageCircle } from '@lucide/svelte';
   import type { Status } from '$lib/api/types';
 
   interface Props {
@@ -93,9 +93,13 @@
     {#each TONES as option (option.value)}
       <button
         type="button"
+        class="chip"
         class:selected={tone === option.value}
         aria-pressed={tone === option.value}
-        onclick={() => { tone = option.value; request(); }}
+        onclick={() => {
+          tone = option.value;
+          request();
+        }}
       >
         {option.label}
       </button>
@@ -104,40 +108,42 @@
 
   <label class="field">
     <span>Draf balasan {loading ? '(menyusun…)' : ''}</span>
-    <textarea rows="4" bind:value={text} maxlength="280"></textarea>
+    <textarea class="textarea" rows="4" bind:value={text} maxlength="280"></textarea>
   </label>
 
   <div class="actions">
     <Button variant="quiet" onclick={copy}>
-      {#if copied}<Check size={16} aria-hidden="true" /> Tersalin{:else}<Copy size={16} aria-hidden="true" /> Salin{/if}
+      <Icon name={copied ? 'check' : 'copy'} size={18} />
+      {copied ? 'Tersalin' : 'Salin'}
     </Button>
     <Button variant="quiet" onclick={whatsapp}>
-      <MessageCircle size={16} aria-hidden="true" /> Kirim lewat WhatsApp
+      <Icon name="whatsapp" size={18} /> Kirim lewat WhatsApp
     </Button>
     <span class="src">Sumber: {source === 'llm' ? 'draf model' : 'templat'}</span>
   </div>
 </div>
 
 <style>
-  .reply { display: grid; gap: var(--space-3); }
-  .hint { margin: 0; color: var(--text-2); font-size: var(--text-sm); max-width: var(--measure); }
+  .reply { display: grid; gap: var(--space-4); }
+  .hint { margin: 0; color: var(--body-2); font-size: var(--text-sm); max-width: var(--measure); }
   .tones { display: flex; gap: var(--space-2); flex-wrap: wrap; }
-  .tones button {
-    min-height: 36px; padding: 0 var(--space-3);
-    background: var(--surface-2); color: var(--text-2);
-    border: var(--border-width) solid var(--border); border-radius: var(--radius-md);
-    font: inherit; font-size: var(--text-sm); cursor: pointer;
+  .chip {
+    min-height: 44px;
+    padding: 0 18px;
+    background: var(--white);
+    color: var(--ink);
+    border: var(--border-width) solid var(--ink);
+    border-radius: var(--radius-pill);
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background-color var(--dur-fast) var(--ease-out);
   }
-  .tones button.selected { background: var(--selected-bg); color: var(--text); border-color: var(--border-strong); font-weight: 600; }
-  .tones button:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
-  .field { display: grid; gap: var(--space-1); }
-  .field span { font-size: var(--text-sm); color: var(--text-2); }
-  textarea {
-    padding: var(--space-3); background: var(--surface-2); color: var(--text);
-    border: var(--border-width) solid var(--border-strong); border-radius: var(--radius-md);
-    font: inherit; resize: vertical;
-  }
-  textarea:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
+  .chip:hover { background: var(--indigo-tint); }
+  .chip.selected { background: var(--ink); color: var(--lime); }
+  .chip:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
+  .field { display: grid; gap: var(--space-2); }
+  .field span { font-weight: 700; }
   .actions { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; }
-  .src { color: var(--text-3); font-size: var(--text-xs); font-family: var(--font-mono); }
+  .src { color: var(--muted); font-size: var(--text-sm); }
 </style>

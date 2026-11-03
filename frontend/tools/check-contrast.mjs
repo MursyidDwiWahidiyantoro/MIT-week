@@ -10,10 +10,18 @@ import path from 'node:path';
 const tokenFile = path.resolve('src/lib/styles/tokens.css');
 const css = fs.readFileSync(tokenFile, 'utf8');
 
-function token(name) {
-  const m = css.match(new RegExp(`--${name}:\\s*(#[0-9a-fA-F]{3,8})`));
+/** Reads a token and follows `var(--other)` aliases to a literal hex. */
+function token(name, seen = new Set()) {
+  if (seen.has(name)) throw new Error(`token --${name} is circular`);
+  seen.add(name);
+  const m = css.match(new RegExp(`--${name}:\\s*([^;]+);`));
   if (!m) throw new Error(`token --${name} not found in ${tokenFile}`);
-  return m[1];
+  const value = m[1].trim();
+  const hex = value.match(/^#[0-9a-fA-F]{3,8}$/);
+  if (hex) return hex[0];
+  const alias = value.match(/^var\(--([a-z0-9-]+)\)$/);
+  if (alias) return token(alias[1], seen);
+  throw new Error(`token --${name} is neither a hex nor a var() alias: ${value}`);
 }
 
 function rgb(hex) {
@@ -42,7 +50,14 @@ const textPairs = [
   ['accent', 'bg'], ['accent', 'surface'],
   ['accent-2', 'bg'], ['accent-2', 'surface'],
   ['ok', 'bg'], ['warn', 'bg'], ['err', 'bg'],
-  ['ok', 'surface'], ['warn', 'surface'], ['err', 'surface']
+  ['ok', 'surface'], ['warn', 'surface'], ['err', 'surface'],
+  /* sticker palette: ink sits on every saturated fill, white on indigo */
+  ['ink', 'paper'], ['ink', 'white'], ['ink', 'lime'], ['ink', 'yellow'],
+  ['ink', 'coral'], ['ink', 'indigo-soft'], ['ink', 'indigo-tint'],
+  ['ink', 'coral-tint'], ['ink', 'yellow-tint'],
+  ['white', 'indigo'], ['on-indigo-text', 'indigo'], ['lime', 'ink'],
+  ['indigo-text', 'paper'], ['indigo-text', 'white'], ['indigo-text', 'indigo-tint'],
+  ['muted', 'paper'], ['muted', 'white'], ['body-2', 'paper'], ['body-2', 'white']
 ];
 
 let failures = 0;
@@ -56,14 +71,14 @@ for (const [fg, bg] of textPairs) {
 }
 
 for (const bg of surfaces) {
-  const ratio = contrast(token('border-strong'), token(bg));
+  const ratio = contrast(token('ink'), token(bg));
   if (ratio < 3) {
     console.error(`FAIL  border-strong on ${bg}: ${ratio.toFixed(2)}:1 (need 3.0 for UI borders)`);
     failures++;
   }
 }
 
-const focusRatio = contrast(token('accent-2'), token('bg'));
+const focusRatio = contrast(token('ink'), token('bg'));
 if (focusRatio < 3) {
   console.error(`FAIL  focus ring on bg: ${focusRatio.toFixed(2)}:1 (need 3.0)`);
   failures++;

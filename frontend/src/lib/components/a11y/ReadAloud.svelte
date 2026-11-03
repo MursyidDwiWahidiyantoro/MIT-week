@@ -1,6 +1,6 @@
 <script lang="ts">
   import { speechAvailable, speak, stopSpeaking } from '$lib/a11y.svelte';
-  import { Volume2, Square } from '@lucide/svelte';
+  import Icon from '$lib/components/ui/Icon.svelte';
 
   interface Props {
     text: string;
@@ -27,24 +27,8 @@
 </script>
 
 {#if supported}
-  <button type="button" class="read-aloud" onclick={toggle} aria-pressed={speaking}>
-    {#if speaking}
-      <Square size={16} aria-hidden="true" /> Hentikan bacaan
-    {:else}
-      <Volume2 size={16} aria-hidden="true" /> Bacakan hasil
-    {/if}
+  <button type="button" class="btn btn--quiet btn--sm" onclick={toggle} aria-pressed={speaking}>
+    <Icon name={speaking ? 'volume-off' : 'speaker'} size={18} />
+    {speaking ? 'Hentikan bacaan' : 'Bacakan hasil'}
   </button>
 {/if}
-
-<style>
-  .read-aloud {
-    display: inline-flex; align-items: center; gap: var(--space-2);
-    min-height: 44px; padding: 0 var(--space-4);
-    background: transparent; color: var(--text-2);
-    border: var(--border-width) solid var(--border-strong);
-    border-radius: var(--radius-md); font: inherit; font-size: var(--text-sm);
-    cursor: pointer;
-  }
-  .read-aloud:hover { color: var(--text); background: var(--hover-overlay); }
-  .read-aloud:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
-</style>

@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { DossierParsed } from '$lib/api/schemas';
   import Skeleton from '$lib/components/ui/Skeleton.svelte';
-  import { ChevronDown } from '@lucide/svelte';
+  import Icon from '$lib/components/ui/Icon.svelte';
 
   interface Props {
     pillars: DossierParsed['pillars'];
@@ -57,7 +57,7 @@
         {:else}
           <span class="state done">skor {pillarScore(pillars, key)}</span>
         {/if}
-        <span class="chev" aria-hidden="true"><ChevronDown size={16} /></span>
+        <span class="chev" aria-hidden="true"><Icon name="chevron" size={18} /></span>
       </summary>
 
       <div class="body">
@@ -85,24 +85,24 @@
         {:else if key === 'fact'}
           <div data-info-key="sources">
             {#if pillars.fact.claim}<p>Klaim: “{pillars.fact.claim}”</p>{/if}
-          <p>Status: {FACT_LABELS[pillars.fact.status]}</p>
-          {#if (pillars.fact.sources ?? []).length}
-            <ul>
-              {#each pillars.fact.sources ?? [] as s (s.url)}
-                <li>
-                  {#if s.match !== 'UNVERIFIED'}
-                    <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external publisher URL, not an app route -->
-                    <a href={s.url} rel="noopener noreferrer nofollow" target="_blank">{s.title || s.publisher}</a>
-                  {:else}
-                    <span>{s.title || s.publisher}</span>
-                  {/if}
-                  <span class="muted"> — {s.publisher}</span>
-                </li>
-              {/each}
-            </ul>
-          {:else}
-            <p class="note">Tidak ada sumber terverifikasi untuk klaim ini.</p>
-          {/if}
+            <p>Status: {FACT_LABELS[pillars.fact.status]}</p>
+            {#if (pillars.fact.sources ?? []).length}
+              <ul>
+                {#each pillars.fact.sources ?? [] as s (s.url)}
+                  <li>
+                    {#if s.match !== 'UNVERIFIED'}
+                      <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external publisher URL, not an app route -->
+                      <a href={s.url} rel="noopener noreferrer nofollow" target="_blank">{s.title || s.publisher}</a>
+                    {:else}
+                      <span>{s.title || s.publisher}</span>
+                    {/if}
+                    <span class="muted"> — {s.publisher}</span>
+                  </li>
+                {/each}
+              </ul>
+            {:else}
+              <p class="note">Tidak ada sumber terverifikasi untuk klaim ini.</p>
+            {/if}
           </div>
         {:else if key === 'link'}
           {#if pillars.link.final_url}<p>Alamat akhir: {pillars.link.final_url}</p>{/if}
@@ -120,25 +120,49 @@
 </div>
 
 <style>
-  .accordion { display: grid; gap: var(--space-2); }
-  .item { border: var(--border-width) solid var(--border); border-radius: var(--radius-md); background: var(--surface); }
+  .accordion { display: grid; gap: var(--space-3); }
+  .item {
+    border: var(--border-width) solid var(--ink);
+    border-radius: var(--radius-md);
+    background: var(--paper);
+    overflow: hidden;
+  }
   summary {
-    display: flex; align-items: center; gap: var(--space-3);
-    min-height: 44px; padding: var(--space-3) var(--space-4);
-    cursor: pointer; list-style: none;
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    min-height: 52px;
+    padding: var(--space-3) var(--space-4);
+    cursor: pointer;
+    list-style: none;
   }
   summary::-webkit-details-marker { display: none; }
-  summary:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
-  .name { font-weight: 600; }
-  .state { margin-left: auto; font-family: var(--font-mono); font-size: var(--text-xs); }
-  .state.done { color: var(--text-2); }
-  .state.skipped { color: var(--text-3); }
-  .state.pending { color: var(--accent); }
-  .chev { display: inline-flex; color: var(--text-3); transition: transform var(--dur-fast) var(--ease-out); }
+  summary:focus-visible { outline: var(--focus-ring); outline-offset: -6px; }
+  .name { font-family: var(--font-display); font-weight: 800; font-size: 1.05em; }
+  .state {
+    margin-left: auto;
+    padding: 2px 10px;
+    border: 2px solid var(--ink);
+    border-radius: var(--radius-pill);
+    font-size: var(--text-sm);
+    font-weight: 700;
+  }
+  .state.done { background: var(--lime); color: var(--ink); }
+  .state.skipped { background: var(--indigo-soft); color: var(--ink); }
+  .state.pending { background: var(--yellow); color: var(--ink); }
+  .chev {
+    display: inline-flex;
+    color: var(--ink);
+    transition: transform var(--dur-fast) var(--ease-out);
+  }
   details[open] .chev { transform: rotate(180deg); }
-  .body { padding: 0 var(--space-4) var(--space-4); color: var(--text-2); font-size: var(--text-sm); }
+  .body {
+    padding: 0 var(--space-4) var(--space-4);
+    color: var(--body-2);
+    font-size: var(--text-base);
+  }
   .body p { margin: 0 0 var(--space-2); }
   .body ul { margin: 0; padding-left: var(--space-5); display: grid; gap: var(--space-1); }
-  .note { color: var(--text-3); }
-  .muted { color: var(--text-3); }
+  .note { color: var(--muted); }
+  .muted { color: var(--muted); }
 </style>

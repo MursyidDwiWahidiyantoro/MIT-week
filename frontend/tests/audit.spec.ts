@@ -53,6 +53,7 @@ test('a bundled demo loads without touching the network', async ({ page }) => {
   await page.getByRole('button', { name: /Bantuan Rp 500\.000/ }).click();
 
   await expect(page).toHaveURL(/\/hasil$/, { timeout: 10_000 });
-  await expect(page.getByText('CONTOH / SIMULASI')).toBeVisible();
+  // Scope to the demo banner: the proof card carries the same words as a stamp.
+  await expect(page.getByRole('note').filter({ hasText: 'CONTOH / SIMULASI' })).toBeVisible();
   expect(apiCalls).toEqual([]);
 });

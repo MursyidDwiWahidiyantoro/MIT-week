@@ -1,8 +1,8 @@
 <script lang="ts">
   import Button from '$lib/components/ui/Button.svelte';
+  import Icon from '$lib/components/ui/Icon.svelte';
   import { buildShareUrl } from '$lib/verify';
   import { isMockToken } from '$lib/api/mock';
-  import { Link2, Check, MessageCircle } from '@lucide/svelte';
 
   interface Props {
     token: string;
@@ -43,22 +43,19 @@
 
 <div class="share">
   <Button variant="quiet" onclick={copy}>
-    {#if copied}
-      <Check size={16} aria-hidden="true" /> Tautan disalin
-    {:else}
-      <Link2 size={16} aria-hidden="true" /> Salin tautan
-    {/if}
+    <Icon name={copied ? 'check' : 'link'} size={18} />
+    {copied ? 'Tautan disalin' : 'Salin tautan'}
   </Button>
   <Button variant="quiet" onclick={whatsapp}>
-    <MessageCircle size={16} aria-hidden="true" /> Bagikan ke WhatsApp
+    <Icon name="whatsapp" size={18} /> Bagikan ke WhatsApp
   </Button>
 
   <label class="field">
     <span>Tautan laporan</span>
-    <input readonly value={url} onfocus={(e) => e.currentTarget.select()} />
+    <input class="input" readonly value={url} onfocus={(e) => e.currentTarget.select()} />
   </label>
 
-  {#if error}<p class="error" role="alert">{error}</p>{/if}
+  {#if error}<p class="error-text" role="alert">{error}</p>{/if}
   {#if preview}
     <p class="note">
       Ini tautan contoh dari mode pratinjau. Tautan tidak ditandatangani server
@@ -73,15 +70,7 @@
 
 <style>
   .share { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; }
-  .field { flex-basis: 100%; display: grid; gap: var(--space-1); }
-  .field span { font-size: var(--text-sm); color: var(--text-2); }
-  input {
-    min-height: 44px; padding: 0 var(--space-3);
-    background: var(--surface-2); color: var(--text);
-    border: var(--border-width) solid var(--border-strong);
-    border-radius: var(--radius-md); font-family: var(--font-mono); font-size: var(--text-xs);
-  }
-  input:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
-  .error { flex-basis: 100%; margin: 0; color: var(--err); font-size: var(--text-sm); }
-  .note { flex-basis: 100%; margin: 0; color: var(--text-3); font-size: var(--text-sm); max-width: var(--measure); }
+  .field { flex-basis: 100%; display: grid; gap: var(--space-2); }
+  .field span { font-weight: 700; }
+  .note { flex-basis: 100%; margin: 0; color: var(--muted); font-size: var(--text-sm); max-width: var(--measure); }
 </style>

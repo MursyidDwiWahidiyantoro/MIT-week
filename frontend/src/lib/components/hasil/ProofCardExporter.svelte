@@ -1,8 +1,8 @@
 <script lang="ts">
   import Button from '$lib/components/ui/Button.svelte';
+  import Icon from '$lib/components/ui/Icon.svelte';
   import { statusLabel } from '$lib/format';
   import type { DossierParsed } from '$lib/api/schemas';
-  import { Download } from '@lucide/svelte';
 
   interface Props {
     dossier: DossierParsed;
@@ -48,9 +48,9 @@
 
 <div class="exporter">
   <Button variant="quiet" onclick={exportPng} loading={busy}>
-    <Download size={16} aria-hidden="true" /> Simpan kartu bukti
+    <Icon name="download" size={18} /> Simpan kartu bukti
   </Button>
-  {#if error}<p class="error" role="alert">{error}</p>{/if}
+  {#if error}<p class="error-text" role="alert">{error}</p>{/if}
 
   <!-- The exported surface. Fixed 1200x630, off-screen but rendered. -->
   <div class="card" bind:this={card} aria-hidden="true">
@@ -79,8 +79,7 @@
 </div>
 
 <style>
-  .exporter { display: grid; gap: var(--space-2); justify-items: start; }
-  .error { margin: 0; color: var(--err); font-size: var(--text-sm); max-width: var(--measure); }
+  .exporter { display: grid; gap: var(--space-3); justify-items: start; }
 
   /* Kept in the layout flow but visually hidden: html-to-image needs a laid-out
      element with real dimensions. */
@@ -94,23 +93,47 @@
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    background: var(--bg);
-    color: var(--text);
+    background: #f7f7fb;
+    color: #12142b;
+    border: 10px solid #12142b;
     font-family: var(--font-sans);
   }
   .card-top { display: flex; justify-content: space-between; align-items: baseline; }
-  .brand { margin: 0; font-family: var(--font-mono); letter-spacing: 0.14em; font-size: 28px; }
-  .stamp { margin: 0; font-family: var(--font-mono); font-size: 18px; color: var(--text-2); }
-  .status { margin: 0; font-size: 52px; font-weight: 600; line-height: 1.1; }
-  .score { margin: 8px 0 0; font-size: 26px; color: var(--text-2); }
-  .sentence { margin: 24px 0 0; font-size: 30px; line-height: 1.35; max-width: 780px; }
+  .brand {
+    margin: 0;
+    font-family: var(--font-display);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    font-size: 34px;
+  }
+  .stamp { margin: 0; font-size: 18px; color: #4a4e69; font-weight: 700; }
+  .status {
+    margin: 0;
+    align-self: flex-start;
+    padding: 8px 22px;
+    background: #d4f54a;
+    border: 4px solid #12142b;
+    border-radius: 99px;
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 30px;
+  }
+  .score { margin: 18px 0 0; font-size: 26px; color: #2b2e4a; font-weight: 700; }
+  .sentence { margin: 18px 0 0; font-size: 32px; line-height: 1.3; max-width: 820px; font-weight: 700; }
   .card-bottom { display: flex; justify-content: space-between; align-items: flex-end; gap: 40px; }
-  .disclaimer { margin: 0; font-size: 18px; color: var(--text-2); max-width: 820px; line-height: 1.4; }
-  .card img { background: #fff; border-radius: 8px; }
+  .disclaimer { margin: 0; font-size: 18px; color: #4a4e69; max-width: 820px; line-height: 1.4; }
+  .card img { background: #fff; border: 3px solid #12142b; border-radius: 8px; }
   .qr-placeholder {
-    width: 160px; height: 160px; display: grid; place-items: center;
-    border: 2px dashed var(--border-strong); border-radius: 8px;
-    color: var(--text-2); font-family: var(--font-mono); font-size: 14px;
-    line-height: 1.4; text-align: center;
+    width: 160px;
+    height: 160px;
+    display: grid;
+    place-items: center;
+    border: 3px dashed #12142b;
+    border-radius: 8px;
+    color: #4a4e69;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.4;
+    text-align: center;
   }
 </style>

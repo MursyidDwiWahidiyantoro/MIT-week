@@ -165,3 +165,73 @@ See `docs/DECISIONS.md`.
 | Team ergonomics (`Makefile`) | Done | `make up`, `make dev`, `make build`, `make logs`, `make down` |
 | Docker documentation (`docs/DOCKER.md`) | Done | Cross-platform setup for Linux, macOS Apple Silicon, Windows WSL2 |
 | Design specifications relocated | Done | `docs/design-spec.md`, `docs/waspada-design-spec.md` |
+
+## Visual redesign — neo-brutalist sticker system (2026-11-03)
+
+Applied `docs/waspada-design-spec.md` to the whole SvelteKit frontend. The
+design record is `docs/DESIGN-SYSTEM.md`; this table is the delivery log.
+
+| Item | Status | Evidence |
+|---|---|---|
+| Token layer rewritten (sticker palette, type, hard shadows, motion) | Done | `src/lib/styles/tokens.css` |
+| Sticker primitives (`.card`, `.btn`, `.pill`, `.lift`, `.sticker`, `.marquee`, `.nav-link`) | Done | `src/app.css` |
+| Typeface swap: Bricolage Grotesque + Atkinson Hyperlegible, self-hosted | Done | `@fontsource` deps, CSP stays `font-src 'self'` |
+| Inline stroke icon set (single source, no icon font, no emoji) | Done | `src/lib/components/ui/Icon.svelte` |
+| Header: brand tile, one-line nav, text-size + mode tools | Done | `src/routes/+layout.svelte` |
+| Home: hero + scanner example, marquee, steps, scam school bento, accessibility, CTA | Done | `src/routes/+page.svelte` + `src/lib/components/home/` |
+| `/deteksi`, `/hasil`, `/edukasi`, `/cek-cepat`, `/tentang`, 404 restyled | Done | route files |
+| Contrast gate extended to the sticker palette, `var()` aliases resolved | Done | 41 pairs, `npm run contrast` |
+| Esensial mode collapses every flex row to one column | Done | `app.css`, verified at 150% text |
+| First-visit mode picker made inline (no focus trap, no autofocus) | Done | `ModePicker.svelte` |
+| axe: 0 violations on all 5 routes + demo result page | Done | `@axe-core/playwright`, WCAG 2.1 AA |
+| Keyboard: skip link first, 14/14 stops with visible 4px ring | Done | Playwright tab walk |
+| Hover: every primary target moves; zero colour-only primary targets | Done | Playwright hover delta |
+| Tap targets: 0 below 44px at 390px | Done | Playwright measurement |
+| Vitals: LCP 464 ms, CLS 0 on mobile viewport | Done | Playwright |
+| No horizontal overflow at 360 / 390 / 768 / 1280 | Done | Playwright |
+| e2e against the real Go backend | Done | 8/8 Playwright |
+
+### Defects found by actually rendering it
+
+1. **Mode picker displaced the hero.** It rendered above the hero and pushed
+   the H1 below the fold at 390px. Moved after the hero, where it belongs as a
+   secondary choice.
+2. **Mode picker trapped Tab.** It was a `role="dialog"` with an autofocus and a
+   focus loop, so the skip link and the whole page were unreachable by keyboard,
+   and Tab cycled inside three buttons forever. It is an inline, non-modal
+   choice; the trap and the autofocus are gone.
+3. **Nav wrapped to two rows at 360px.** "Tentang" fell to its own line. Nav
+   padding and size are tuned so all four links hold one line at 360px.
+4. **`/deteksi` tabs wrapped 2+1 on phones.** `flex-basis: 0` alone cannot
+   shrink below intrinsic width; `min-width: 0` was missing.
+5. **Quiz number badges straddled the card border.** `legend` inside a bordered
+   `fieldset` floats onto the border edge. Both quizzes now use a labelled
+   `role="radiogroup"` / `role="group"` with the badge inside the card.
+6. **Marquee text reported as 1.37:1 by axe.** An artifact of sampling a
+   transformed track; the band is opaque ink and the real ratio is 16.9:1. The
+   band colour is now restated on the animated subtree so the computed backdrop
+   is unambiguous.
+7. **`/hasil` eyebrow repeated its own H1** word for word.
+8. **Pre-existing e2e ambiguity:** the demo banner and the proof-card stamp both
+   read "CONTOH / SIMULASI", so `getByText` matched two nodes. The assertion now
+   scopes to the banner (`role="note"`); the app is unchanged.
+
+### Verification
+
+```
+frontend: svelte-check        0 errors, 0 warnings
+frontend: eslint              no issues
+frontend: vitest              56 tests pass
+frontend: vite build          OK, adapter-static
+frontend: contrast            41 pairs pass
+frontend: size                119.3 KB gz / 250 KB
+frontend: playwright e2e      8/8 against the real Go API
+frontend: axe (WCAG 2.1 AA)   0 violations, 7 surfaces
+frontend: mobile LCP 464 ms   CLS 0, no overflow at 360/390/768/1280
+```
+
+### Note
+
+The scanner on the home page is a labelled worked example, not a live scan.
+Badge collection is illustrative: there is no badge storage, by design (no
+accounts, no persistence).

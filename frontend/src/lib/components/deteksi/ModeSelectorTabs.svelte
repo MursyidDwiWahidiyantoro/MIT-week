@@ -1,4 +1,6 @@
 <script lang="ts">
+  import Icon from '$lib/components/ui/Icon.svelte';
+
   export type InputKind = 'url' | 'file' | 'text';
 
   interface Props {
@@ -8,10 +10,10 @@
 
   let { selected, onselect }: Props = $props();
 
-  const tabs: Array<{ value: InputKind; label: string }> = [
-    { value: 'url', label: 'Tautan' },
-    { value: 'file', label: 'Gambar' },
-    { value: 'text', label: 'Teks' }
+  const tabs: Array<{ value: InputKind; label: string; icon: 'link' | 'image' | 'text' }> = [
+    { value: 'url', label: 'Tautan', icon: 'link' },
+    { value: 'file', label: 'Gambar', icon: 'image' },
+    { value: 'text', label: 'Teks', icon: 'text' }
   ];
 </script>
 
@@ -28,7 +30,10 @@
         if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
         e.preventDefault();
         const i = tabs.findIndex((t) => t.value === selected);
-        const next = e.key === 'ArrowRight' ? (i + 1) % tabs.length : (i - 1 + tabs.length) % tabs.length;
+        const next =
+          e.key === 'ArrowRight'
+            ? (i + 1) % tabs.length
+            : (i - 1 + tabs.length) % tabs.length;
         onselect(tabs[next].value);
         // Roving tabindex: focus must follow selection, or the keyboard user
         // stays on a tab that is no longer the active one.
@@ -36,6 +41,7 @@
         list?.querySelectorAll<HTMLElement>('[role="tab"]')[next]?.focus();
       }}
     >
+      <Icon name={tab.icon} size={18} />
       {tab.label}
     </button>
   {/each}
@@ -44,22 +50,29 @@
 <style>
   .tabs {
     display: inline-flex;
-    gap: var(--space-1);
+    flex-wrap: wrap;
+    gap: var(--space-2);
     padding: var(--space-1);
-    border: var(--border-width) solid var(--border);
-    border-radius: var(--radius-md);
+    background: var(--white);
+    border: var(--border-width) solid var(--ink);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-hard-xs);
   }
   button {
-    min-height: 40px;
-    padding: 0 var(--space-4);
-    background: transparent;
-    color: var(--text-2);
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-height: 48px;
+    padding: 0 18px;
+    background: var(--white);
+    color: var(--ink);
     border: 0;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-md);
     font: inherit;
+    font-weight: 700;
     cursor: pointer;
   }
-  button:hover { color: var(--text); background: var(--hover-overlay); }
-  button.selected { background: var(--selected-bg); color: var(--text); font-weight: 600; }
+  button:hover { background: var(--indigo-tint); }
+  button.selected { background: var(--ink); color: var(--lime); }
   button:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
 </style>

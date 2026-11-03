@@ -1,6 +1,5 @@
 <script lang="ts">
   import type { Tactic } from '$lib/api/types';
-  import { Info } from '@lucide/svelte';
 
   interface Props {
     text: string;
@@ -14,16 +13,21 @@
    * Splits text into plain and marked segments. Matching is case-insensitive
    * and index-based; every piece renders through Svelte interpolation, so no
    * user or model content is ever injected as HTML.
+   *
+   * The explanation is NOT rendered inline: a word chip inside the sentence
+   * broke the line ("Akun Anda [Menakut-nakuti] akan diblokir"). Each mark
+   * carries a superscript number instead, and the numbered legend sits under
+   * the quote, reusing the same numbered-circle language as the scam-school
+   * cards. That also makes the explanation reachable by keyboard and screen
+   * reader, which a hover-only popover was not.
    */
   const segments = $derived.by(() => {
-    type Info = { label: string; why: string };
-    type Mark = { start: number; end: number; info: Info };
+    type Mark = { start: number; end: number; key: string };
     const marks: Mark[] = [];
     const haystack = text.toLowerCase();
 
     for (const tactic of tactics) {
-      const info = labels[tactic.code];
-      if (!info) continue;
+      if (!labels[tactic.code]) continue;
       const needle = tactic.phrase.toLowerCase();
       if (!needle) continue;
       let from = 0;
@@ -31,64 +35,107 @@
         const idx = haystack.indexOf(needle, from);
         if (idx === -1) break;
         if (!marks.some((m) => idx < m.end && idx + needle.length > m.start)) {
-          marks.push({ start: idx, end: idx + needle.length, info });
+          marks.push({ start: idx, end: idx + needle.length, key: tactic.code });
         }
         from = idx + needle.length;
       }
     }
 
     marks.sort((a, b) => a.start - b.start);
-    const out: Array<{ text: string; tactic?: Info }> = [];
+
+    // Number by first appearance so the legend order matches the reading order.
+    const order: string[] = [];
+    for (const m of marks) if (!order.includes(m.key)) order.push(m.key);
+
+    const out: Array<{ text: string; key?: string; n?: number }> = [];
     let cursor = 0;
     for (const m of marks) {
       if (m.start > cursor) out.push({ text: text.slice(cursor, m.start) });
-      out.push({ text: text.slice(m.start, m.end), tactic: m.info });
+      out.push({ text: text.slice(m.start, m.end), key: m.key, n: order.indexOf(m.key) + 1 });
       cursor = m.end;
     }
     if (cursor < text.length) out.push({ text: text.slice(cursor) });
-    return out;
+
+    return { segments: out, order };
   });
 </script>
 
-<p class="text">
-  {#each segments as seg, i (i)}{#if seg.tactic}<mark class="tactic">{seg.text}<span class="tag">
-        <span class="tag-icon" aria-hidden="true"><Info size={12} /></span>
-        {seg.tactic.label}
-        <span class="pop" role="note">{seg.tactic.why}</span>
-      </span></mark>{:else}{seg.text}{/if}{/each}
-</p>
+<figure class="quote">
+  <blockquote class="text">
+    {#each segments.segments as seg, i (i)}{#if seg.key}<mark class="tactic"
+          >{seg.text}<sup class="n" aria-hidden="true">{seg.n}</sup></mark
+        >{:else}{seg.text}{/if}{/each}
+  </blockquote>
+
+  <figcaption>
+    <ol class="legend">
+      {#each segments.order as code, i (code)}
+        <li>
+          <span class="num" aria-hidden="true">{i + 1}</span>
+          <span>
+            <strong>{labels[code].label}.</strong>
+            {labels[code].why}
+          </span>
+        </li>
+      {/each}
+    </ol>
+  </figcaption>
+</figure>
 
 <style>
-  .text { white-space: pre-wrap; line-height: var(--leading-normal); margin: 0; }
+  .quote { margin: 0; }
+  .text {
+    margin: 0;
+    white-space: pre-wrap;
+    line-height: 1.8;
+    font-size: var(--text-lg);
+  }
   .tactic {
-    background: color-mix(in srgb, var(--warn) 18%, transparent);
-    color: var(--text);
-    border-radius: 2px;
-    padding: 0 2px;
+    background: var(--yellow);
+    color: var(--ink);
+    border-radius: 6px;
+    padding: 1px 3px;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
   }
-  .tag {
-    display: inline-flex; align-items: center; gap: 4px;
-    margin-left: var(--space-2);
-    padding: 1px 6px;
-    border: var(--border-width) solid var(--warn);
-    border-radius: var(--radius-sm);
+  .n {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 0.62em;
+    line-height: 0;
+    vertical-align: super;
+    margin-left: 1px;
+  }
+
+  .legend {
+    display: grid;
+    gap: var(--space-3);
+    margin: var(--space-5) 0 0;
+    padding: var(--space-4) 0 0;
+    border-top: var(--border-width) dashed var(--ink);
+    list-style: none;
+  }
+  .legend li {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-3);
+    font-size: var(--text-base);
+    line-height: 1.45;
+    color: var(--body-2);
+  }
+  .num {
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    flex: none;
+    background: var(--yellow);
+    border: 2px solid var(--ink);
+    border-radius: 50%;
+    font-family: var(--font-display);
+    font-weight: 800;
     font-size: var(--text-xs);
-    color: var(--warn);
-    position: relative;
+    color: var(--ink);
   }
-  .tag-icon { display: inline-flex; }
-  .pop {
-    position: absolute; left: 0; top: 100%; z-index: 10;
-    width: max-content; max-width: 18rem;
-    margin-top: var(--space-1);
-    padding: var(--space-2) var(--space-3);
-    background: var(--surface-2);
-    border: var(--border-width) solid var(--border-strong);
-    border-radius: var(--radius-sm);
-    color: var(--text-2);
-    font-size: var(--text-xs);
-    line-height: var(--leading-normal);
-    display: none;
-  }
-  .tag:hover .pop, .tag:focus-within .pop { display: block; }
+  strong { color: var(--ink); }
 </style>

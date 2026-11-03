@@ -1,24 +1,30 @@
 <script lang="ts">
-  import Panel from '$lib/components/ui/Panel.svelte';
   import Button from '$lib/components/ui/Button.svelte';
+  import Icon from '$lib/components/ui/Icon.svelte';
 
   const modus = [
     {
       id: 'bansos',
-      title: 'Bantuan sosial palsu di media sosial',
+      tone: 'yellow',
+      icon: 'alert',
+      title: 'Bantuan sosial palsu',
       body: 'Akun meniru program bantuan resmi, meminta Anda mengisi data dan menyebarkan tautan ke grup lain.'
     },
     {
       id: 'judul',
+      tone: 'soft',
+      icon: 'image',
       title: 'Judul berita yang diedit',
       body: 'Gambar tangkapan layar judul berita diubah agar terbaca lebih mengejutkan daripada artikel aslinya.'
     },
     {
       id: 'shortlink',
-      title: 'Tautan pendek menuju halaman palsu',
+      tone: 'lime',
+      icon: 'link',
+      title: 'Tautan pendek ke halaman palsu',
       body: 'Tautan dipendekkan supaya alamat aslinya tidak terlihat, lalu diarahkan ke halaman yang meminta kata sandi.'
     }
-  ];
+  ] as const;
 
   const questions = [
     {
@@ -69,41 +75,64 @@
   }
 </script>
 
-<svelte:head><title>Edukasi — AMBA</title></svelte:head>
+<svelte:head>
+  <title>Belajar — AMBA</title>
+  <meta
+    name="description"
+    content="Tiga modus penipuan yang sering muncul dan kuis singkat untuk melatih kepekaan. Tanpa nilai yang disimpan."
+  />
+</svelte:head>
 
-<h1>Belajar mengenali tanda bahaya</h1>
-<p class="lede">
-  Tiga modus yang sering muncul, lalu tiga pertanyaan singkat. Tidak ada nilai yang
-  disimpan.
-</p>
+<section class="head">
+  <p class="eyebrow">Sekolah scam</p>
+  <h1 class="h1">Belajar mengenali tanda bahaya</h1>
+  <p class="lede">
+    Tiga modus yang sering muncul, lalu tiga pertanyaan singkat. Tidak ada nilai yang disimpan.
+  </p>
+</section>
 
 <section aria-labelledby="modus-title">
-  <h2 id="modus-title">Modus yang sering terjadi</h2>
+  <h2 class="h2" id="modus-title">Modus yang sering terjadi</h2>
   <div class="grid">
     {#each modus as m (m.id)}
-      <Panel title={m.title}>
+      <article class="mode card lift mode--{m.tone}">
+        <span class="icon" aria-hidden="true"><Icon name={m.icon} size={28} /></span>
+        <h3>{m.title}</h3>
         <p>{m.body}</p>
-      </Panel>
+      </article>
     {/each}
   </div>
 </section>
 
-<section aria-labelledby="kuis-title" class="quiz">
-  <h2 id="kuis-title">Kuis singkat</h2>
+<section class="quiz" aria-labelledby="kuis-title">
+  <h2 class="h2" id="kuis-title">Kuis singkat</h2>
+  <p class="quiz-lede">Pilih satu jawaban per pertanyaan, lalu periksa di akhir.</p>
 
   {#each questions as q, i (q.id)}
-    <fieldset>
-      <legend>{i + 1}. {q.question}</legend>
+    <div class="q card" role="radiogroup" aria-labelledby={`q-label-${q.id}`}>
+      <p class="q-legend" id={`q-label-${q.id}`}>
+        <span class="q-num" aria-hidden="true">{i + 1}</span>
+        {q.question}
+      </p>
       {#each q.options as option (option.id)}
-        <label class="option" class:correct={checked && option.correct} class:wrong={checked && answers[q.id] === option.id && !option.correct}>
+        <label
+          class="option"
+          class:correct={checked && option.correct}
+          class:wrong={checked && answers[q.id] === option.id && !option.correct}
+        >
           <input type="radio" name={q.id} value={option.id} bind:group={answers[q.id]} disabled={checked} />
           <span>{option.text}</span>
+          {#if checked && option.correct}
+            <span class="verdict-tag">Jawaban tepat</span>
+          {:else if checked && answers[q.id] === option.id}
+            <span class="verdict-tag">Kurang tepat</span>
+          {/if}
         </label>
       {/each}
       {#if checked}
         <p class="explain">{q.explain}</p>
       {/if}
-    </fieldset>
+    </div>
   {/each}
 
   <div class="actions">
@@ -112,25 +141,105 @@
         Periksa jawaban
       </Button>
     {:else}
-      <p class="result" role="status">Benar {score} dari {questions.length}.</p>
-      <Button variant="quiet" onclick={reset}>Ulangi</Button>
+      <p class="result" role="status">
+        <span class="result-num">{score}<span class="result-total">/{questions.length}</span></span>
+        benar.
+      </p>
+      <Button variant="quiet" onclick={reset}>
+        <Icon name="refresh" size={18} /> Ulangi
+      </Button>
     {/if}
   </div>
 </section>
 
 <style>
-  h1 { font-size: var(--text-3xl); margin: 0 0 var(--space-3); }
-  h2 { font-size: var(--text-2xl); margin: var(--space-7) 0 var(--space-4); }
-  .lede { color: var(--text-2); max-width: var(--measure); margin: 0; }
-  .grid { display: grid; gap: var(--space-4); }
-  @media (min-width: 48rem) { .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-  fieldset { border: var(--border-width) solid var(--border); border-radius: var(--radius-md); padding: var(--space-4); margin: 0 0 var(--space-4); }
-  legend { padding: 0 var(--space-2); font-weight: 600; }
-  .option { display: flex; gap: var(--space-3); align-items: flex-start; min-height: 44px; padding: var(--space-2) 0; cursor: pointer; }
-  .option input { margin-top: 4px; }
-  .option.correct { color: var(--ok); }
-  .option.wrong { color: var(--err); }
-  .explain { margin: var(--space-2) 0 0; color: var(--text-2); font-size: var(--text-sm); max-width: var(--measure); }
-  .actions { display: flex; align-items: center; gap: var(--space-4); flex-wrap: wrap; }
-  .result { margin: 0; font-weight: 600; }
+  .head { max-width: 46rem; margin-bottom: var(--space-7); }
+  h1 { margin-bottom: var(--space-3); }
+  .grid { display: flex; flex-wrap: wrap; gap: var(--space-5); margin-top: var(--space-5); }
+  .mode { flex: 1 1 16rem; min-width: 0; padding: clamp(1.25rem, 3vw, 1.75rem); }
+  .mode--yellow { background: var(--yellow); }
+  .mode--soft { background: var(--indigo-soft); }
+  .mode--lime { background: var(--lime); }
+  .icon {
+    display: grid;
+    place-items: center;
+    width: 52px;
+    height: 52px;
+    margin-bottom: var(--space-4);
+    background: var(--white);
+    border: var(--border-width) solid var(--ink);
+    border-radius: 16px;
+    box-shadow: var(--shadow-hard-xs);
+  }
+  h3 { font-size: 1.35em; margin: 0 0 var(--space-2); }
+  .mode p { margin: 0; font-size: 0.98em; line-height: 1.45; }
+
+  .quiz { margin-top: var(--space-9); }
+  .quiz-lede { margin: var(--space-3) 0 var(--space-5); color: var(--body-2); max-width: var(--measure); }
+  .q { margin: 0 0 var(--space-4); padding: clamp(1.1rem, 3vw, 1.6rem); }
+  .q-legend {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-3);
+    padding: 0;
+    margin: 0 0 var(--space-4);
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 1.15em;
+    line-height: 1.3;
+  }
+  .q-num {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    flex: none;
+    background: var(--ink);
+    color: var(--lime);
+    border-radius: 10px;
+    font-size: 0.9em;
+  }
+  .option {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    min-height: 48px;
+    padding: var(--space-3);
+    border: 2px solid transparent;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+  }
+  .option:hover { background: var(--indigo-tint); }
+  .option input { width: 22px; height: 22px; accent-color: var(--indigo); flex: none; }
+  .option.correct { background: var(--lime); border-color: var(--ink); }
+  .option.wrong { background: var(--coral-tint); border-color: var(--ink); }
+  .verdict-tag {
+    margin-left: auto;
+    padding: 2px 10px;
+    border: 2px solid var(--ink);
+    border-radius: var(--radius-pill);
+    font-size: var(--text-xs);
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .explain {
+    margin: var(--space-3) 0 0;
+    padding: var(--space-3) var(--space-4);
+    background: var(--paper);
+    border-left: 6px solid var(--indigo);
+    border-radius: var(--radius-sm);
+    color: var(--body-2);
+    font-size: var(--text-base);
+    max-width: var(--measure);
+  }
+  .actions { display: flex; align-items: center; gap: var(--space-4); flex-wrap: wrap; margin-top: var(--space-5); }
+  .result { margin: 0; font-weight: 700; }
+  .result-num {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 2.4em;
+    letter-spacing: -0.03em;
+    margin-right: var(--space-2);
+  }
+  .result-total { font-size: 0.5em; color: var(--muted); }
 </style>
