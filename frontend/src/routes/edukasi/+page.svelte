@@ -109,7 +109,7 @@
   <p class="quiz-lede">Pilih satu jawaban per pertanyaan, lalu periksa di akhir.</p>
 
   {#each questions as q, i (q.id)}
-    <div class="q card" role="radiogroup" aria-labelledby={`q-label-${q.id}`}>
+    <div class="q card lift" role="radiogroup" aria-labelledby={`q-label-${q.id}`}>
       <p class="q-legend" id={`q-label-${q.id}`}>
         <span class="q-num" aria-hidden="true">{i + 1}</span>
         {q.question}
@@ -153,10 +153,11 @@
 </section>
 
 <style>
-  .head { max-width: 46rem; margin-bottom: var(--space-7); }
+  .head { max-width: 54rem; margin-bottom: var(--space-7); }
   h1 { margin-bottom: var(--space-3); }
-  .grid { display: flex; flex-wrap: wrap; gap: var(--space-5); margin-top: var(--space-5); }
-  .mode { flex: 1 1 16rem; min-width: 0; padding: clamp(1.25rem, 3vw, 1.75rem); }
+  .grid { display: grid; grid-template-columns: 1fr; gap: var(--space-5); margin-top: var(--space-5); }
+  @media (min-width: 48rem) { .grid { grid-template-columns: repeat(3, 1fr); } }
+  .mode { min-width: 0; padding: clamp(1.25rem, 3vw, 1.75rem); display: flex; flex-direction: column; height: 100%; }
   .mode--yellow { background: var(--yellow); }
   .mode--soft { background: var(--indigo-soft); }
   .mode--lime { background: var(--lime); }
@@ -177,6 +178,19 @@
   .quiz { margin-top: var(--space-9); }
   .quiz-lede { margin: var(--space-3) 0 var(--space-5); color: var(--body-2); max-width: var(--measure); }
   .q { margin: 0 0 var(--space-4); padding: clamp(1.1rem, 3vw, 1.6rem); }
+  /* Desktop: question on the left, its three answers stacked on the right, so
+   * the card carries its full width instead of trailing off into paper. */
+  @media (min-width: 64rem) {
+    .q {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+      column-gap: clamp(2rem, 4vw, 4rem);
+      align-items: start;
+    }
+    .q-legend { grid-column: 1; margin-bottom: 0; }
+    .q :global(.option) { grid-column: 2; }
+    .explain { grid-column: 1 / -1; }
+  }
   .q-legend {
     display: flex;
     align-items: flex-start;
@@ -208,8 +222,14 @@
     border: 2px solid transparent;
     border-radius: var(--radius-md);
     cursor: pointer;
+    transition:
+      background-color var(--dur-fast) var(--ease-out),
+      border-color var(--dur-fast) var(--ease-out),
+      transform var(--dur-fast) var(--ease-out);
   }
-  .option:hover { background: var(--indigo-tint); }
+  .option:hover { background: var(--indigo-tint); border-color: var(--ink); transform: translateX(3px); }
+  .option.correct:hover { background: var(--lime); }
+  .option.wrong:hover { background: var(--coral-tint); }
   .option input { width: 22px; height: 22px; accent-color: var(--indigo); flex: none; }
   .option.correct { background: var(--lime); border-color: var(--ink); }
   .option.wrong { background: var(--coral-tint); border-color: var(--ink); }
@@ -233,6 +253,7 @@
     max-width: var(--measure);
   }
   .actions { display: flex; align-items: center; gap: var(--space-4); flex-wrap: wrap; margin-top: var(--space-5); }
+  @media (max-width: 44rem) { .actions { flex-direction: column; align-items: stretch; } .actions :global(.btn) { width: 100%; justify-content: center; } }
   .result { margin: 0; font-weight: 700; }
   .result-num {
     font-family: var(--font-display);

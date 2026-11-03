@@ -71,8 +71,14 @@
     font: inherit;
     font-weight: 700;
     cursor: pointer;
+    transition:
+      background-color var(--dur-fast) var(--ease-out),
+      color var(--dur-fast) var(--ease-out),
+      transform var(--dur-fast) var(--ease-out);
   }
   button:hover { background: var(--indigo-tint); }
+  button.selected:hover { background: var(--ink); color: var(--lime); }
+  button:active { transform: scale(0.97); }
   button.selected { background: var(--ink); color: var(--lime); }
   button:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
 </style>

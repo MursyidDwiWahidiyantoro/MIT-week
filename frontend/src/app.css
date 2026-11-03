@@ -87,7 +87,7 @@
     line-height: var(--leading-display);
   }
 
-  .h1 { font-size: var(--text-display); line-height: var(--leading-display); }
+  .h1 { font-size: var(--text-page); line-height: var(--leading-display); }
   .h2 { font-size: var(--text-2xl); line-height: var(--leading-tight); }
   .h3 { font-size: var(--text-xl); }
 
@@ -143,6 +143,11 @@
     box-shadow: 0 0 0 var(--ink);
   }
 
+  /* A sticker keeps its own shadow colour while it is peeled up. */
+  .lift.card--ink:hover,
+  .lift.panel--indigo:hover,
+  .lift.tile--ink:hover { box-shadow: var(--shadow-indigo); }
+
   .btn {
     display: inline-flex;
     align-items: center;
@@ -173,7 +178,9 @@
   .btn:hover { color: inherit; }
 
   .btn--primary { background: var(--indigo); color: var(--white); }
+  .btn--primary:hover { color: var(--white); }
   .btn--ink { background: var(--ink); color: var(--lime); }
+  .btn--ink:hover { color: var(--lime); }
   .btn--lime { background: var(--lime); color: var(--ink); }
   .btn--sm {
     min-height: 44px;
@@ -249,7 +256,14 @@
     border-radius: var(--radius-md);
     font: inherit;
     font-size: var(--text-base);
+    transition:
+      background-color var(--dur-fast) var(--ease-out),
+      border-color var(--dur-fast) var(--ease-out);
   }
+
+  .input:hover,
+  .textarea:hover,
+  .select:hover { background: var(--white); }
 
   .input::placeholder,
   .textarea::placeholder { color: var(--muted); }
@@ -322,6 +336,7 @@
 
   /* ---- marquee ---- */
   .marquee {
+    width: 100%;
     overflow: hidden;
     background: var(--ink);
     border-block: var(--border-width) solid var(--ink);

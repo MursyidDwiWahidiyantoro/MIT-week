@@ -126,7 +126,10 @@
     border-radius: var(--radius-md);
     background: var(--paper);
     overflow: hidden;
+    transition: background-color var(--dur-fast) var(--ease-out);
   }
+  .item:hover { background: var(--indigo-tint); }
+  .item[open] { background: var(--white); }
   summary {
     display: flex;
     align-items: center;
@@ -135,7 +138,9 @@
     padding: var(--space-3) var(--space-4);
     cursor: pointer;
     list-style: none;
+    transition: padding-left var(--dur-fast) var(--ease-out);
   }
+  summary:hover { padding-left: calc(var(--space-4) + 4px); }
   summary::-webkit-details-marker { display: none; }
   summary:focus-visible { outline: var(--focus-ring); outline-offset: -6px; }
   .name { font-family: var(--font-display); font-weight: 800; font-size: 1.05em; }

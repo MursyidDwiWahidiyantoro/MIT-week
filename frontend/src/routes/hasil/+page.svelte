@@ -155,7 +155,7 @@
     </p>
   {/if}
 
-  <section class="verdict card" aria-labelledby="verdict-title">
+  <section class="verdict card lift" aria-labelledby="verdict-title">
     <h2 id="verdict-title" class="verdict-heading" tabindex="-1" bind:this={verdictHeading} data-info-key="verdict.score">
       <StatusBadge status={dossier.verdict.status} score={dossier.verdict.score} />
     </h2>

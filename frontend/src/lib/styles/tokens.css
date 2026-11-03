@@ -58,9 +58,12 @@
   --text-base: 1.125rem;  /* 18px */
   --text-lg: 1.25rem;     /* 20px */
   --text-xl: 1.5rem;      /* 24px */
-  --text-2xl: clamp(1.75rem, 4.4vw, 3.2rem);
-  --text-3xl: clamp(2rem, 4.6vw, 3.4rem);
-  --text-display: clamp(2.5rem, 6vw, 4.6rem);
+  --text-2xl: clamp(1.75rem, 3.4vw, 3.6rem);
+  --text-3xl: clamp(2rem, 3.8vw, 4rem);
+  /* Hero display grows with the viewport; inner page titles stop earlier so
+   * "Belajar mengenali tanda bahaya" stays two lines, not three. */
+  --text-display: clamp(2.5rem, 6.2vw, 6.4rem);
+  --text-page: clamp(2.25rem, 4.2vw, 4.1rem);
 
   --leading-display: 1.02;
   --leading-tight: 1.1;
@@ -81,9 +84,11 @@
   --space-7: 3rem;
   --space-8: 4rem;
   --space-9: 6rem;
-  --gutter: 20px;
-  --maxw: 1240px;
-  --section-pad: clamp(3.5rem, 8vw, 6rem);
+  /* The container tracks the viewport: 20px on phones, up to 72px of air on
+   * very wide monitors, so the page reads as a spread and not a centred box. */
+  --gutter: clamp(20px, 3.4vw, 72px);
+  --maxw: 1920px;
+  --section-pad: clamp(3.5rem, 7vw, 7.5rem);
 
   /* ---- edges ---- */
   --border-width: 2.5px;

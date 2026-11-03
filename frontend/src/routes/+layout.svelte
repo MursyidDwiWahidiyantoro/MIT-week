@@ -84,10 +84,14 @@
   </div>
 </header>
 
-<main id="main" tabindex="-1">
-  <div class="wrap">
+<main id="main" tabindex="-1" class:is-home={page.url.pathname === '/'}>
+  {#if page.url.pathname === '/'}
     {@render children()}
-  </div>
+  {:else}
+    <div class="wrap page-wrap">
+      {@render children()}
+    </div>
+  {/if}
 </main>
 
 <footer class="site-footer">
@@ -110,6 +114,9 @@
   .site-header {
     background: var(--paper);
     border-bottom: var(--border-width) solid var(--ink);
+    position: sticky;
+    top: 0;
+    z-index: 40;
   }
   .header-inner {
     display: flex;
@@ -117,7 +124,7 @@
     align-items: center;
     justify-content: space-between;
     gap: var(--space-3) var(--space-5);
-    padding-block: 18px;
+    padding-block: 14px;
   }
   .brand {
     display: inline-flex;
@@ -125,17 +132,23 @@
     gap: var(--space-3);
     text-decoration: none;
     color: var(--ink);
+    flex: none;
+    transition: transform var(--dur-fast) var(--ease-out);
   }
+  .brand:hover { transform: translate(-2px, -2px); }
+  .brand:hover .logo { box-shadow: var(--shadow-hard-sm); }
+  .brand:active { transform: translate(1px, 1px); }
   .logo {
     display: grid;
     place-items: center;
-    width: 46px;
-    height: 46px;
+    width: 44px;
+    height: 44px;
     background: var(--indigo);
     color: var(--white);
     border: var(--border-width) solid var(--ink);
     border-radius: 14px;
     box-shadow: var(--shadow-hard-xs);
+    transition: box-shadow var(--dur-fast) var(--ease-out);
   }
   .wordmark {
     font-family: var(--font-display);
@@ -146,7 +159,8 @@
   nav ul {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--space-2) var(--space-5);
+    align-items: center;
+    gap: var(--space-2) var(--space-3);
     margin: 0;
     padding: 0;
     list-style: none;
@@ -154,18 +168,24 @@
   nav { font-size: var(--text-base); }
   .tools {
     display: flex;
-    flex-wrap: wrap;
     align-items: center;
     gap: var(--space-3);
+    flex: none;
   }
-  main { padding-block: clamp(1.5rem, 4vw, 2.5rem) 0; }
+
+  main {
+    padding-block: 0;
+    min-height: calc(100dvh - 160px);
+  }
   main:focus { outline: none; }
+  .page-wrap {
+    padding-block: clamp(1.5rem, 4vw, 2.5rem) clamp(2.5rem, 6vw, 4rem);
+  }
 
   .site-footer {
-    margin-top: var(--space-9);
     background: var(--white);
     border-top: var(--border-width) solid var(--ink);
-    padding-block: var(--space-6);
+    padding-block: clamp(2rem, 5vw, 3rem);
   }
   .footer-inner {
     display: flex;
@@ -204,21 +224,80 @@
     font-size: var(--text-sm);
     text-decoration: none;
     color: var(--ink);
+    transition: color var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
   }
-  .footer-links a:hover { color: var(--indigo-text); text-decoration: underline; }
+  .footer-links a:hover { color: var(--indigo-text); text-decoration: underline; transform: translateY(-2px); }
 
-  /* Phone: three deliberate rows (brand, nav, tools) instead of the four or
-   * five an unmanaged wrap produces. Nav stays on ONE line so it never reads
-   * as a broken menu. */
-  @media (max-width: 44rem) {
-    .header-inner { gap: 8px 12px; padding-block: 14px; }
-    .brand { order: 1; }
-    nav { order: 2; flex-basis: 100%; }
-    nav ul { gap: 0; }
-    /* 360px is the tightest phone in the brief. Four links + the 2.5px borders
-     * must fit one line, so the padding is tuned to that width. */
-    nav :global(.nav-link) { padding: 0 5px; font-size: 0.95rem; }
-    .tools { order: 3; flex-basis: 100%; justify-content: flex-start; gap: var(--space-2); }
+  /* Mobile: 2 deliberate rows (Row 1: brand + tools; Row 2: 4 equal nav links)
+   * Keeps mobile header compact (~80px instead of 180px) and clean. */
+  @media (max-width: 48rem) {
+    .header-inner {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 10px 12px;
+      padding-block: 10px;
+    }
+    .brand {
+      grid-column: 1;
+      grid-row: 1;
+    }
+    .logo {
+      width: 38px;
+      height: 38px;
+      border-radius: 11px;
+    }
+    .wordmark {
+      font-size: 1.35em;
+    }
+    .tools {
+      grid-column: 2;
+      grid-row: 1;
+      justify-content: flex-end;
+      gap: var(--space-2);
+    }
     .tools :global(.text-size .label) { display: none; }
+    /* Two segmented controls plus the wordmark do not fit a 360px row, and
+     * overflow-x:clip was silently cutting the mode switch in half. Below
+     * 26rem the tools get their own row instead of being clipped. */
+    @media (max-width: 26rem) {
+      .header-inner {
+        grid-template-columns: 1fr;
+        gap: 8px;
+      }
+      .brand { grid-row: 1; }
+      .tools {
+        grid-row: 2;
+        grid-column: 1;
+        width: 100%;
+        justify-content: space-between;
+      }
+      nav { grid-row: 3; }
+      /* Keep the row inside 320px: label off, both segments compact. */
+      .tools { flex-wrap: wrap; gap: 6px; }
+      .tools :global(.text-size .label) { display: none; }
+      .tools :global(.seg button) { min-width: 40px; padding: 0 4px; }
+      .tools :global(.mode-switch button) { padding: 0 9px; font-size: 0.8rem; }
+    }
+    nav {
+      grid-column: 1 / -1;
+      grid-row: 2;
+      width: 100%;
+    }
+    nav ul {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 4px;
+      width: 100%;
+    }
+    nav :global(.nav-link) {
+      width: 100%;
+      justify-content: center;
+      padding: 0 4px;
+      font-size: 0.88rem;
+      min-height: 38px;
+      text-align: center;
+      white-space: nowrap;
+    }
   }
 </style>

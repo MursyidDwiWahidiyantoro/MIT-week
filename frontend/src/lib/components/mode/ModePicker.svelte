@@ -32,7 +32,14 @@
 </section>
 
 <style>
-  .picker { padding: clamp(1.25rem, 4vw, 1.75rem); max-width: 38rem; margin-top: var(--space-6); }
+  .picker { padding: clamp(1.25rem, 3vw, 2rem); margin-top: var(--space-6); }
+  @media (min-width: 60rem) {
+    .picker { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr); column-gap: clamp(2rem, 4vw, 4rem); align-items: center; }
+    .picker h2, .picker .intro { grid-column: 1; }
+    .picker .intro { margin-bottom: 0; }
+    .picker .options { grid-column: 2; grid-row: 1 / span 2; margin-bottom: 0; }
+    .picker .later { grid-column: 1; justify-self: start; margin-top: var(--space-4); }
+  }
   h2 { font-size: var(--text-xl); margin: 0 0 var(--space-2); }
   .intro { margin: 0 0 var(--space-4); color: var(--body-2); }
   .options { display: grid; gap: var(--space-3); margin-bottom: var(--space-4); }

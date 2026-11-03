@@ -24,7 +24,7 @@
   };
 </script>
 
-<section class="panel {TONE_CLASS[tone]}">
+<section class="panel lift {TONE_CLASS[tone]}">
   {#if eyebrow}
     <p class="eyebrow">{eyebrow}</p>
   {/if}

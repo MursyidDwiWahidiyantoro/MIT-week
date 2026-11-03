@@ -139,8 +139,14 @@
     font-weight: 700;
     font-size: var(--text-sm);
     cursor: pointer;
+    transition:
+      background-color var(--dur-fast) var(--ease-out),
+      color var(--dur-fast) var(--ease-out),
+      transform var(--dur-fast) var(--ease-out);
   }
   .tabs button:hover { background: var(--indigo-tint); }
+  .tabs button[aria-selected='true']:hover { background: var(--ink); color: var(--lime); }
+  .tabs button:active { transform: scale(0.97); }
   .tabs button[aria-selected='true'] { background: var(--ink); color: var(--lime); }
   .tabs button:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
 

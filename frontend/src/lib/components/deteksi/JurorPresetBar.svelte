@@ -39,7 +39,20 @@
     font: inherit;
     font-size: var(--text-sm);
     cursor: pointer;
+    transition:
+      background-color var(--dur-fast) var(--ease-out),
+      color var(--dur-fast) var(--ease-out),
+      border-color var(--dur-fast) var(--ease-out),
+      transform var(--dur-fast) var(--ease-out),
+      box-shadow var(--dur-fast) var(--ease-out);
   }
-  button:hover { color: var(--text); border-color: var(--border-strong); }
+  button:hover {
+    color: var(--text);
+    background: var(--white);
+    border-color: var(--border-strong);
+    transform: translate(-2px, -2px);
+    box-shadow: var(--shadow-hard-xs);
+  }
+  button:active { transform: translate(1px, 1px); box-shadow: none; }
   button:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
 </style>

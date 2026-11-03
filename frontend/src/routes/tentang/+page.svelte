@@ -34,7 +34,7 @@
   </p>
 </section>
 
-<section class="data card" aria-labelledby="data-title">
+<section class="data card lift" aria-labelledby="data-title">
   <h2 class="h2" id="data-title">Apa yang kami kirim ke layanan AI</h2>
   <dl>
     <div class="row">
@@ -63,7 +63,7 @@
 </section>
 
 <div class="two-col">
-  <section class="card limits" aria-labelledby="limits-title">
+  <section class="card limits lift" aria-labelledby="limits-title">
     <h2 class="h2" id="limits-title">Batas yang perlu Anda tahu</h2>
     <ul>
       {#each LIMITS as item (item)}
@@ -75,7 +75,7 @@
     </ul>
   </section>
 
-  <section class="card principles" aria-labelledby="principles-title">
+  <section class="card principles lift" aria-labelledby="principles-title">
     <h2 class="h2" id="principles-title">Prinsip kami</h2>
     <ul>
       {#each PRINCIPLES as item (item)}
@@ -94,7 +94,7 @@
 </p>
 
 <style>
-  .head { max-width: 46rem; margin-bottom: var(--space-7); }
+  .head { max-width: 54rem; margin-bottom: var(--space-7); }
   h1 { margin-bottom: var(--space-3); }
 
   .data { padding: clamp(1.25rem, 3vw, 2rem); }
@@ -123,8 +123,9 @@
   .tag--no { background: var(--coral); }
   .tag--none { background: var(--lime); }
 
-  .two-col { display: flex; flex-wrap: wrap; gap: var(--space-5); margin-top: var(--space-5); }
-  .two-col > * { flex: 1 1 20rem; min-width: 0; padding: clamp(1.25rem, 3vw, 1.9rem); }
+  .two-col { display: grid; grid-template-columns: 1fr; gap: var(--space-5); margin-top: var(--space-5); }
+  @media (min-width: 48rem) { .two-col { grid-template-columns: repeat(2, 1fr); } }
+  .two-col > * { min-width: 0; padding: clamp(1.25rem, 3vw, 1.9rem); display: flex; flex-direction: column; }
   .limits { background: var(--yellow); }
   .principles { background: var(--indigo-soft); }
   ul { margin: var(--space-4) 0 0; padding: 0; list-style: none; display: grid; gap: var(--space-3); }

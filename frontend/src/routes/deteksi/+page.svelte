@@ -241,7 +241,7 @@
 {/if}
 
 <style>
-  .head { max-width: 44rem; margin-bottom: var(--space-6); }
+  .head { max-width: 54rem; margin-bottom: var(--space-6); }
   h1 { margin-bottom: var(--space-3); }
   .notice {
     margin: 0 0 var(--space-5);
@@ -319,5 +319,7 @@
      * below the icon+label intrinsic width, which wrapped the third tab. */
     .console-top :global(.tabs button) { flex: 1 1 0; min-width: 0; padding: 0 8px; }
     .console-top :global(.btn) { width: 100%; }
+    .actions { flex-direction: column; }
+    .actions :global(.btn) { width: 100%; justify-content: center; }
   }
 </style>

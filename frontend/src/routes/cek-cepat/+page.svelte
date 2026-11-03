@@ -71,7 +71,7 @@
   <p class="hint">Pilih “Ya” atau “Tidak”. Hasil muncul setelah pertanyaan terakhir dijawab.</p>
 
   {#each quickCheckQuestions as question, i (question.id)}
-    <div class="q" role="group" aria-labelledby={`qc-label-${question.id}`}>
+    <div class="q lift" role="group" aria-labelledby={`qc-label-${question.id}`}>
       <p class="q-legend" id={`qc-label-${question.id}`}>
         <span class="q-num" aria-hidden="true">{i + 1}</span>
         {question.text}
@@ -105,7 +105,7 @@
 </section>
 
 {#if result}
-  <section class="result-panel card" aria-labelledby="result-title">
+  <section class="result-panel card lift" aria-labelledby="result-title">
     <h2 id="result-title" class="h2">Hasil cek cepat</h2>
     <div class="result" role="status" aria-live="polite">
       <p class="level" data-level={result.level}>{result.label}</p>
@@ -131,7 +131,7 @@
 {/if}
 
 <section class="family no-print" aria-labelledby="family-title">
-  <div class="family-panel card--soft">
+  <div class="family-panel card--soft lift">
     <h2 class="h2" id="family-title">Sandi Keluarga</h2>
     <p class="family-lede">
       Sepakati dua kata rahasia dengan keluarga. Saat ada yang mengaku sebagai
@@ -171,7 +171,7 @@
 </section>
 
 <style>
-  .head { max-width: 46rem; margin-bottom: var(--space-6); }
+  .head { max-width: 54rem; margin-bottom: var(--space-6); }
   h1 { margin-bottom: var(--space-3); }
   .hint, .note { color: var(--body-2); font-size: var(--text-sm); max-width: var(--measure); }
   .hint { margin: var(--space-3) 0 var(--space-5); }
@@ -224,7 +224,12 @@
   }
   .choice:hover { transform: translate(-2px, -2px); box-shadow: 5px 5px 0 var(--ink); }
   .choice.selected { background: var(--indigo); color: var(--white); }
+  .choice.selected:hover { background: var(--indigo); box-shadow: 5px 5px 0 var(--ink); }
   .choice:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
+  @media (max-width: 36rem) {
+    .choices { display: flex; width: 100%; }
+    .choice { flex: 1 1 0; min-width: 0; text-align: center; }
+  }
   .answered { color: var(--body-2); font-weight: 700; font-size: var(--text-sm); }
 
   .result-panel { padding: clamp(1.25rem, 3vw, 2rem); margin-top: var(--space-5); }
