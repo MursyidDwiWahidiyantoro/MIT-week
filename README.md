@@ -52,6 +52,17 @@ make up                 # atau: docker compose up --build
 Ini stack **sungguhan**: nginx menyajikan SPA hasil build dan mem-proxy `/api/`
 ke Go. Tidak ada mock.
 
+> **Prasyarat: daemon Docker harus berjalan.** Kalau `make up` berhenti dengan
+> `cannot connect to the Docker daemon`, daemon-nya belum hidup:
+>
+> ```bash
+> sudo systemctl start docker     # Linux
+> sudo systemctl enable docker    # opsional: hidup otomatis saat boot
+> ```
+>
+> Di macOS/Windows, buka **Docker Desktop** dan tunggu ikonnya berhenti
+> “starting”.
+
 Kalau port 80 sudah terpakai:
 
 ```bash
@@ -186,8 +197,8 @@ Yang perlu dicek di preview:
 - Toggle **Jelajah / Esensial**: Esensial menjadi satu kolom dan tanpa animasi.
 - Tab / Shift+Tab: skip link **“Langsung ke isi utama”** muncul pertama, setiap
   perhentian punya ring fokus hitam 4px.
-- Tab **Pesan / Tautan / Telepon** di kartu hero mengganti teks contoh, meter
-  risiko, dan tiga tanda bahaya.
+- Tab **Pesan / Tautan** di kartu hero mengganti teks contoh, meter risiko,
+  dan tiga tanda bahaya.
 - Kuis “Asli atau scam?” memberi umpan balik lalu bisa diulang.
 
 ---
@@ -257,6 +268,7 @@ riwayat pengerjaan dan daftar bug yang ditemukan ada di
 | `EADDRINUSE :5173` | port dipakai proyek lain | `npm run dev -- --port 5199 --strictPort` |
 | Halaman kosong setelah build | CSP memblokir bootstrap | jangan ubah `csp.mode` di `svelte.config.js` |
 | `/hasil` kosong setelah reload | memang tidak disimpan | ulangi pemeriksaan; hasil hanya ada di memori |
+| `make up`: cannot connect to the Docker daemon | daemon Docker belum jalan | `sudo systemctl start docker` (Linux) atau buka Docker Desktop |
 | Port 80 terpakai (Docker) | ada web server lain | `FRONTEND_PORT=3000 make up` |
 
 

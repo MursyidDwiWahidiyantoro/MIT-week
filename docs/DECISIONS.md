@@ -265,3 +265,21 @@ demo is synthetic, so the v9 media-platform names would overclaim. Revisit: if
 the jury deck or PRD must match literally, rename in one commit across
 `backend/internal/demo/demo-cases.json`, `frontend/src/lib/data/demo-cases.json`,
 and `backend/internal/httpapi/demo_test.go`.
+
+## 2026-11-05 · Batch files are stored verbatim (`-text`), not normalised
+
+Windows has no `make`, so `start.bat` / `start-dev.bat` / `stop.bat` mirror the
+Makefile targets. They must reach a teammate as CRLF: `cmd.exe` expects it and
+can mis-parse parenthesised `if errorlevel` blocks on bare LF.
+
+`.gitattributes` therefore declares `*.bat -text`, i.e. **no conversion at
+all**. `text eol=crlf` would store LF in the repository and convert only on
+checkout, so any path that reads the blob without a checkout (an archive, a
+copy from the web UI) would hand over LF. With `-text` the committed bytes are
+the bytes every consumer receives.
+
+`whitespace=cr-at-eol` is needed alongside it: without it `git diff --check`
+reports every CR as trailing whitespace and the pre-commit gate fails.
+
+Revisit: if the team standardises on a Windows-only toolchain, `eol=crlf`
+would also work; `-text` stays correct either way.
