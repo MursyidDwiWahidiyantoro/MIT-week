@@ -188,6 +188,12 @@ di `:8080`. Untuk preview **tanpa** backend:
 VITE_API_MODE=mock npm run build && npm run preview -- --port 4400
 ```
 
+> **Jalankan `npm run build` lebih dulu, lalu preview.** `vite preview`
+> menyajikan aset ber-hash dari `.svelte-kit/output/client`. Kalau kamu
+> menjalankan build **saat preview masih hidup**, proses preview mati dengan
+> `ENOENT` pada nama CSS lama. Urutannya selalu: hentikan preview → build →
+> preview lagi.
+
 Yang perlu dicek di preview:
 
 - Semua halaman terbuka: `/`, `/deteksi`, `/hasil`, `/edukasi`, `/cek-cepat`,
@@ -225,14 +231,15 @@ cd frontend && npm run build && npm run size && npm run contrast
 
 ```bash
 cd frontend
-npx playwright test
+npm run test:e2e            # sama dengan: npx playwright test
 ```
 
 Tes ini **menyalakan sendiri** Go (`LLM_MOCK=true`, port 8080) dan preview build
 (port 4173), lalu menjalankan 14 skenario: audit teks sampai `/hasil`, keempat
 pilar, demo offline tanpa panggilan API, unggah gambar sampai slider ELA,
 token yang diubah, rate limit, error server, tipografi Esensial, dan axe di
-lima rute.
+enam permukaan (lima rute + `/hasil`), masing-masing di tema gelap dan terang.
+Inilah perintah yang dipakai job `e2e` di CI.
 
 Butuh Chromium sekali saja:
 
