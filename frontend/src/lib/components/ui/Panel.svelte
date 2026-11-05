@@ -40,7 +40,7 @@
 <style>
   .panel {
     background: var(--white);
-    border: var(--border-width) solid var(--ink);
+    border: var(--border-width) solid var(--border);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-hard-lg);
     padding: clamp(1.25rem, 3vw, 1.9rem);

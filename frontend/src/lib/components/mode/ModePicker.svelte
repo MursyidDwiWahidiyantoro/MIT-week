@@ -54,7 +54,7 @@
     padding: var(--space-4);
     background: var(--indigo-tint);
     color: var(--ink);
-    border: var(--border-width) solid var(--ink);
+    border: var(--border-width) solid var(--border);
     border-radius: var(--radius-md);
     box-shadow: var(--shadow-hard-xs);
     font: inherit;

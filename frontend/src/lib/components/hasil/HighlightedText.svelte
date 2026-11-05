@@ -112,7 +112,7 @@
     gap: var(--space-3);
     margin: var(--space-5) 0 0;
     padding: var(--space-4) 0 0;
-    border-top: var(--border-width) dashed var(--ink);
+    border-top: var(--border-width) dashed var(--border);
     list-style: none;
   }
   .legend li {
@@ -130,7 +130,7 @@
     height: 26px;
     flex: none;
     background: var(--yellow);
-    border: 2px solid var(--ink);
+    border: 2px solid var(--border);
     border-radius: 50%;
     font-family: var(--font-display);
     font-weight: 800;

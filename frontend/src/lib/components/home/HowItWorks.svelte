@@ -42,7 +42,7 @@
   .how-section {
     width: 100%;
     background: var(--paper);
-    border-bottom: var(--border-width) solid var(--ink);
+    border-bottom: var(--border-width) solid var(--border);
     padding-block: clamp(3.5rem, 7vw, 6rem);
   }
   .steps {
@@ -71,7 +71,7 @@
     width: 60px;
     height: 60px;
     margin-bottom: var(--space-4);
-    border: var(--border-width) solid var(--ink);
+    border: var(--border-width) solid var(--border);
     border-radius: 18px;
     font-family: var(--font-display);
     font-weight: 800;

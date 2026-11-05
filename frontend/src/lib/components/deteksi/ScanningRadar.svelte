@@ -67,7 +67,7 @@
     width: 18px;
     height: 18px;
     flex: none;
-    border: var(--border-width) solid var(--ink);
+    border: var(--border-width) solid var(--border);
     border-radius: 50%;
     background: var(--white);
   }

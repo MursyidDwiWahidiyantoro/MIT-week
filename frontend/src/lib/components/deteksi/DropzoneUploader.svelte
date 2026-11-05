@@ -87,7 +87,7 @@
     min-height: 180px;
     padding: var(--space-6) var(--space-5);
     text-align: center;
-    border: var(--border-width-strong) dashed var(--ink);
+    border: var(--border-width-strong) dashed var(--border);
     border-radius: var(--radius-lg);
     background: var(--white);
     box-shadow: var(--shadow-hard);
@@ -103,7 +103,7 @@
     width: 64px;
     height: 64px;
     background: var(--indigo-soft);
-    border: var(--border-width) solid var(--ink);
+    border: var(--border-width) solid var(--border);
     border-radius: 20px;
   }
   .title { margin: 0; font-family: var(--font-display); font-weight: 800; font-size: 1.15em; }

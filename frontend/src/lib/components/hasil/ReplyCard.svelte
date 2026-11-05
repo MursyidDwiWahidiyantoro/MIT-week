@@ -132,7 +132,7 @@
     padding: 0 18px;
     background: var(--white);
     color: var(--ink);
-    border: var(--border-width) solid var(--ink);
+    border: var(--border-width) solid var(--border);
     border-radius: var(--radius-pill);
     font: inherit;
     font-weight: 700;

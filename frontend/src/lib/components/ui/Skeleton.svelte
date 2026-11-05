@@ -18,7 +18,7 @@
     display: block;
     border-radius: var(--radius-sm);
     background: var(--indigo-soft);
-    border: 2px dashed var(--ink);
+    border: 2px dashed var(--border);
     animation: pulse var(--dur-slow) var(--ease-in-out) infinite alternate;
   }
   @keyframes pulse {

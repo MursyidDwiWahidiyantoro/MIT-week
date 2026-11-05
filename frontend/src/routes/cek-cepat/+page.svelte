@@ -180,7 +180,7 @@
     margin: 0 0 var(--space-3);
     padding: var(--space-4) var(--space-5);
     background: var(--white);
-    border: var(--border-width) solid var(--ink);
+    border: var(--border-width) solid var(--border);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-hard);
   }
@@ -214,7 +214,7 @@
     padding: 0 var(--space-5);
     background: var(--white);
     color: var(--ink);
-    border: var(--border-width) solid var(--ink);
+    border: var(--border-width) solid var(--border);
     border-radius: var(--radius-md);
     box-shadow: var(--shadow-hard-xs);
     font: inherit;
@@ -237,7 +237,7 @@
   .level {
     margin: 0;
     padding: 6px 18px;
-    border: var(--border-width) solid var(--ink);
+    border: var(--border-width) solid var(--border);
     border-radius: var(--radius-pill);
     box-shadow: var(--shadow-hard-xs);
     font-family: var(--font-display);
@@ -263,7 +263,7 @@
   .family { margin-top: var(--space-8); }
   .family-panel {
     padding: clamp(1.5rem, 4vw, 2.25rem);
-    border: var(--border-width) solid var(--ink);
+    border: var(--border-width) solid var(--border);
     border-radius: var(--radius-xl);
     box-shadow: var(--shadow-hard-lg);
   }
@@ -275,7 +275,7 @@
     padding: var(--space-6);
     max-width: 30rem;
     background: var(--white);
-    border: var(--border-width-strong) solid var(--ink);
+    border: var(--border-width-strong) solid var(--border);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-hard);
   }

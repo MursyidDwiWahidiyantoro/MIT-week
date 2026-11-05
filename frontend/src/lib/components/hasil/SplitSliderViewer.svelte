@@ -125,7 +125,7 @@
     justify-self: start;
     padding: var(--space-1);
     background: var(--white);
-    border: var(--border-width) solid var(--ink);
+    border: var(--border-width) solid var(--border);
     border-radius: var(--radius-md);
   }
   .tabs button {
@@ -153,7 +153,7 @@
   .stage {
     position: relative;
     line-height: 0;
-    border: var(--border-width) solid var(--ink);
+    border: var(--border-width) solid var(--border);
     border-radius: var(--radius-md);
     overflow: hidden;
     background: var(--paper);
@@ -196,7 +196,7 @@
     height: 28px;
     flex: none;
     background: var(--coral);
-    border: 2px solid var(--ink);
+    border: 2px solid var(--border);
     border-radius: 50%;
     font-family: var(--font-display);
     font-weight: 800;

@@ -168,7 +168,7 @@
     height: 52px;
     margin-bottom: var(--space-4);
     background: var(--white);
-    border: var(--border-width) solid var(--ink);
+    border: var(--border-width) solid var(--border);
     border-radius: 16px;
     box-shadow: var(--shadow-hard-xs);
   }
@@ -236,7 +236,7 @@
   .verdict-tag {
     margin-left: auto;
     padding: 2px 10px;
-    border: 2px solid var(--ink);
+    border: 2px solid var(--border);
     border-radius: var(--radius-pill);
     font-size: var(--text-xs);
     font-weight: 700;

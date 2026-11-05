@@ -247,7 +247,7 @@
     margin: 0 0 var(--space-5);
     padding: var(--space-3) var(--space-4);
     background: var(--yellow);
-    border: var(--border-width) solid var(--ink);
+    border: var(--border-width) solid var(--border);
     border-radius: var(--radius-md);
     box-shadow: var(--shadow-hard-xs);
     font-size: var(--text-sm);
@@ -270,7 +270,7 @@
   .actions { display: flex; gap: var(--space-3); margin: var(--space-5) 0 0; flex-wrap: wrap; }
   .live { min-height: 1.5em; color: var(--body-2); font-size: var(--text-sm); margin: var(--space-3) 0 0; }
   .error-panel {
-    border: var(--border-width) solid var(--ink);
+    border: var(--border-width) solid var(--border);
     border-radius: var(--radius-lg);
     background: var(--coral-tint);
     box-shadow: var(--shadow-hard);
@@ -284,7 +284,7 @@
   .demos {
     margin-top: var(--space-5);
     padding-top: var(--space-4);
-    border-top: var(--border-width) dashed var(--ink);
+    border-top: var(--border-width) dashed var(--border);
   }
   .demos-label { margin: 0 0 var(--space-3); font-family: var(--font-display); font-weight: 800; font-size: var(--text-sm); text-transform: uppercase; letter-spacing: 0.06em; color: var(--indigo-text); }
   .demos ul { display: flex; flex-wrap: wrap; gap: var(--space-2); list-style: none; margin: 0; padding: 0; }
@@ -293,7 +293,7 @@
     padding: 10px var(--space-4);
     background: var(--indigo-tint);
     color: var(--ink);
-    border: var(--border-width) solid var(--ink);
+    border: var(--border-width) solid var(--border);
     border-radius: var(--radius-md);
     box-shadow: var(--shadow-hard-xs);
     font: inherit;

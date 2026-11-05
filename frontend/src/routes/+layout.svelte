@@ -8,8 +8,8 @@
   import '@fontsource/atkinson-hyperlegible/700.css';
   import { mode } from '$lib/mode.svelte';
   import { textSize } from '$lib/a11y.svelte';
-  import ModeSwitch from '$lib/components/mode/ModeSwitch.svelte';
-  import TextSize from '$lib/components/a11y/TextSize.svelte';
+  import ThemeSwitch from '$lib/components/ui/ThemeSwitch.svelte';
+  import '../lib/styles/refinement.css';
   import PreviewBadge from '$lib/components/ui/PreviewBadge.svelte';
   import Icon from '$lib/components/ui/Icon.svelte';
 
@@ -78,8 +78,7 @@
     </nav>
 
     <div class="tools">
-      <TextSize />
-      <ModeSwitch />
+      <ThemeSwitch />
     </div>
   </div>
 </header>
@@ -113,7 +112,7 @@
 <style>
   .site-header {
     background: var(--paper);
-    border-bottom: var(--border-width) solid var(--ink);
+    border-bottom: var(--border-width) solid var(--border);
     position: sticky;
     top: 0;
     z-index: 40;
@@ -145,7 +144,7 @@
     height: 44px;
     background: var(--indigo);
     color: var(--white);
-    border: var(--border-width) solid var(--ink);
+    border: var(--border-width) solid var(--border);
     border-radius: 14px;
     box-shadow: var(--shadow-hard-xs);
     transition: box-shadow var(--dur-fast) var(--ease-out);
@@ -184,7 +183,7 @@
 
   .site-footer {
     background: var(--white);
-    border-top: var(--border-width) solid var(--ink);
+    border-top: var(--border-width) solid var(--border);
     padding-block: clamp(2rem, 5vw, 3rem);
   }
   .footer-inner {

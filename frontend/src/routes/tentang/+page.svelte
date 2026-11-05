@@ -105,7 +105,7 @@
     align-items: flex-start;
     gap: var(--space-3) var(--space-5);
     padding-top: var(--space-4);
-    border-top: var(--border-width) dashed var(--ink);
+    border-top: var(--border-width) dashed var(--border);
   }
   .row:first-child { padding-top: 0; border-top: 0; }
   dt { flex: 0 0 auto; }
@@ -113,7 +113,7 @@
   .tag {
     display: inline-flex;
     padding: 4px 14px;
-    border: var(--border-width) solid var(--ink);
+    border: var(--border-width) solid var(--border);
     border-radius: var(--radius-pill);
     font-weight: 700;
     font-size: var(--text-sm);
@@ -137,7 +137,7 @@
     height: 28px;
     flex: none;
     background: var(--white);
-    border: 2px solid var(--ink);
+    border: 2px solid var(--border);
     border-radius: 50%;
   }
   .bullet--ok { background: var(--lime); }
@@ -146,7 +146,7 @@
     margin-top: var(--space-6);
     padding: var(--space-4) var(--space-5);
     background: var(--white);
-    border: var(--border-width) dashed var(--ink);
+    border: var(--border-width) dashed var(--border);
     border-radius: var(--radius-md);
     color: var(--body-2);
     font-size: var(--text-sm);

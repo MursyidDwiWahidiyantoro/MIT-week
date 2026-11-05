@@ -133,7 +133,7 @@
   .learn-section {
     width: 100%;
     background: var(--white);
-    border-bottom: var(--border-width) solid var(--ink);
+    border-bottom: var(--border-width) solid var(--border);
     padding-block: clamp(3.5rem, 7vw, 6rem);
   }
   .learn-lede { margin-top: var(--space-3); }
@@ -186,14 +186,14 @@
     margin: 0;
     padding: 20px 22px;
     background: var(--paper);
-    border: var(--border-width) solid var(--ink);
+    border: var(--border-width) solid var(--border);
     border-radius: 22px 22px 22px 6px;
     font-size: 1.1em;
     line-height: 1.8;
   }
   .hl {
     padding: 2px 8px;
-    border: 2px solid var(--ink);
+    border: 2px solid var(--border);
     border-radius: 8px;
     font-weight: 700;
   }
@@ -208,7 +208,7 @@
     width: 28px;
     height: 28px;
     flex: none;
-    border: var(--border-width) solid var(--ink);
+    border: var(--border-width) solid var(--border);
     border-radius: 50%;
     font-family: var(--font-display);
     font-weight: 800;
@@ -222,7 +222,7 @@
   /* b) lessons */
   .card-lessons {
     border-radius: var(--radius-lg);
-    border: var(--border-width) solid var(--ink);
+    border: var(--border-width) solid var(--border);
     box-shadow: var(--shadow-hard);
   }
   .lessons-head { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-4); }
@@ -233,7 +233,7 @@
     height: 44px;
     background: var(--lime);
     color: var(--ink);
-    border: var(--border-width) solid var(--ink);
+    border: var(--border-width) solid var(--border);
     border-radius: 14px;
     flex: none;
   }
@@ -254,7 +254,7 @@
   /* c) quiz */
   .card-quiz {
     border-radius: var(--radius-lg);
-    border: var(--border-width) solid var(--ink);
+    border: var(--border-width) solid var(--border);
     box-shadow: var(--shadow-hard);
   }
   .quiz-eyebrow { color: var(--ink); margin-bottom: var(--space-1); }
@@ -263,7 +263,7 @@
     margin: 0 0 var(--space-4);
     padding: var(--space-4);
     background: var(--white);
-    border: var(--border-width) solid var(--ink);
+    border: var(--border-width) solid var(--border);
     border-radius: var(--radius-md);
     font-size: 1.02em;
   }
@@ -279,7 +279,7 @@
   .badge-list { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
   .badge {
     padding: 10px 16px;
-    border: var(--border-width) solid var(--ink);
+    border: var(--border-width) solid var(--border);
     border-radius: var(--radius-pill);
     box-shadow: 4px 4px 0 var(--ink);
     font-weight: 700;

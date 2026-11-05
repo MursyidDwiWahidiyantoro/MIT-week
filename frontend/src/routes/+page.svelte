@@ -5,17 +5,15 @@
   import HowItWorks from '$lib/components/home/HowItWorks.svelte';
   import ScamSchool from '$lib/components/home/ScamSchool.svelte';
   import MadeForEveryone from '$lib/components/home/MadeForEveryone.svelte';
-  import ModePicker from '$lib/components/mode/ModePicker.svelte';
-  import { mode } from '$lib/mode.svelte';
 
-  const TRUST = ['Tanpa jargon', 'Huruf bisa diperbesar', 'Aman untuk seisi rumah'];
+  const TRUST = ['Tanpa jargon', 'Teks mudah dibaca', 'Aman untuk seisi rumah'];
 </script>
 
 <svelte:head>
   <title>AMBA — Periksa sebelum percaya</title>
   <meta
     name="description"
-    content="Tempel tautan, pesan, atau nomor telepon. AMBA memeriksanya dalam hitungan detik dan menjelaskan alasannya dengan kata-kata sederhana."
+    content="Tempel tautan, pesan. AMBA memeriksanya dalam hitungan detik dan menjelaskan alasannya dengan kata-kata sederhana."
   />
 </svelte:head>
 
@@ -30,17 +28,13 @@
   <div class="wrap hero-wrap">
     <div class="hero-grid">
       <div class="hero-copy">
-        <div class="pill pill--lime eyebrow-pill">
-          <Icon name="sparkle" size={14} />
-          <span>Pemindai scam AI + sekolah scam gratis</span>
-        </div>
 
         <h1 class="hero-title">
           Kenali scam <span class="mark">sebelum</span> kena.
         </h1>
 
         <p class="hero-lede">
-          Tempel pesan, tautan, atau nomor telepon. Pemeriksaan berjalan dalam hitungan
+          Tempel pesan atau tautan. Pemeriksaan berjalan dalam hitungan
           detik, dan alasannya dijelaskan dengan kata-kata sederhana. Semakin sering
           dipakai, semakin peka Anda.
         </p>
@@ -72,11 +66,6 @@
   </div>
 </section>
 
-{#if mode.needsPicker}
-  <div class="wrap">
-    <ModePicker />
-  </div>
-{/if}
 
 <section class="marquee" aria-label="Jenis scam yang bisa dikenali">
   <div class="marquee__track">
@@ -196,10 +185,6 @@
     justify-content: center;
   }
 
-  .eyebrow-pill {
-    background: var(--lime);
-    margin-bottom: var(--space-3);
-  }
   .hero-title {
     margin: var(--space-3) 0 var(--space-4);
     font-size: var(--text-display);
@@ -210,7 +195,7 @@
     display: inline-block;
     padding: 0 12px;
     background: var(--lime);
-    border: var(--border-width) solid var(--ink);
+    border: var(--border-width) solid var(--border);
     border-radius: 14px;
     transform: rotate(-1.5deg);
   }
@@ -245,7 +230,7 @@
     background: var(--lime);
     color: var(--ink);
     border-radius: 50%;
-    border: 2px solid var(--ink);
+    border: 2px solid var(--border);
     transition: transform var(--dur-fast) var(--ease-out);
   }
   .btn--hero:hover .btn-icon-circle {
@@ -285,7 +270,7 @@
     position: relative;
     overflow: hidden;
     padding: clamp(2rem, 5vw, 3.5rem);
-    border: var(--border-width) solid var(--ink);
+    border: var(--border-width) solid var(--border);
     border-radius: var(--radius-xl);
     box-shadow: var(--shadow-hard-xl);
   }

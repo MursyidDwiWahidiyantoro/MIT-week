@@ -34,7 +34,7 @@
     gap: 4px;
     padding: 5px;
     background: var(--white);
-    border: var(--border-width) solid var(--ink);
+    border: var(--border-width) solid var(--border);
     border-radius: var(--radius-md);
   }
   button {

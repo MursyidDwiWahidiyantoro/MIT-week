@@ -122,7 +122,7 @@
 <style>
   .accordion { display: grid; gap: var(--space-3); }
   .item {
-    border: var(--border-width) solid var(--ink);
+    border: var(--border-width) solid var(--border);
     border-radius: var(--radius-md);
     background: var(--paper);
     overflow: hidden;
@@ -147,7 +147,7 @@
   .state {
     margin-left: auto;
     padding: 2px 10px;
-    border: 2px solid var(--ink);
+    border: 2px solid var(--border);
     border-radius: var(--radius-pill);
     font-size: var(--text-sm);
     font-weight: 700;

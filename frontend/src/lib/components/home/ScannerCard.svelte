@@ -8,9 +8,9 @@
    * learns the shape of a verdict before submitting anything.
    */
   interface Example {
-    id: 'message' | 'link' | 'phone';
+    id: 'message' | 'link';
     tab: string;
-    icon: 'chat' | 'link' | 'phone';
+    icon: 'chat' | 'link';
     label: string;
     text: string;
     verdict: string;
@@ -48,21 +48,6 @@
         { lead: 'Nama mirip.', rest: 'Tertulis bank, tapi domain aslinya lain.' },
         { lead: 'Akhiran asing.', rest: 'Bank jarang memakai akhiran web yang murah.' },
         { lead: 'Minta masuk.', rest: 'Jangan pernah masuk dari tautan yang tidak Anda minta.' }
-      ]
-    },
-    {
-      id: 'phone',
-      tab: 'Telepon',
-      icon: 'phone',
-      label: 'Penelepon atau pengirim',
-      text: '+62 811 0000 4421: “Halo Bu, ini anak saya yang baru. Nomor saya ganti, tolong simpan.”',
-      verdict: 'Perlu diperiksa',
-      score: 68,
-      tone: 'warn',
-      flags: [
-        { lead: 'Nomor asing.', rest: 'Mengaku keluarga, tapi tidak ada di kontak Anda.' },
-        { lead: 'Bisa berlanjut.', rest: 'Pembuka ini sering jadi langkah pertama minta uang.' },
-        { lead: 'Langkah aman.', rest: 'Telepon nomor lama dan tanyakan hal yang hanya dia tahu.' }
       ]
     }
   ];
@@ -123,7 +108,7 @@
         <a class="scan-bar group" href={resolve('/deteksi')}>
           <span>Periksa punya Anda</span>
           <span class="scan-bar-circle" aria-hidden="true">
-            <Icon name="sparkle" size={18} />
+            <Icon name="arrow-right" size={18} />
           </span>
         </a>
 
@@ -179,13 +164,13 @@
   .scan-shell {
     padding: 7px;
     background: var(--indigo-soft);
-    border: var(--border-width) solid var(--ink);
+    border: var(--border-width) solid var(--border);
     border-radius: 32px;
     box-shadow: var(--shadow-hard-xl);
   }
   .scan-core {
     background: var(--white);
-    border: var(--border-width) solid var(--ink);
+    border: var(--border-width) solid var(--border);
     border-radius: 24px;
     padding: clamp(1.15rem, 3vw, 1.75rem);
   }
@@ -200,10 +185,10 @@
   .head h2 { font-size: 1.45em; margin: 0; }
   .pill--soft { background: var(--indigo-tint); color: var(--indigo-text); }
 
-  /* 3 equal tabs on one single row, phone and desktop */
+  /* 2 equal tabs on one single row, phone and desktop */
   .tabs {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(2, 1fr);
     gap: var(--space-2);
     margin-bottom: var(--space-4);
   }
@@ -216,7 +201,7 @@
     padding: 0 6px;
     background: var(--white);
     color: var(--ink);
-    border: var(--border-width) solid var(--ink);
+    border: var(--border-width) solid var(--border);
     border-radius: var(--radius-md);
     font: inherit;
     font-weight: 700;
@@ -235,7 +220,7 @@
     min-height: 88px;
     padding: var(--space-4) 16px;
     background: var(--paper);
-    border: var(--border-width) dashed var(--ink);
+    border: var(--border-width) dashed var(--border);
     border-radius: var(--radius-md);
     font-size: 1.02em;
     line-height: 1.5;
@@ -251,7 +236,7 @@
     padding: 0 var(--space-4);
     background: var(--ink);
     color: var(--lime);
-    border: var(--border-width) solid var(--ink);
+    border: var(--border-width) solid var(--border);
     border-radius: var(--radius-pill);
     font-family: var(--font-display);
     font-weight: 800;
@@ -275,7 +260,7 @@
     background: var(--lime);
     color: var(--ink);
     border-radius: 50%;
-    border: 2px solid var(--ink);
+    border: 2px solid var(--border);
     flex: none;
     transition: transform var(--dur-fast) var(--ease-out);
   }
@@ -286,7 +271,7 @@
   .verdict {
     margin-top: 18px;
     padding: 16px;
-    border: var(--border-width) solid var(--ink);
+    border: var(--border-width) solid var(--border);
     border-radius: var(--radius-md);
     background: var(--coral-tint);
   }
@@ -301,7 +286,7 @@
   .chip {
     display: inline-flex;
     padding: 4px 14px;
-    border: var(--border-width) solid var(--ink);
+    border: var(--border-width) solid var(--border);
     border-radius: var(--radius-pill);
     font-family: var(--font-display);
     font-weight: 800;
@@ -315,14 +300,14 @@
   .meter {
     height: 20px;
     background: var(--white);
-    border: var(--border-width) solid var(--ink);
+    border: var(--border-width) solid var(--border);
     border-radius: var(--radius-pill);
     overflow: hidden;
   }
   .meter-fill {
     display: block;
     height: 100%;
-    border-right: var(--border-width) solid var(--ink);
+    border-right: var(--border-width) solid var(--border);
     transition: width var(--dur-slow) var(--ease-out);
   }
   .meter-fill--danger { background: var(--coral); }

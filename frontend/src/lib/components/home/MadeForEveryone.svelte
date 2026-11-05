@@ -9,20 +9,20 @@
   }> = [
     {
       icon: 'type',
-      title: 'Mode huruf besar',
-      body: 'Tiga ukuran, satu ketukan, dari atas setiap halaman.',
+      title: 'Teks mudah dibaca',
+      body: 'Huruf jelas dan kontras kuat, agar informasi lebih mudah dibaca.',
       tone: 'tile--soft'
     },
     {
-      icon: 'speaker',
-      title: 'Bacakan hasil',
-      body: 'Setiap kesimpulan dan pelajaran bisa didengar dengan kata yang tenang.',
+      icon: 'shield-check',
+      title: 'Alasan yang jelas',
+      body: 'Kenali tanda yang mencurigakan melalui penjelasan singkat, satu per satu.',
       tone: 'tile--yellow'
     },
     {
-      icon: 'moon',
-      title: 'Mode tenang',
-      body: 'Gerak minimal untuk mata yang lelah dan kepala yang penuh.',
+      icon: 'check',
+      title: 'Langkah sederhana',
+      body: 'Tempel pesan atau tautan, periksa, lalu pahami hasilnya.',
       tone: 'tile--ink'
     },
     {
@@ -43,8 +43,8 @@
           Cukup keren untuk feed Anda. Cukup jelas untuk orang tua Anda.
         </h2>
         <p class="lede">
-          Tombol besar, kontras kuat, dan kata sehari-hari sejak awal. Tambahan bisa
-          dinyalakan kapan saja.
+          Tombol besar, kontras kuat, dan kata sehari-hari. Dibuat jelas sejak awal,
+          tanpa pengaturan tambahan.
         </p>
       </div>
 
@@ -65,7 +65,7 @@
   .access-section {
     width: 100%;
     background: var(--paper);
-    border-bottom: var(--border-width) solid var(--ink);
+    border-bottom: var(--border-width) solid var(--border);
     padding-block: clamp(3.5rem, 7vw, 6rem);
   }
   .access-grid {

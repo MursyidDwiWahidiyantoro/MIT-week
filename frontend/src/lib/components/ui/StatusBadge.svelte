@@ -37,7 +37,7 @@
     flex-wrap: wrap;
     margin: 0;
     padding: 6px 14px;
-    border: var(--border-width) solid var(--ink);
+    border: var(--border-width) solid var(--border);
     border-radius: var(--radius-pill);
     box-shadow: var(--shadow-hard-xs);
     color: var(--ink);

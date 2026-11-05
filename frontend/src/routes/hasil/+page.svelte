@@ -240,7 +240,7 @@
     margin: 0 0 var(--space-4);
     padding: var(--space-3) var(--space-4);
     background: var(--yellow);
-    border: var(--border-width) solid var(--ink);
+    border: var(--border-width) solid var(--border);
     border-radius: var(--radius-md);
     box-shadow: var(--shadow-hard-xs);
     font-weight: 700;
@@ -255,7 +255,7 @@
     margin: var(--space-2) 0 var(--space-4);
     padding: 6px 16px;
     background: var(--lime);
-    border: var(--border-width) solid var(--ink);
+    border: var(--border-width) solid var(--border);
     border-radius: var(--radius-pill);
     box-shadow: var(--shadow-hard-xs);
     font-weight: 700;
