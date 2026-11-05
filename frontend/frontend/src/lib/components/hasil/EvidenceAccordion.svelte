@@ -1,0 +1,173 @@
+<script lang="ts">
+  import type { DossierParsed } from '$lib/api/schemas';
+  import Skeleton from '$lib/components/ui/Skeleton.svelte';
+  import Icon from '$lib/components/ui/Icon.svelte';
+
+  interface Props {
+    pillars: DossierParsed['pillars'];
+    pending?: boolean;
+  }
+
+  let { pillars, pending = false }: Props = $props();
+
+  const LABELS = {
+    ela: 'Analisis gambar (ELA)',
+    ai: 'Deteksi jejak AI',
+    fact: 'Pengecekan fakta',
+    link: 'Pemeriksaan tautan'
+  } as const;
+
+  type Key = keyof typeof LABELS;
+  const order: Key[] = ['ela', 'ai', 'fact', 'link'];
+
+  const FACT_LABELS = {
+    CONTRADICTS: 'dibantah sumber',
+    SUPPORTS: 'didukung sumber',
+    UNVERIFIED: 'belum terverifikasi'
+  } as const;
+
+  const available = (k: Key) => pillars[k].available;
+
+  // The pillar union has no shared `score`; narrow by key instead of casting.
+  function pillarScore(p: DossierParsed['pillars'], k: Key): number {
+    switch (k) {
+      case 'ela':
+        return p.ela.score;
+      case 'ai':
+        return p.ai.score;
+      case 'fact':
+        return p.fact.status === 'CONTRADICTS' ? 100 : p.fact.status === 'UNVERIFIED' ? 40 : 0;
+      case 'link':
+        return p.link.score;
+    }
+  }
+</script>
+
+<div class="accordion">
+  {#each order as key (key)}
+    <details class="item" data-info-key={`pillar.${key}`} open={available(key)}>
+      <summary>
+        <span class="name">{LABELS[key]}</span>
+        {#if pending}
+          <span class="state pending">memeriksa…</span>
+        {:else if !available(key)}
+          <span class="state skipped">Tidak dapat diperiksa</span>
+        {:else if key === 'fact'}
+          <span class="state done">{FACT_LABELS[pillars.fact.status]}</span>
+        {:else}
+          <span class="state done">skor {pillarScore(pillars, key)}</span>
+        {/if}
+        <span class="chev" aria-hidden="true"><Icon name="chevron" size={18} /></span>
+      </summary>
+
+      <div class="body">
+        {#if pending}
+          <Skeleton lines={2} />
+        {:else if !available(key)}
+          <p class="note">Pemeriksaan ini tidak berjalan untuk konten ini. Hasil di atas tidak memakainya.</p>
+        {:else if key === 'ela'}
+          <p>
+            Keandalan {Math.round(pillars.ela.reliability * 100)}%.
+            {#if pillars.ela.reliability_note}{pillars.ela.reliability_note}{/if}
+          </p>
+          {#if pillars.ela.anomalies.length}
+            <p>{pillars.ela.anomalies.length} area perlu dilihat.</p>
+          {:else}
+            <p>Tidak ada area menonjol yang terdeteksi.</p>
+          {/if}
+        {:else if key === 'ai'}
+          <p>{pillars.ai.caveat}</p>
+          {#if (pillars.ai.indicators ?? []).length}
+            <ul>
+              {#each pillars.ai.indicators ?? [] as indicator (indicator)}<li>{indicator}</li>{/each}
+            </ul>
+          {/if}
+        {:else if key === 'fact'}
+          <div data-info-key="sources">
+            {#if pillars.fact.claim}<p>Klaim: “{pillars.fact.claim}”</p>{/if}
+            <p>Status: {FACT_LABELS[pillars.fact.status]}</p>
+            {#if (pillars.fact.sources ?? []).length}
+              <ul>
+                {#each pillars.fact.sources ?? [] as s (s.url)}
+                  <li>
+                    {#if s.match !== 'UNVERIFIED'}
+                      <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external publisher URL, not an app route -->
+                      <a href={s.url} rel="noopener noreferrer nofollow" target="_blank">{s.title || s.publisher}</a>
+                    {:else}
+                      <span>{s.title || s.publisher}</span>
+                    {/if}
+                    <span class="muted"> — {s.publisher}</span>
+                  </li>
+                {/each}
+              </ul>
+            {:else}
+              <p class="note">Tidak ada sumber terverifikasi untuk klaim ini.</p>
+            {/if}
+          </div>
+        {:else if key === 'link'}
+          {#if pillars.link.final_url}<p>Alamat akhir: {pillars.link.final_url}</p>{/if}
+          {#if (pillars.link.reasons ?? []).length}
+            <ul>
+              {#each pillars.link.reasons ?? [] as r (r.code)}<li>{r.text}</li>{/each}
+            </ul>
+          {:else}
+            <p>Tidak ada tanda mencurigakan pada tautan.</p>
+          {/if}
+        {/if}
+      </div>
+    </details>
+  {/each}
+</div>
+
+<style>
+  .accordion { display: grid; gap: var(--space-3); }
+  .item {
+    border: var(--border-width) solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--paper);
+    overflow: hidden;
+    transition: background-color var(--dur-fast) var(--ease-out);
+  }
+  .item:hover { background: var(--indigo-tint); }
+  .item[open] { background: var(--white); }
+  summary {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    min-height: 52px;
+    padding: var(--space-3) var(--space-4);
+    cursor: pointer;
+    list-style: none;
+    transition: padding-left var(--dur-fast) var(--ease-out);
+  }
+  summary:hover { padding-left: calc(var(--space-4) + 4px); }
+  summary::-webkit-details-marker { display: none; }
+  summary:focus-visible { outline: var(--focus-ring); outline-offset: -6px; }
+  .name { font-family: var(--font-display); font-weight: 800; font-size: 1.05em; }
+  .state {
+    margin-left: auto;
+    padding: 2px 10px;
+    border: 2px solid var(--border);
+    border-radius: var(--radius-pill);
+    font-size: var(--text-sm);
+    font-weight: 700;
+  }
+  .state.done { background: var(--lime); color: var(--ink); }
+  .state.skipped { background: var(--indigo-soft); color: var(--ink); }
+  .state.pending { background: var(--yellow); color: var(--ink); }
+  .chev {
+    display: inline-flex;
+    color: var(--ink);
+    transition: transform var(--dur-fast) var(--ease-out);
+  }
+  details[open] .chev { transform: rotate(180deg); }
+  .body {
+    padding: 0 var(--space-4) var(--space-4);
+    color: var(--body-2);
+    font-size: var(--text-base);
+  }
+  .body p { margin: 0 0 var(--space-2); }
+  .body ul { margin: 0; padding-left: var(--space-5); display: grid; gap: var(--space-1); }
+  .note { color: var(--muted); }
+  .muted { color: var(--muted); }
+</style>

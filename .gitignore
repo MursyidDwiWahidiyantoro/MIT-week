@@ -55,3 +55,4 @@ CLAUDE.local.md
 # local rewrite artifacts (never committed)
 *.bundle
 .msgfilter.py
+workspace-dont-push/

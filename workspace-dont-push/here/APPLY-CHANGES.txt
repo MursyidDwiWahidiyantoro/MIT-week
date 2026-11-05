@@ -1,0 +1,43 @@
+AMBA frontend design changes
+
+Apply: extract this ZIP into your MIT-week repository root. Merge the frontend folder and replace the matching files. Back up local edits first if you have changed the same files.
+
+Includes 30 changed/new source files, preserving their repository paths. No dependencies were added.
+
+Based on repository commit: d9028485f1edf4355046b02200b3840a5cc3b3c4
+
+Changes: orange/cream palette and dark/light themes; refined buttons/cards; orange numbered highlights; simplified homepage controls and scanner inputs; continuous homepage gradient; enclosed scrolling scam-label strip.
+
+Validation: npm run typecheck; npm run test; npm run build.
+
+Files:
+frontend/src/app.css
+frontend/src/app.html
+frontend/src/lib/components/a11y/TextSize.svelte
+frontend/src/lib/components/deteksi/DropzoneUploader.svelte
+frontend/src/lib/components/deteksi/ModeSelectorTabs.svelte
+frontend/src/lib/components/deteksi/ScanningRadar.svelte
+frontend/src/lib/components/hasil/EvidenceAccordion.svelte
+frontend/src/lib/components/hasil/HighlightedText.svelte
+frontend/src/lib/components/hasil/ReplyCard.svelte
+frontend/src/lib/components/hasil/SplitSliderViewer.svelte
+frontend/src/lib/components/home/HowItWorks.svelte
+frontend/src/lib/components/home/MadeForEveryone.svelte
+frontend/src/lib/components/home/ScamSchool.svelte
+frontend/src/lib/components/home/ScannerCard.svelte
+frontend/src/lib/components/mode/ModePicker.svelte
+frontend/src/lib/components/mode/ModeSwitch.svelte
+frontend/src/lib/components/ui/Panel.svelte
+frontend/src/lib/components/ui/PreviewBadge.svelte
+frontend/src/lib/components/ui/Skeleton.svelte
+frontend/src/lib/components/ui/StatusBadge.svelte
+frontend/src/lib/components/ui/ThemeSwitch.svelte
+frontend/src/lib/styles/refinement.css
+frontend/src/lib/styles/tokens.css
+frontend/src/routes/+layout.svelte
+frontend/src/routes/+page.svelte
+frontend/src/routes/cek-cepat/+page.svelte
+frontend/src/routes/deteksi/+page.svelte
+frontend/src/routes/edukasi/+page.svelte
+frontend/src/routes/hasil/+page.svelte
+frontend/src/routes/tentang/+page.svelte
