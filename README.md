@@ -180,7 +180,7 @@ cd frontend && npm run build && npm run size && npm run contrast
 | `npm run typecheck` | Svelte + TypeScript, 0 error / 0 warning |
 | `npm run lint` | ESLint, termasuk aturan a11y Svelte |
 | `npm run test` | 56 unit test (Vitest + jsdom) |
-| `npm run contrast` | 41 pasang warna ≥ 4.5:1, dibaca langsung dari `tokens.css` |
+| `npm run contrast` | 82 pasang warna ≥ 4.5:1 di tema gelap dan terang, dibaca langsung dari `tokens.css` |
 | `npm run size` | JS awal ≤ 250 KB gzip |
 
 ### End-to-end (membuktikan backend sungguhan)
@@ -191,9 +191,10 @@ npx playwright test
 ```
 
 Tes ini **menyalakan sendiri** Go (`LLM_MOCK=true`, port 8080) dan preview build
-(port 4173), lalu menjalankan 8 skenario: audit teks sampai `/hasil`, keempat
+(port 4173), lalu menjalankan 14 skenario: audit teks sampai `/hasil`, keempat
 pilar, demo offline tanpa panggilan API, unggah gambar sampai slider ELA,
-token yang diubah, rate limit, dan error server.
+token yang diubah, rate limit, error server, tipografi Esensial, dan axe di
+lima rute.
 
 Butuh Chromium sekali saja:
 
@@ -207,7 +208,7 @@ Hasil akhir desain diverifikasi di browser sungguhan, bukan dari kode:
 
 | Yang diukur | Target | Hasil terakhir |
 |---|---|---|
-| axe WCAG 2.1 AA | 0 pelanggaran | 0 di 7 permukaan |
+| axe WCAG 2.1 AA | 0 serious/critical | 0 di 6 permukaan (dijalankan e2e) |
 | Ring fokus | semua perhentian terlihat | 14/14 |
 | Target sentuh | ≥ 44px | 0 di bawah 44px |
 | Hover target utama | bergerak, bukan cuma ganti warna | semua bergerak |

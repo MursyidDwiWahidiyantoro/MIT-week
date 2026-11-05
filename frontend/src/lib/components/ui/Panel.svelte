@@ -48,11 +48,11 @@
     margin-bottom: var(--space-5);
   }
   .panel--paper { background: var(--paper); }
-  .panel--ink { background: var(--ink); color: var(--white); box-shadow: var(--shadow-indigo); }
-  .panel--lime { background: var(--lime); color: var(--ink); }
-  .panel--yellow { background: var(--yellow); color: var(--ink); }
-  .panel--coral { background: var(--coral); color: var(--ink); }
-  .panel--indigo { background: var(--indigo); color: var(--white); box-shadow: var(--shadow-hard-xl); }
+  .panel--ink { background: var(--panel-dark); color: var(--on-panel-dark); box-shadow: var(--shadow-indigo); }
+  .panel--lime { background: var(--lime); color: var(--on-fill); }
+  .panel--yellow { background: var(--yellow); color: var(--on-fill); }
+  .panel--coral { background: var(--coral); color: var(--on-fill); }
+  .panel--indigo { background: var(--indigo); color: var(--on-brand); box-shadow: var(--shadow-hard-xl); }
   .panel--soft { background: var(--indigo-soft); color: var(--ink); }
 
   h2 { font-size: 1.45em; margin: 0 0 var(--space-4); }

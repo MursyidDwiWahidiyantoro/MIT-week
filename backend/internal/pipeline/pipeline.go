@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"strings"
 	"sync"
 	"time"
 
@@ -18,6 +19,7 @@ import (
 	"github.com/amba/amba/backend/internal/llm"
 	"github.com/amba/amba/backend/internal/models"
 	"github.com/amba/amba/backend/internal/scoring"
+	"github.com/amba/amba/backend/internal/security"
 	"github.com/amba/amba/backend/internal/tactics"
 )
 
@@ -35,6 +37,13 @@ type Result struct {
 	Pillars  models.Pillars
 	Tactics  []models.Tactic
 	Degraded bool
+	// InjectionSuspected is set when the model output was flagged, so the
+	// scorer can raise the INJECTION_GUARD floor (TECH_SPEC §3.3 floor 5).
+	InjectionSuspected bool
+	// ELAHotspots and AIAnomalies are the evidence the ELA_CORROBORATED floor
+	// compares; they are not serialised to the client.
+	ELAHotspots []scoring.Box
+	AIAnomalies []scoring.Box
 }
 
 // PillarResult carries the outcome of one pillar, including whether it ran.
@@ -108,6 +117,8 @@ func (p *Pipeline) Run(ctx context.Context, req Request) Result {
 		linkOut = pillarOutcome{}
 
 		elaPillar    models.ELAPillar
+		elaHotspots  [][4]int
+		aiAnomalies  []scoring.Box
 		aiPillar     models.AIPillar
 		factPillar   models.FactPillar
 		linkPillar   models.LinkPillar
@@ -137,6 +148,9 @@ func (p *Pipeline) Run(ctx context.Context, req Request) Result {
 			elaOut.failure = "decode"
 			return nil
 		}
+		// The 16x16 grid cells above the mean are the physical hotspots the
+		// ELA_CORROBORATED floor needs; without them the floor can never fire.
+		elaHotspots = res.Hotspots(1.5)
 		elaPillar = models.ELAPillar{
 			Available:   true,
 			Score:       res.Score,
@@ -173,6 +187,9 @@ func (p *Pipeline) Run(ctx context.Context, req Request) Result {
 			Score:      f.AIScore,
 			Indicators: f.AIIndicators,
 			Caveat:     "Indikatif, bukan bukti pasti",
+		}
+		for _, a := range f.TextAnomalies {
+			aiAnomalies = append(aiAnomalies, scoring.Box(a.BoundingBox))
 		}
 		aiOut.available = true
 		aiOut.signal = scoring.Signal{Available: true, Score: f.AIScore, Reliability: aiReliability(req.InputType)}
@@ -223,14 +240,22 @@ func (p *Pipeline) Run(ctx context.Context, req Request) Result {
 	})
 
 	g.Go(func() error {
-		if req.InputType != models.InputURL {
+		target := req.URL
+		if req.InputType == models.InputText {
+			target = firstURL(req.Text)
+		}
+		if target == "" {
 			return nil
 		}
 		pctx, cancel := context.WithTimeout(gctx, p.SubDeadline)
 		defer cancel()
-		_ = pctx
 
-		analysis := linkcheck.Analyze(req.URL)
+		analysis := linkcheck.Analyze(target)
+		chain := []string{analysis.FinalURL}
+		if hops, final, err := linkcheck.Unroll(pctx, security.NewSafeClient(p.SubDeadline, 3), target, 3); err == nil && len(hops) > 0 {
+			chain = hops
+			analysis.FinalURL = final
+		}
 		reasons := make([]models.LinkReason, 0, len(analysis.Findings))
 		for _, f := range analysis.Findings {
 			reasons = append(reasons, models.LinkReason{Code: f.Code, Text: reasonText(f.Code)})
@@ -239,7 +264,7 @@ func (p *Pipeline) Run(ctx context.Context, req Request) Result {
 			Available:     true,
 			Score:         analysis.Score,
 			FinalURL:      analysis.FinalURL,
-			RedirectChain: []string{analysis.FinalURL},
+			RedirectChain: chain,
 			Reasons:       reasons,
 		}
 		linkOut.available = true
@@ -249,13 +274,30 @@ func (p *Pipeline) Run(ctx context.Context, req Request) Result {
 
 	_ = g.Wait()
 
+	// Attach the model's region boxes to the ELA pillar only after every
+	// goroutine has finished, so the ELA writer and the LLM writer never touch
+	// the same struct concurrently.
+	for _, a := range findings.TextAnomalies {
+		elaPillar.Anomalies = append(elaPillar.Anomalies, models.Anomaly{
+			BoundingBox:   a.BoundingBox,
+			ExtractedText: a.ExtractedText,
+			Reason:        a.Reason,
+		})
+	}
+	boxes := make([]scoring.Box, 0, len(elaHotspots))
+	for _, h := range elaHotspots {
+		boxes = append(boxes, scoring.Box(h))
+	}
 	res := Result{
-		Pillars: models.Pillars{ELA: elaPillar, AI: aiPillar, Fact: factPillar, Link: linkPillar},
-		Tactics: foundTactics,
+		Pillars:            models.Pillars{ELA: elaPillar, AI: aiPillar, Fact: factPillar, Link: linkPillar},
+		Tactics:            foundTactics,
+		InjectionSuspected: findings.InjectionSuspected,
+		ELAHotspots:        boxes,
+		AIAnomalies:        aiAnomalies,
 	}
 	res.Degraded = !elaOut.available && req.InputType == models.InputFile ||
 		aiOut.failure != "" || factOut.failure != "" ||
-		(req.InputType == models.InputURL && !linkOut.available)
+		((req.InputType == models.InputURL || req.InputType == models.InputText) && !linkOut.available && (req.InputType == models.InputURL || firstURL(req.Text) != ""))
 
 	_ = findings
 	p.toCache(key, res)
@@ -265,12 +307,19 @@ func (p *Pipeline) Run(ctx context.Context, req Request) Result {
 // Verdict computes the score from a Result. Kept separate so handlers can
 // decide when to compute it.
 func Verdict(res Result, injectionSuspected bool) models.Verdict {
+	// The pipeline's own finding wins; the argument exists for tests that
+	// build a Result by hand.
+	if res.InjectionSuspected {
+		injectionSuspected = true
+	}
 	in := scoring.Input{
 		ELA:                scoring.Signal{Available: res.Pillars.ELA.Available, Score: res.Pillars.ELA.Score, Reliability: res.Pillars.ELA.Reliability},
 		AI:                 scoring.Signal{Available: res.Pillars.AI.Available, Score: res.Pillars.AI.Score, Reliability: aiReliabilityFromPillar(res)},
 		Fact:               scoring.Signal{Available: res.Pillars.Fact.Available, Score: factScore(res.Pillars.Fact.Status), Reliability: 1.0},
 		Link:               scoring.Signal{Available: res.Pillars.Link.Available, Score: res.Pillars.Link.Score, Reliability: 1.0},
 		InjectionSuspected: injectionSuspected,
+		ELAHotspots:        res.ELAHotspots,
+		AIAnomalies:        res.AIAnomalies,
 	}
 	if res.Pillars.Fact.Available {
 		for _, s := range res.Pillars.Fact.Sources {
@@ -388,4 +437,18 @@ func (p *Pipeline) toCache(key string, res Result) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.cache[key] = cached{result: res, expires: time.Now().Add(p.CacheTTL)}
+}
+
+// firstURL returns the first http(s) URL in a message, so a forwarded text
+// audit can still exercise the link-safety pillar (PRD F4). It deliberately
+// stops at whitespace or a quote: a partial URL is better than none, and the
+// heuristics treat an unparseable string as maximally suspicious.
+func firstURL(text string) string {
+	for _, field := range strings.Fields(text) {
+		field = strings.Trim(field, "\"'()[]<>,.;!?")
+		if strings.HasPrefix(field, "http://") || strings.HasPrefix(field, "https://") {
+			return field
+		}
+	}
+	return ""
 }

@@ -34,6 +34,19 @@
   </p>
 </section>
 
+<section class="team" aria-labelledby="team-title">
+  <h2 class="h2" id="team-title">Tim di balik AMBA</h2>
+  <p class="lede team-lede">
+    Dibuat untuk MIT-Week 2026, Universitas Mulawarman.
+  </p>
+  <ul class="team-grid">
+    <li><strong>Mursyid D. W.</strong><span>PM &amp; Lead Architect</span></li>
+    <li><strong>M. Ridho A.</strong><span>UI/UX Lead</span></li>
+    <li><strong>Bagus Joshua P.</strong><span>Golang Backend Lead</span></li>
+    <li><strong>Jericho M. T.</strong><span>Frontend Lead</span></li>
+  </ul>
+</section>
+
 <section class="data card lift" aria-labelledby="data-title">
   <h2 class="h2" id="data-title">Apa yang kami kirim ke layanan AI</h2>
   <dl>
@@ -96,6 +109,29 @@
 <style>
   .head { max-width: 54rem; margin-bottom: var(--space-7); }
   h1 { margin-bottom: var(--space-3); }
+
+  .team { margin-bottom: var(--space-7); }
+  .team-lede { margin-top: var(--space-3); }
+  .team-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--space-3);
+    margin: var(--space-5) 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  @media (min-width: 48rem) { .team-grid { grid-template-columns: repeat(4, 1fr); } }
+  .team-grid li {
+    display: grid;
+    gap: var(--space-1);
+    padding: var(--space-4);
+    background: var(--white);
+    border: var(--border-width) solid var(--border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-hard-xs);
+  }
+  .team-grid strong { font-family: var(--font-display); font-size: 1.05em; }
+  .team-grid span { color: var(--body-2); font-size: var(--text-sm); }
 
   .data { padding: clamp(1.25rem, 3vw, 2rem); }
   dl { display: grid; gap: var(--space-5); margin: var(--space-5) 0 0; }

@@ -237,9 +237,22 @@ func (h *handlers) buildDossier(res pipeline.Result, req pipeline.Request) model
 		Pillars:         res.Pillars,
 		Tactics:         res.Tactics,
 	}
+	// The wire contract says these are arrays. Go marshals a nil slice as
+	// null, which every strict client rejects; normalise before signing.
 	if d.Tactics == nil {
 		d.Tactics = []models.Tactic{}
 	}
+	d.Pillars.ELA.Anomalies = nonNilAnomalies(d.Pillars.ELA.Anomalies)
+	d.Pillars.AI.Indicators = nonNilStrings(d.Pillars.AI.Indicators)
+	d.Pillars.Fact.Sources = nonNilSources(d.Pillars.Fact.Sources)
+	d.Pillars.Link.RedirectChain = nonNilStrings(d.Pillars.Link.RedirectChain)
+	d.Pillars.Link.Reasons = nonNilLinkReasons(d.Pillars.Link.Reasons)
+	if d.Pillars.Fact.Status == "" {
+		d.Pillars.Fact.Status = models.FactUnverified
+	}
+	d.Verdict.Basis = nonNilStrings(d.Verdict.Basis)
+	d.Verdict.NotChecked = nonNilStrings(d.Verdict.NotChecked)
+	d.Verdict.FloorsApplied = nonNilStrings(d.Verdict.FloorsApplied)
 	d.Verdict.ShortTitle = shortTitle(verdict.Status)
 	if d.Verdict.Explanation == "" {
 		d.Verdict.Explanation = explanation(verdict)
@@ -293,4 +306,35 @@ func explanation(v models.Verdict) string {
 		out = out[:400]
 	}
 	return out
+}
+
+// The helpers below exist only so JSON never contains null where the contract
+// promises an array. They are deliberately tiny: allocating a zero-length
+// slice is cheaper than teaching every client to tolerate null.
+func nonNilStrings(v []string) []string {
+	if v == nil {
+		return []string{}
+	}
+	return v
+}
+
+func nonNilAnomalies(v []models.Anomaly) []models.Anomaly {
+	if v == nil {
+		return []models.Anomaly{}
+	}
+	return v
+}
+
+func nonNilSources(v []models.Source) []models.Source {
+	if v == nil {
+		return []models.Source{}
+	}
+	return v
+}
+
+func nonNilLinkReasons(v []models.LinkReason) []models.LinkReason {
+	if v == nil {
+		return []models.LinkReason{}
+	}
+	return v
 }

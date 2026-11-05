@@ -140,8 +140,8 @@
     transition: background-color var(--dur-fast) var(--ease-out);
   }
   .chip:hover { background: var(--indigo-tint); }
-  .chip.selected { background: var(--ink); color: var(--lime); }
-  .chip.selected:hover { background: var(--ink); color: var(--lime); }
+  .chip.selected { background: var(--brand); color: var(--on-brand); }
+  .chip.selected:hover { background: var(--brand); color: var(--on-brand); }
   .chip:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
   .field { display: grid; gap: var(--space-2); }
   .field span { font-weight: 700; }

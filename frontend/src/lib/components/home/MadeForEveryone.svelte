@@ -109,10 +109,10 @@
   }
   .tile--soft { background: var(--indigo-soft); }
   .tile--yellow { background: var(--yellow); }
-  .tile--ink { background: var(--ink); color: var(--white); box-shadow: var(--shadow-indigo); }
+  .tile--ink { background: var(--panel-dark); color: var(--on-panel-dark); box-shadow: var(--shadow-indigo); }
   .tile--lime { background: var(--lime); }
   .icon { display: inline-flex; margin-bottom: var(--space-3); }
   h3 { font-size: 1.3em; margin: 0 0 var(--space-2); }
   p { margin: 0; font-size: 0.98em; line-height: 1.5; }
-  .tile--ink p { color: var(--on-indigo-text); }
+  .tile--ink p { color: var(--on-panel-dark); }
 </style>

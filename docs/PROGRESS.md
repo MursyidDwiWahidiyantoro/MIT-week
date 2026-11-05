@@ -1,6 +1,6 @@
 # Progress
 
-_Last updated: 2026-10-31_
+_Last updated: 2026-11-05_
 
 ## Phase 0 — Scaffold & contract
 
@@ -235,3 +235,62 @@ frontend: mobile LCP 464 ms   CLS 0, no overflow at 360/390/768/1280
 The scanner on the home page is a labelled worked example, not a live scan.
 Badge collection is illustrative: there is no badge storage, by design (no
 accounts, no persistence).
+
+---
+
+## Realignment audit — PRD v9 vs repo v10.1 (2026-11-05)
+
+The downloaded `PRD_AMBA.md` is **v9.0.0**. The repo already carries **v10.1**,
+which explicitly supersedes it. v10 reverses several v9 decisions on purpose:
+React 19 → Svelte 5/SvelteKit, blue glassmorphism → warm technical sticker
+system, client-side ELA score → server-authoritative ELA, golden-cache
+fallback → degraded real verdict, `/hasil/[id]` → signed fragment token.
+Realigning to v9 would therefore have been a regression; the work below closes
+the gap to **v10.1** instead, and records every deviation in `DECISIONS.md`.
+
+### Fixed
+
+| Item | Before | After |
+|---|---|---|
+| WCAG contrast gate | 4 failures (ink-on-lime 1.73:1 etc.) | 82 pairs pass in **both** themes |
+| Status badges | dark text on dark fill in dark mode | semantic `--on-fill` / `--on-panel-dark` / `--on-brand` |
+| Display font | `--font-display` pointed at Helvetica, Bricolage never used | Bricolage Grotesque Variable |
+| Essential mode type | root font grew, H1 pinned by `vw` | every clamp has a `rem` term; e2e asserts it |
+| Null arrays in JSON | `anomalies/redirect_chain/reasons/sources` = `null` | normalised to `[]`; Go test scans the wire format |
+| `Retry-After` | unreadable cross-origin | `Access-Control-Expose-Headers` + test |
+| ELA corroboration | hotspot grid computed then discarded | wired into `scoring.Input`; anomaly boxes attached after `Wait` |
+| Injection guard | flag hardcoded `false` | pipeline carries `findings.InjectionSuspected` |
+| Redirect chain | one-element echo | real unroll via the SSRF-safe client |
+| Text audit link pillar | never ran | first URL in the message is analysed (F4) |
+| Hero link bar (F1) | CTA only | real `GET /deteksi?q=` form |
+| Mode + text-size controls | components existed, never imported | wired into the header; picker after hero |
+| About team (F10) | missing | four-member team section |
+| Proof card palette | old indigo hexes | implemented warm/dark tokens |
+| PWA manifest colours | old indigo | implemented palette |
+| axe gate | claimed in docs, dependency never imported | Playwright gate: 6 surfaces × 2 themes |
+| `/reply` fallback | ignored verdict status | status × tone matrix, 4 statuses |
+| `trusted_sources.yaml` | referenced by spec, absent | present, with a Go parity test |
+| `ModePicker` / `TextSize` / `ModeSwitch` | dead components | live |
+
+### Still open
+
+- `/reply` uses deterministic templates, not an LLM draft.
+- Link-only audits can still return `INSUFFICIENT` at score 85 (product decision).
+- Safe Browsing and metrics env vars are read but unused.
+- Demo case IDs differ from PRD F8 (`contoh-*` vs `demo-tiktok` etc.); recorded
+  in `DECISIONS.md`.
+
+### Verification (2026-11-05)
+
+```
+backend : go vet ./...                 no issues
+backend : go test -race ./...          264 tests pass, 14 packages
+frontend: svelte-check                 0 errors, 0 warnings
+frontend: eslint                       no issues
+frontend: vitest                       56 tests pass, 9 files
+frontend: vite build                   OK, adapter-static
+frontend: contrast                     82 pairs, both themes
+frontend: size                         120.2 KB gz / 250 KB
+frontend: playwright e2e               14/14 (incl. axe on 6 surfaces)
+demo diff                              in sync
+```

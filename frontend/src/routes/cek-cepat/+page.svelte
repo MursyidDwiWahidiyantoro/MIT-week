@@ -203,7 +203,7 @@
     height: 30px;
     flex: none;
     background: var(--ink);
-    color: var(--lime);
+    color: var(--on-ink);
     border-radius: 10px;
     font-size: 0.85em;
   }
@@ -223,7 +223,7 @@
     transition: transform var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
   }
   .choice:hover { transform: translate(-2px, -2px); box-shadow: 5px 5px 0 var(--ink); }
-  .choice.selected { background: var(--indigo); color: var(--white); }
+  .choice.selected { background: var(--indigo); color: var(--on-brand); }
   .choice.selected:hover { background: var(--indigo); box-shadow: 5px 5px 0 var(--ink); }
   .choice:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
   @media (max-width: 36rem) {

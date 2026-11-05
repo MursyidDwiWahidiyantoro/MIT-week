@@ -9,11 +9,11 @@ html:root body .btn:disabled,html:root body .btn[aria-disabled=true] {transform:
 html:root body .btn--quiet {background:var(--surface);color:var(--ink)}
 html:root body .btn-icon-circle,html:root body .scan-bar-circle {background:transparent;border:0;color:inherit}
 html:root body .card--lime,html:root body .card--yellow,html:root body .card--coral {color:var(--on-brand)}
-html:root body .card--indigo {background:var(--indigo-soft);color:var(--ink)}
+html:root body .card--indigo {background:var(--indigo-soft);color:var(--text)}
 html:root body .logo {background:var(--brand);color:var(--on-brand);border:0;box-shadow:none}
 html:root body .nav-link {border-radius:999px}
 html:root body .nav-link:hover {background:var(--hover-overlay);color:var(--ink);transform:none}
-html:root body .nav-link[aria-current=page] {background:var(--ink);color:var(--paper);border-color:transparent}
+html:root body .nav-link[aria-current=page] {background:var(--panel-dark);color:var(--on-panel-dark);border-color:transparent}
 html:root body .mode-switch,html:root body .seg,html:root body .theme-switch {border:1px solid var(--border);border-radius:999px;background:var(--surface);padding:4px;gap:3px}
 .theme-switch {display:inline-flex;margin:0;align-items:center;flex:none}
 .theme-switch button {font:inherit;font-size:var(--text-sm);font-weight:700;min-height:44px;padding:0 12px;border:0;cursor:pointer}
@@ -26,10 +26,12 @@ html:root body .mark {background:transparent;color:var(--indigo-text);border:0;b
 html:root body .scan-shell {background:var(--surface);padding:0;border-color:var(--border);box-shadow:0 18px 55px #00000020}
 html:root body .scan-core {background:transparent;border:0}
 html:root body .tabs {background:var(--surface-2);border:1px solid var(--border);border-radius:999px;padding:4px;gap:3px}
-html:root body .tabs button {border:0;border-radius:999px;background:transparent;color:var(--ink)}
-html:root body .tabs button.is-active {background:var(--ink);color:var(--paper)}
+html:root body .tabs button {border:0;border-radius:999px;background:transparent;color:var(--text)}
+html:root body .tabs button.is-active,
+html:root body .tabs button.selected,
+html:root body .tabs button[aria-selected='true'] {background:var(--brand);color:var(--on-brand)}
 html:root body .sample {border-style:solid;background:var(--surface-2)}
-html:root body .chip {background:transparent;border:0;padding-inline:0;color:var(--err)}
+html:root body .chip:not(.chip--danger):not(.chip--warn) {background:transparent;border:0;padding-inline:0;color:var(--err)}
 html:root body .chip--warn {color:var(--warn)}
 html:root body .meter {height:10px;border:0;background:var(--border)}
 html:root body .meter-fill {border:0;background:linear-gradient(90deg,#ffc76d,#ff7145,#ef5079)}
@@ -42,8 +44,8 @@ html:root body .lift:active {transform:none}
 html:root body :focus-visible {outline:3px solid var(--ink);outline-offset:4px}
 @media(prefers-reduced-motion:reduce){html:root body .btn:hover,html:root body .scan-bar:hover,html:root body .lift:hover{transform:none;transition:none}}
 html[data-motion=calm] body .btn:hover,html[data-motion=calm] body .scan-bar:hover,html[data-motion=calm] body .lift:hover{transform:none}
-html:root body .tile--yellow,html:root body .tile--lime,html:root body .num--lime,html:root body .num--yellow,html:root body .num--indigo,html:root body .badge--indigo,html:root body .badge--yellow,html:root body .badge--lime,html:root body .badge--coral,html:root body .pill--coral,html:root body .hl--yellow,html:root body .hl--coral,html:root body .hl--lime {color:var(--on-brand)}
-html:root body .tile--yellow p,html:root body .tile--lime p {color:#493023}
+html:root body .tile--yellow,html:root body .num--lime,html:root body .num--yellow,html:root body .num--indigo,html:root body .badge--indigo,html:root body .badge--yellow,html:root body .badge--lime,html:root body .badge--coral,html:root body .pill--coral,html:root body .hl--yellow,html:root body .hl--coral,html:root body .hl--lime {color:var(--on-brand)}
+html:root body .tile--yellow p,html:root body .tile--lime p {color:var(--on-fill)}
 html:root body .tick {background:transparent;color:var(--indigo-text)}
 html:root body .panel--indigo {background:var(--indigo-soft);color:var(--ink)}
 html:root body .input,html:root body .textarea,html:root body .select {border-style:solid}
@@ -52,7 +54,7 @@ html:root body .preview {background:var(--yellow-tint);color:var(--ink)}
 
 html:root body main.is-home .hero-backdrop { opacity: 0; }
 html:root body main.is-home .marquee__group { background: transparent; }
-html:root body main.is-home .marquee__item { color: var(--ink); }
+html:root body main.is-home .marquee__item { color: var(--on-panel-dark); }
 
 /* Family callout: readable copy with diffuse light instead of solid dots. */
 html:root body #family .family-panel {
@@ -130,4 +132,73 @@ html:root body main.is-home > section.marquee {
   background: var(--surface-2) !important;
   border-top: var(--border-width) solid var(--border) !important;
   border-bottom: var(--border-width) solid var(--border) !important;
+}
+
+/* ---- semantic text roles ------------------------------------------------
+ * A fill can stay pastel in both themes while the ground flips, so "ink on
+ * lime" is not a safe rule: in dark mode --ink is near-white. Each surface
+ * below maps to exactly one readable text role. Prefixed for specificity over
+ * Svelte's scoped component rules.
+ */
+
+/* Pastel sticker fills: light in both themes, so the text stays dark. */
+html:root body .card--lime, html:root body .card--yellow, html:root body .card--coral,
+html:root body .panel--lime, html:root body .panel--yellow, html:root body .panel--coral,
+html:root body .tile--yellow, html:root body .tile--lime,
+html:root body .chip--danger, html:root body .chip--warn,
+html:root body .sticker--coral, html:root body .sticker--yellow,
+html:root body .mode--yellow, html:root body .mode--lime,
+html:root body .tag--send, html:root body .tag--no, html:root body .tag--none,
+html:root body .level[data-level='high'], html:root body .level[data-level='wary'],
+html:root body .level[data-level='low'],
+html:root body .tone--safe, html:root body .tone--warn, html:root body .tone--danger,
+html:root body .state.done, html:root body .state.pending,
+html:root body .verified, html:root body .notice, html:root body .notice--demo,
+html:root body .mark, html:root body .skip-link, html:root body .pill--coral,
+html:root body .option.correct, html:root body .quiz-eyebrow,
+html:root body .limits,
+html:root body ::selection {
+  color: var(--on-fill);
+}
+
+/* Dark accent panels: a fixed dark ground in both themes. */
+html:root body .card--ink, html:root body .panel--ink, html:root body .tile--ink,
+html:root body .btn--ink, html:root body .nav-link[aria-current='page'],
+html:root body .marquee, html:root body .marquee__group,
+html:root body .marquee__item {
+  background: var(--panel-dark);
+  color: var(--on-panel-dark);
+}
+html:root body .btn--ink:hover { color: var(--on-panel-dark); }
+html:root body .tile--ink p { color: var(--on-panel-dark); }
+
+/* Brand-filled controls: dark text on the warm orange in dark mode, white in
+ * light mode where --brand is darkened. */
+html:root body .btn--primary, html:root body .btn--lime, html:root body .logo,
+html:root body .choice.selected, html:root body .scan-bar,
+html:root body .num--indigo, html:root body .num--lime, html:root body .num--yellow,
+html:root body .badge--indigo, html:root body .badge--yellow,
+html:root body .badge--lime, html:root body .badge--coral,
+html:root body .tabs button.is-active, html:root body .tabs button.selected,
+html:root body .tabs button[aria-selected='true'],
+html:root body .tools .seg button[aria-pressed='true'],
+html:root body .tools .mode-switch button.selected,
+html:root body .tools .theme-switch button[aria-pressed='true'] {
+  color: var(--on-brand);
+}
+html:root body .btn--primary:hover, html:root body .btn--lime:hover,
+html:root body .scan-bar:hover { color: var(--on-brand); }
+
+/* A light --ink fill: its paired text is the opposite ground. */
+html:root body .tick, html:root body .q-num { color: var(--on-ink); }
+
+/* Tinted dark surfaces keep the normal text role. */
+html:root body .state.skipped, html:root body .option { color: var(--text); }
+
+/* A pastel sticker is a light surface in both themes; a note placed on it is
+ * a paper note, so it must stay light too. */
+html:root body .quiz-bubble {
+  background: #fff8f4;
+  color: #170e09;
+  border-color: #796154;
 }

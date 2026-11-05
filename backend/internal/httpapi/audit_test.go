@@ -220,3 +220,51 @@ func TestAuditFileRejectsNonImage(t *testing.T) {
 		t.Fatal("non-image upload accepted")
 	}
 }
+
+// The contract says arrays; a nil Go slice must never reach the wire as null.
+func TestAuditJSONNeverContainsNullArrays(t *testing.T) {
+	for _, body := range []string{
+		`{"text":"Bantuan dibagikan hari ini saja"}`,
+		`{"url":"https://example.org/artikel"}`,
+	} {
+		path := "/api/v1/audit/text"
+		if strings.Contains(body, `"url"`) {
+			path = "/api/v1/audit/url"
+		}
+		rec := postJSON(t, path, body, "")
+		if rec.Code != http.StatusOK {
+			t.Fatalf("%s: status = %d, body = %s", path, rec.Code, rec.Body.String())
+		}
+		var raw map[string]any
+		if err := json.Unmarshal(rec.Body.Bytes(), &raw); err != nil {
+			t.Fatalf("%s: not JSON: %v", path, err)
+		}
+		assertNoNullArrays(t, path, raw)
+	}
+}
+
+func assertNoNullArrays(t *testing.T, path string, v any) {
+	t.Helper()
+	switch node := v.(type) {
+	case map[string]any:
+		for key, child := range node {
+			if child == nil && isArrayField(key) {
+				t.Errorf("%s: %q is null, want []", path, key)
+			}
+			assertNoNullArrays(t, path, child)
+		}
+	case []any:
+		for _, child := range node {
+			assertNoNullArrays(t, path, child)
+		}
+	}
+}
+
+func isArrayField(key string) bool {
+	switch key {
+	case "anomalies", "indicators", "sources", "redirect_chain", "reasons",
+		"basis", "not_checked", "floors_applied", "tactics":
+		return true
+	}
+	return false
+}

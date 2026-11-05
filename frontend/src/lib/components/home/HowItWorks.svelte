@@ -78,9 +78,9 @@
     font-size: 1.6em;
     box-shadow: var(--shadow-hard-xs);
   }
-  .num--indigo { background: var(--indigo); color: var(--white); }
-  .num--lime { background: var(--lime); color: var(--ink); }
-  .num--yellow { background: var(--yellow); color: var(--ink); }
+  .num--indigo { background: var(--indigo); color: var(--on-brand); }
+  .num--lime { background: var(--lime); color: var(--on-fill); }
+  .num--yellow { background: var(--yellow); color: var(--on-fill); }
 
   h3 { font-size: 1.4em; margin: 0 0 var(--space-2); }
   p { margin: 0; color: var(--body-2); font-size: 1.02em; line-height: 1.5; }

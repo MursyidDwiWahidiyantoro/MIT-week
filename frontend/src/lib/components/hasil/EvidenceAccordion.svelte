@@ -152,9 +152,9 @@
     font-size: var(--text-sm);
     font-weight: 700;
   }
-  .state.done { background: var(--lime); color: var(--ink); }
+  .state.done { background: var(--lime); color: var(--on-fill); }
   .state.skipped { background: var(--indigo-soft); color: var(--ink); }
-  .state.pending { background: var(--yellow); color: var(--ink); }
+  .state.pending { background: var(--yellow); color: var(--on-fill); }
   .chev {
     display: inline-flex;
     color: var(--ink);

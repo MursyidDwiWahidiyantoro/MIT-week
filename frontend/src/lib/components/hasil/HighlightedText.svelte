@@ -92,7 +92,7 @@
   }
   .tactic {
     background: var(--yellow);
-    color: var(--ink);
+    color: var(--on-fill);
     border-radius: 6px;
     padding: 1px 3px;
     box-decoration-break: clone;
@@ -135,7 +135,7 @@
     font-family: var(--font-display);
     font-weight: 800;
     font-size: var(--text-xs);
-    color: var(--ink);
+    color: var(--on-fill);
   }
   strong { color: var(--ink); }
 </style>

@@ -232,7 +232,7 @@
     width: 44px;
     height: 44px;
     background: var(--lime);
-    color: var(--ink);
+    color: var(--on-fill);
     border: var(--border-width) solid var(--border);
     border-radius: 14px;
     flex: none;
@@ -286,7 +286,7 @@
     font-size: var(--text-sm);
     color: var(--ink);
   }
-  .badge--indigo { background: var(--indigo); color: var(--white); }
+  .badge--indigo { background: var(--indigo); color: var(--on-brand); }
   .badge--yellow { background: var(--yellow); }
   .badge--lime { background: var(--lime); }
   .badge--coral { background: var(--coral); }

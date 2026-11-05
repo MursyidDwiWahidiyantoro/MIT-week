@@ -1,6 +1,11 @@
 package grounding
 
-import "testing"
+import (
+	"os"
+	"slices"
+	"strings"
+	"testing"
+)
 
 func TestVerifiedRequiresAllowlistedHost(t *testing.T) {
 	g := New(DefaultAllowlist)
@@ -47,5 +52,25 @@ func TestEmptyAllowlistRejectsEverything(t *testing.T) {
 	g := New(nil)
 	if g.Verified("https://antaranews.com/x", nil) {
 		t.Error("empty allowlist accepted a host")
+	}
+}
+
+// The allowlist is duplicated on purpose: the YAML is the reviewed, human
+// editable contract; DefaultAllowlist is what ships in the binary. This test
+// makes drift between them a build failure instead of a silent policy change.
+func TestAllowlistMatchesConfigFile(t *testing.T) {
+	raw, err := os.ReadFile("../../../configs/trusted_sources.yaml")
+	if err != nil {
+		t.Fatalf("read trusted_sources.yaml: %v", err)
+	}
+	var fromFile []string
+	for _, line := range strings.Split(string(raw), "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "- ") {
+			fromFile = append(fromFile, strings.TrimSpace(strings.TrimPrefix(line, "- ")))
+		}
+	}
+	if !slices.Equal(fromFile, DefaultAllowlist) {
+		t.Fatalf("allowlist drift:\n file: %v\n code: %v", fromFile, DefaultAllowlist)
 	}
 }

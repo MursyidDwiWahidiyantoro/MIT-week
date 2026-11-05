@@ -1,0 +1,17 @@
+# Fact-check / news domains AMBA will cite as verified sources.
+# A source is accepted only when its host is on this list AND the URL came
+# from the model's own tool results (TECH_SPEC §6). Edit here, then update
+# internal/grounding/grounding.go DefaultAllowlist in the same commit; a Go
+# test asserts the two lists match.
+domains:
+  - turnbackhoax.id
+  - cekfakta.com
+  - komdigi.go.id
+  - kominfo.go.id
+  - antaranews.com
+  - kompas.com
+  - detik.com
+  - tempo.co
+  - cnnindonesia.com
+  - liputan6.com
+  - tirto.id

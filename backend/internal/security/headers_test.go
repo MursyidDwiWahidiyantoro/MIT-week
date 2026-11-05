@@ -133,3 +133,14 @@ func TestCORSProductionHasNoWildcard(t *testing.T) {
 		t.Error("the configured app origin must be allowed")
 	}
 }
+
+func TestCORSExposesRetryAfter(t *testing.T) {
+	cfg := NewCORSConfig("https://amba.example", false)
+	rec := httptest.NewRecorder()
+	r := httptest.NewRequest(http.MethodGet, "/", nil)
+	r.Header.Set("Origin", "https://amba.example")
+	cfg.Middleware(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {})).ServeHTTP(rec, r)
+	if got := rec.Header().Get("Access-Control-Expose-Headers"); got != "Retry-After" {
+		t.Fatalf("expose-headers = %q, want Retry-After", got)
+	}
+}

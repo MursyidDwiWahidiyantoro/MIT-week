@@ -8,17 +8,18 @@
 
 ## 1. Concept in one line
 
-A **neo-brutalist sticker sheet**: every surface is a flat saturated sticker with
-a thick ink outline and a hard, blur-free shadow. It lifts when you point at it
-and squishes when you press it. Bold enough for a feed, plain enough for a
-grandparent.
+A **warm, sticker-inspired technical surface**: flat saturated fills, fine
+borders, soft ambient light, and generous type. Bold enough for a feed, plain
+enough for a grandparent. The earlier indigo neo-brutalist spec was replaced by
+this warm palette during the November redesign.
 
-**Motion verb: press.** Nothing slides or fades decoratively. Things are peeled
-up (hover), pressed flat (active), or bob in place (stickers).
+**Motion verb: press.** Things lift slightly on hover and settle on press;
+the hero stickers bob and the marquee runs, both stopping under reduced motion
+or in Esensial mode.
 
-**Signature moment:** the scanner card in the hero. Three tabs, each a real
-scam pattern, with a risk meter that fills and a verdict panel that retints. It
-teaches the shape of a verdict before the visitor submits anything.
+**Signature moment:** the scanner card in the hero. Two tabs (message / link),
+each a real scam pattern, with a risk meter that fills and a verdict panel that
+retints. It teaches the shape of a verdict before the visitor submits anything.
 
 ---
 
@@ -29,59 +30,67 @@ names only; no raw hex outside that file.
 
 ### Colour
 
-| Token | Value | Role |
-|---|---|---|
-| `--ink` | `#12142B` | text, every border, every hard shadow |
-| `--paper` | `#F7F7FB` | page ground |
-| `--white` | `#FFFFFF` | cards, inputs, quiet buttons |
-| `--indigo` | `#4A44EE` | primary action, CTA panel |
-| `--indigo-soft` | `#DAD8FF` | decorative field, big-text tile |
-| `--indigo-tint` | `#EDEBFF` | selected tab, example pill |
-| `--indigo-text` | `#3A34C4` | eyebrow labels |
-| `--lime` | `#D4F54A` | highlight, positive, ink-panel accent |
-| `--yellow` | `#FFC93C` | suspicious |
-| `--coral` | `#FF5C4D` | danger |
-| `--coral-tint` | `#FFE3DF` | danger verdict panel |
-| `--yellow-tint` | `#FFF3CF` | suspicious verdict panel |
-| `--muted` | `#4A4E69` | secondary text |
-| `--body-2` | `#2B2E4A` | paragraph text |
-| `--ok` / `--warn` / `--err` | `#1F6B33` / `#7A5200` / `#B3261E` | status **text** only |
+The implemented palette is **warm orange**, not the indigo palette in the
+earlier source spec. Values live in `frontend/src/lib/styles/tokens.css`.
 
-**Two deliberate departures from the source spec, both for contrast:**
+| Token | Dark | Light | Role |
+|---|---|---|---|
+| `--paper` | `#070302` | `#fff8f4` | page ground |
+| `--white` | `#171210` | `#ffffff` | cards, inputs |
+| `--surface-2` | `#211a17` | `#f7eee8` | recessed surface |
+| `--ink` | `#fff8f4` | `#170e09` | **text only** (flips between themes) |
+| `--brand` | `#ff6129` | `#c2410c` | primary action |
+| `--on-brand` | `#100702` | `#fff8f4` | text on a brand fill |
+| `--lime` | `#ffad87` | `#ffd2b8` | safe / positive fill |
+| `--yellow` | `#ffc76d` | `#ffd391` | suspicious fill |
+| `--coral` | `#ff879c` | `#f79bad` | danger fill |
+| `--on-fill` | `#100702` | `#170e09` | text on a pastel fill |
+| `--panel-dark` | `#171210` | `#171210` | deliberately dark accent panel |
+| `--on-panel-dark` | `#fff8f4` | `#fff8f4` | text on a dark panel |
+| `--text-2` | `#d4c9c3` | `#51463f` | paragraph text |
+| `--text-3` | `#bfb4ae` | `#665950` | secondary text |
 
-1. The spec's saturated coral/yellow/lime are used as **fills** only, with ink on
-   top. Status *text* uses darkened variants so it passes AA on paper and white.
-   Ink on coral is 5.94:1, ink on yellow 11.78:1, ink on lime 14.61:1.
-2. `--indigo` is never used for body text (5.86:1 on paper); `--indigo-text` is
-   the text-safe indigo at 7.96:1.
+**Why semantic roles instead of ink/white pairs.** `--ink` is the *text*
+colour and flips between themes. Using it as a background produced near-white
+panels with dark text in dark mode. Every surface therefore maps to exactly one
+of four text roles:
 
-`tools/check-contrast.mjs` reads these tokens (following `var()` aliases) and
-fails CI on 41 pairs, including the whole sticker palette.
+1. `--on-fill` — pastel sticker fills (`--lime`, `--yellow`, `--coral`), light in
+   both themes, so the text stays dark.
+2. `--on-panel-dark` — deliberately dark panels (`.card--ink`, `.marquee`,
+   `.tile--ink`, active nav).
+3. `--on-brand` — brand-filled controls (primary button, active tab, logo).
+4. `--on-ink` — the few light `--ink` fills (`.tick`, `.q-num`).
+
+`tools/check-contrast.mjs` reads the token file, resolves `var()` aliases, and
+checks **both themes**: 82 pairs, including every semantic role. A token that is
+only redefined under `html[data-theme='light']` is read from that block.
 
 ### Type
 
 | Role | Family | Notes |
 |---|---|---|
-| Display, headings, buttons, labels | **Bricolage Grotesque** (variable) | weight 800, tracking −0.025em to −0.03em |
+| Display, headings, buttons, labels | **Bricolage Grotesque Variable** | weight 800, tracking −0.025em to −0.03em |
 | Body, UI | **Atkinson Hyperlegible** | 400/700, chosen for low-vision legibility |
 
 Two families, both self-hosted via `@fontsource` so the CSP stays `font-src 'self'`.
 
-Scale: `--text-display` `clamp(2.5rem, 6vw, 4.6rem)` for H1, `--text-2xl`
-`clamp(1.75rem, 4.4vw, 3.2rem)` for H2, body 18px/1.5, small 15px.
+Every size clamp keeps a `rem` term in its preferred value
+(`clamp(2.25rem, 1.8rem + 2.2vw, 4.1rem)`). A pure `vw` middle value is pinned
+by the viewport, so the text-size toggle and Esensial mode would change the root
+font and nothing else at desktop widths. Root scale is
+`--text-scale × --mode-scale`.
 
-**No monospace anywhere.** The spec's "technical" labels use the display face at
-small size instead: a monospace label is the single most common generated-page
-tell, and it carried no information here.
+**No monospace anywhere.** Technical labels use the display face at small size.
 
 ### Edges and shadows
 
-- Border `2.5px solid var(--ink)` on every card, button, pill, tab, input.
+- Border `1px solid var(--border)` on every card, button, pill, tab and input.
 - Radii: cards 26px, buttons 16–18px, pills 99px, chat bubble `22px 22px 22px 6px`.
-- Shadows are **always** `Npx Npx 0 var(--ink)`: 3px chips, 6px buttons, 8px
-  cards, 10px hero card and CTA panel. Dark/accent panels use an indigo shadow.
-- Blur is zero everywhere. There is no `box-shadow` with a blur radius in the
-  codebase, except the proof-card exporter's print surface.
+- Shadows are soft and diffuse (`0 8px 28px #00000020`), never hard offset
+  shadows. Hero and CTA panels use the same shadow at a larger scale.
+- The only blurred surface is the ambient hero glow, which is decorative and
+  marked `aria-hidden`.
 
 ---
 
@@ -91,11 +100,11 @@ One treatment per role, reused everywhere:
 
 | Role | Rest | Hover | Active |
 |---|---|---|---|
-| Card (`.lift`) | hard shadow | `translate(-3px,-3px)` + 9px shadow | `translate(3px,3px)` + no shadow |
-| Button (`.btn`) | hard shadow | same peel, shadow grows | squish flat |
-| Nav link (`.nav-link`) | transparent | lime fill + ink border + peel | 1px press |
-| Tab | white | indigo tint | ink fill, lime text |
-| Input | dashed ink border | — | solid border on focus |
+| Card (`.lift`) | soft shadow | `translateY(-2px)` | no transform |
+| Button (`.btn`) | brand fill | lighter brand + lift | deeper brand, no lift |
+| Nav link (`.nav-link`) | transparent | tinted pill | brand pill |
+| Tab | transparent | tinted | brand fill, `--on-brand` text |
+| Input | solid border | — | solid border + focus ring |
 
 - Focus: `4px solid var(--ink)` with 3px offset, on every interactive element.
 - Press feedback is never removed, in any mode.
@@ -126,7 +135,7 @@ animation.
 
 ## 5. Layout
 
-- Max width 1240px, 20px gutter at every size.
+- Max width 1920px, gutter `clamp(20px, 3.4vw, 72px)`.
 - Fluid `flex-wrap` columns with `flex: 1 1 <basis>` and `min-width: 0`; no
   breakpoint-heavy grids.
 - Every section uses a different composition: split hero, marquee band, 3-card

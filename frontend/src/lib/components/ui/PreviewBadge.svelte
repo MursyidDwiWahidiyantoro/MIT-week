@@ -18,7 +18,7 @@
     margin: 0;
     padding: 10px var(--gutter);
     background: var(--yellow);
-    color: var(--ink);
+    color: var(--on-fill);
     border-bottom: var(--border-width) solid var(--border);
     font-size: var(--text-sm);
     line-height: 1.4;

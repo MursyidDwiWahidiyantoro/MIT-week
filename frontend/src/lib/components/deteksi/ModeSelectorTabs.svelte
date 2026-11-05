@@ -77,8 +77,8 @@
       transform var(--dur-fast) var(--ease-out);
   }
   button:hover { background: var(--indigo-tint); }
-  button.selected:hover { background: var(--ink); color: var(--lime); }
+  button.selected:hover { background: var(--brand); color: var(--on-brand); }
   button:active { transform: scale(0.97); }
-  button.selected { background: var(--ink); color: var(--lime); }
+  button.selected { background: var(--brand); color: var(--on-brand); }
   button:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
 </style>

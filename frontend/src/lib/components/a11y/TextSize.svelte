@@ -56,8 +56,8 @@
       transform var(--dur-fast) var(--ease-out);
   }
   button:hover { background: var(--indigo-tint); }
-  button.is-active:hover { background: var(--ink); color: var(--lime); }
+  button.is-active:hover { background: var(--brand); color: var(--on-brand); }
   button:active { transform: scale(0.94); }
-  button.is-active { background: var(--ink); color: var(--lime); }
+  button.is-active { background: var(--brand); color: var(--on-brand); }
   button:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
 </style>

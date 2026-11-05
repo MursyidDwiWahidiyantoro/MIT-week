@@ -209,7 +209,7 @@
     height: 32px;
     flex: none;
     background: var(--ink);
-    color: var(--lime);
+    color: var(--on-ink);
     border-radius: 10px;
     font-size: 0.9em;
   }
@@ -231,7 +231,7 @@
   .option.correct:hover { background: var(--lime); }
   .option.wrong:hover { background: var(--coral-tint); }
   .option input { width: 22px; height: 22px; accent-color: var(--indigo); flex: none; }
-  .option.correct { background: var(--lime); border-color: var(--ink); }
+  .option.correct { background: var(--lime); border-color: var(--on-fill); }
   .option.wrong { background: var(--coral-tint); border-color: var(--ink); }
   .verdict-tag {
     margin-left: auto;

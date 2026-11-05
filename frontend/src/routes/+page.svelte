@@ -5,6 +5,8 @@
   import HowItWorks from '$lib/components/home/HowItWorks.svelte';
   import ScamSchool from '$lib/components/home/ScamSchool.svelte';
   import MadeForEveryone from '$lib/components/home/MadeForEveryone.svelte';
+  import ModePicker from '$lib/components/mode/ModePicker.svelte';
+  import { mode } from '$lib/mode.svelte';
 
   const TRUST = ['Tanpa jargon', 'Teks mudah dibaca', 'Aman untuk seisi rumah'];
 </script>
@@ -39,6 +41,23 @@
           dipakai, semakin peka Anda.
         </p>
 
+        <form class="hero-form" action={resolve('/deteksi')} method="GET">
+          <label class="sr-only" for="hero-url">Tempel tautan yang ingin diperiksa</label>
+          <input
+            id="hero-url"
+            class="input"
+            type="url"
+            name="q"
+            inputmode="url"
+            autocomplete="off"
+            placeholder="Tempel tautan TikTok, YouTube, Instagram, atau situs..."
+          />
+          <button class="btn btn--primary" type="submit">Periksa</button>
+        </form>
+        <p class="hero-hint">
+          Punya tangkapan layar atau pesan? <a href={resolve('/deteksi')}>Buka ruang deteksi</a>.
+        </p>
+
         <div class="cta-row">
           <a class="btn btn--primary btn--hero group" href={resolve('/deteksi')}>
             <span>Periksa sekarang</span>
@@ -66,6 +85,9 @@
   </div>
 </section>
 
+{#if mode.needsPicker}
+  <div class="wrap"><ModePicker /></div>
+{/if}
 
 <section class="marquee" aria-label="Jenis scam yang bisa dikenali">
   <div class="marquee__track">
@@ -207,6 +229,29 @@
     margin: 0;
   }
 
+  .hero-form {
+    display: flex;
+    gap: var(--space-2);
+    margin-top: var(--space-5);
+    max-width: 42rem;
+  }
+  .hero-form .input {
+    flex: 1 1 auto;
+    min-width: 0;
+    background: var(--white);
+    border-style: solid;
+  }
+  .hero-form .btn { flex: none; }
+  .hero-hint {
+    margin: var(--space-2) 0 0;
+    color: var(--body-2);
+    font-size: var(--text-sm);
+  }
+  @media (max-width: 40rem) {
+    .hero-form { flex-direction: column; }
+    .hero-form .btn { width: 100%; }
+  }
+
   .cta-row {
     display: flex;
     flex-wrap: wrap;
@@ -228,7 +273,7 @@
     width: 32px;
     height: 32px;
     background: var(--lime);
-    color: var(--ink);
+    color: var(--on-fill);
     border-radius: 50%;
     border: 2px solid var(--border);
     transition: transform var(--dur-fast) var(--ease-out);
@@ -255,7 +300,7 @@
     width: 26px;
     height: 26px;
     background: var(--ink);
-    color: var(--lime);
+    color: var(--on-ink);
     border-radius: 50%;
     flex: none;
   }

@@ -145,9 +145,9 @@
       transform var(--dur-fast) var(--ease-out);
   }
   .tabs button:hover { background: var(--indigo-tint); }
-  .tabs button[aria-selected='true']:hover { background: var(--ink); color: var(--lime); }
+  .tabs button[aria-selected='true']:hover { background: var(--brand); color: var(--on-brand); }
   .tabs button:active { transform: scale(0.97); }
-  .tabs button[aria-selected='true'] { background: var(--ink); color: var(--lime); }
+  .tabs button[aria-selected='true'] { background: var(--brand); color: var(--on-brand); }
   .tabs button:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
 
   .stage {

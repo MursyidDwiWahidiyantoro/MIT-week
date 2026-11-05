@@ -79,6 +79,9 @@ func (c CORSConfig) Middleware(next http.Handler) http.Handler {
 			h.Add("Vary", "Origin")
 			h.Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
 			h.Set("Access-Control-Allow-Headers", "Content-Type, Accept")
+			// Without Expose-Headers a cross-origin script cannot read the
+			// rate-limit countdown, and the UI falls back to a guessed value.
+			h.Set("Access-Control-Expose-Headers", "Retry-After")
 			h.Set("Access-Control-Max-Age", "600")
 		}
 		if r.Method == http.MethodOptions {

@@ -225,3 +225,43 @@ Containerized full stack for cross-platform team usage (Linux x86_64, macOS Appl
    - Standardized on `docker-compose.yml` (demo/prod-like stack) and `docker-compose.dev.yml` (dev override).
 
 Revisit: if deploying to Kubernetes or multi-node clusters, replace docker-compose with Helm charts / K8s manifests and add ingress TLS termination.
+
+## 2026-11-05 · v10.1 is the contract; the downloaded v9 PRD is superseded
+
+The file supplied for this realignment is PRD **v9.0.0**. `instruction/PRD_AMBA_v10.md`
+says it supersedes v9.0.0 and v10.0, and it reverses several v9 choices
+deliberately: Svelte 5/SvelteKit instead of React 19, a warm technical sticker
+system instead of blue glassmorphism, server-authoritative ELA instead of a
+client score, degraded real verdicts instead of a golden-cache fallback, and a
+signed fragment token instead of `/hasil/[id]`.
+
+Decision: keep the repo on **v10.1** and close the gap to v10.1. Reverting to
+v9 would undo working, tested architecture. Revisit: only if the competition
+rules are changed to require the v9 stack.
+
+## 2026-11-05 · Colour is role-based, never ink/white pairs
+
+`--ink` is the text colour and flips between themes. Using it as a background
+produced near-white panels with dark text in dark mode, and pairing it with
+`--lime`/`--yellow`/`--coral` produced 1.5–1.7:1 contrast.
+
+Decision: every surface maps to one of four roles — `--on-fill` (pastel fills),
+`--on-panel-dark` (deliberately dark panels), `--on-brand` (brand fills),
+`--on-ink` (the few light ink fills). `tools/check-contrast.mjs` checks both
+themes. Revisit: if a fifth surface family is introduced, add a role rather
+than a one-off hex.
+
+## 2026-11-05 · Demo case IDs differ from PRD F8
+
+PRD F8 names `demo-tiktok`, `demo-berita-ig`, `demo-resmi`. The implementation
+ships `contoh-hoax-bantuan`, `contoh-tautan-mencurigakan`, `contoh-informasi-aman`
+(backend and frontend copies byte-identical, CI-diffed). The behaviour the
+acceptance criteria describe is met: three synthetic cases, `is_demo: true`,
+visible "CONTOH / SIMULASI" banner, zero network calls from the SPA, valid
+against the Dossier schema.
+
+Decision: keep the Indonesian IDs — they are the user-facing labels and the
+demo is synthetic, so the v9 media-platform names would overclaim. Revisit: if
+the jury deck or PRD must match literally, rename in one commit across
+`backend/internal/demo/demo-cases.json`, `frontend/src/lib/data/demo-cases.json`,
+and `backend/internal/httpapi/demo_test.go`.

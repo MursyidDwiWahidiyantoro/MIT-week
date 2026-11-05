@@ -211,7 +211,7 @@
                 transform var(--dur-fast) var(--ease-out);
   }
   .tabs button:hover { background: var(--indigo-tint); }
-  .tabs button.is-active { background: var(--ink); color: var(--lime); }
+  .tabs button.is-active { background: var(--brand); color: var(--on-brand); }
   .tabs button:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
 
   .sample-label { margin: 0 0 var(--space-2); font-weight: 700; font-size: var(--text-sm); color: var(--muted); }
@@ -234,8 +234,8 @@
     justify-content: space-between;
     min-height: 56px;
     padding: 0 var(--space-4);
-    background: var(--ink);
-    color: var(--lime);
+    background: var(--brand);
+    color: var(--on-brand);
     border: var(--border-width) solid var(--border);
     border-radius: var(--radius-pill);
     font-family: var(--font-display);
@@ -258,7 +258,7 @@
     width: 32px;
     height: 32px;
     background: var(--lime);
-    color: var(--ink);
+    color: var(--on-fill);
     border-radius: 50%;
     border: 2px solid var(--border);
     flex: none;
@@ -322,7 +322,7 @@
     height: 26px;
     flex: none;
     background: var(--ink);
-    color: var(--white);
+    color: var(--on-ink);
     border-radius: 50%;
     font-family: var(--font-display);
     font-weight: 800;

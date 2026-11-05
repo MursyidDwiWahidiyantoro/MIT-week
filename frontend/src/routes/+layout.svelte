@@ -9,6 +9,8 @@
   import { mode } from '$lib/mode.svelte';
   import { textSize } from '$lib/a11y.svelte';
   import ThemeSwitch from '$lib/components/ui/ThemeSwitch.svelte';
+  import TextSize from '$lib/components/a11y/TextSize.svelte';
+  import ModeSwitch from '$lib/components/mode/ModeSwitch.svelte';
   import '../lib/styles/refinement.css';
   import PreviewBadge from '$lib/components/ui/PreviewBadge.svelte';
   import Icon from '$lib/components/ui/Icon.svelte';
@@ -78,6 +80,8 @@
     </nav>
 
     <div class="tools">
+      <TextSize />
+      <ModeSwitch />
       <ThemeSwitch />
     </div>
   </div>
@@ -143,7 +147,7 @@
     width: 44px;
     height: 44px;
     background: var(--indigo);
-    color: var(--white);
+    color: var(--on-brand);
     border: var(--border-width) solid var(--border);
     border-radius: 14px;
     box-shadow: var(--shadow-hard-xs);
