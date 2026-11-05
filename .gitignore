@@ -56,3 +56,6 @@ CLAUDE.local.md
 *.bundle
 .msgfilter.py
 workspace-dont-push/
+
+# local scratch workspace (never committed)
+workspace-dont-push/
