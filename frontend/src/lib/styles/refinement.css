@@ -154,7 +154,7 @@ html:root body .level[data-level='low'],
 html:root body .tone--safe, html:root body .tone--warn, html:root body .tone--danger,
 html:root body .state.done, html:root body .state.pending,
 html:root body .verified, html:root body .notice, html:root body .notice--demo,
-html:root body .mark, html:root body .skip-link, html:root body .pill--coral,
+html:root body .skip-link, html:root body .pill--coral,
 html:root body .option.correct, html:root body .quiz-eyebrow,
 html:root body .limits,
 html:root body ::selection {
@@ -202,3 +202,6 @@ html:root body .quiz-bubble {
   color: #170e09;
   border-color: #796154;
 }
+
+/* The hero highlight word is transparent-on-ground, not a pastel fill. */
+html:root body .mark { color: var(--indigo-text); }

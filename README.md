@@ -27,11 +27,12 @@ pillar signals and applies the floors from TECH_SPEC §3.3.
 
 ## Menjalankan
 
-Ada tiga cara. Pilih satu sesuai kebutuhan.
+Ada empat cara. Pilih satu sesuai kebutuhan.
 
 | Cara | Perintah | Dipakai untuk |
 |---|---|---|
-| **Docker** | `make up` | Demo ke juri, atau cek cepat tanpa setup |
+| **Docker** (Linux/macOS) | `make up` | Demo ke juri, atau cek cepat tanpa setup |
+| **Docker** (Windows) | `start.bat` | Sama, tanpa perlu `make` |
 | **Manual** (dua terminal) | `go run` + `npm run dev` | Kerja harian backend / frontend |
 | **Preview produksi** | `npm run build` + `npm run preview` | Melihat hasil akhir sebelum demo |
 
@@ -55,6 +56,32 @@ Kalau port 80 sudah terpakai:
 
 ```bash
 FRONTEND_PORT=3000 make up      # aplikasi pindah ke http://localhost:3000
+```
+
+### Windows — tanpa `make`
+
+Windows tidak menyertakan `make`. Pakai skrip batch di root repo; isinya sama
+persis dengan target Makefile:
+
+| Perintah | Setara | Kegunaan |
+|---|---|---|
+| `start.bat` | `make up` | Build lalu jalankan stack demo (web :80, API :8080) |
+| `start-dev.bat` | `make dev` | Mode hot-reload (Go Air + Vite HMR) |
+| `stop.bat` | `make down` | Hentikan dan hapus container |
+
+Prasyarat: **Docker Desktop** sudah berjalan (ikonnya tidak lagi “starting”).
+Skrip memeriksa ini lebih dulu dan berhenti dengan pesan jelas kalau daemon
+belum siap. Klik dua kali berkasnya, atau dari PowerShell:
+
+```powershell
+.\start.bat
+```
+
+Port 80 dipakai aplikasi lain? Jalankan lewat PowerShell dengan variabel
+lingkungan, sama seperti versi Make:
+
+```powershell
+$env:FRONTEND_PORT=3000; .\start.bat
 ```
 
 Mode hot-reload (Go Air + Vite di dalam container):

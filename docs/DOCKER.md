@@ -7,6 +7,9 @@ Panduan containerization AMBA untuk tim lintas platform (Linux, macOS Apple Sili
 ```
 AMBA/
 ├── Makefile                     # Shortcut perintah cepat tim (make up, make dev, make down)
+├── start.bat                    # Windows: setara `make up` (Docker Desktop)
+├── start-dev.bat                # Windows: setara `make dev` (hot-reload)
+├── stop.bat                     # Windows: setara `make down`
 ├── docker-compose.yml           # Stack demo / prod-like (Go static binary + Nginx SPA proxy)
 ├── docker-compose.dev.yml       # Stack dev (Go Air hot-reload + SvelteKit Vite dev server)
 ├── .dockerignore                # Root exclude list (git, test artifacts, logs)

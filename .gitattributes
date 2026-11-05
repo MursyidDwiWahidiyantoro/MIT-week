@@ -1,0 +1,7 @@
+# Batch files are stored verbatim, with CRLF, and never normalised.
+# cmd.exe expects CRLF and can mis-parse parenthesised blocks on bare LF, so
+# the safest rule is no conversion at all: the committed bytes are exactly
+# what a clone, an archive, or a copy receives. `whitespace=cr-at-eol` stops
+# git's whitespace check from reporting every CR as trailing whitespace.
+*.bat -text whitespace=cr-at-eol
+*.cmd -text whitespace=cr-at-eol
