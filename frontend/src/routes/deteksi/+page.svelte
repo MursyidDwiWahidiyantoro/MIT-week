@@ -4,7 +4,6 @@
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
   import { AuditSession } from '$lib/audit.svelte';
-  import { parseDossier } from '$lib/api/schemas';
   import { isMockMode } from '$lib/api/config';
   import { result } from '$lib/result.svelte';
   import { firstHttpUrl, readSharedItem } from '$lib/share-target';
@@ -46,6 +45,15 @@
   onMount(() => {
     const id = page.url.searchParams.get('share');
     if (id) void openShared(id);
+  });
+
+  // The contract parser (Zod) is not needed to paint this page. Warm it once
+  // the browser is idle, so opening a demo still needs no network (PRD F8).
+  onMount(() => {
+    const warm = () => void import('$lib/api/schemas').catch(() => {});
+    const w = window as Window & { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number };
+    if (w.requestIdleCallback) w.requestIdleCallback(warm, { timeout: 3000 });
+    else setTimeout(warm, 300);
   });
 
   async function openShared(id: string): Promise<void> {
@@ -136,6 +144,7 @@
       }
     }
     try {
+      const { parseDossier } = await import('$lib/api/schemas');
       const dossier = parseDossier(demo.dossier);
       const text = dossier.input_type === 'TEXT' ? demo.label : null;
       result.set(dossier, image, text);

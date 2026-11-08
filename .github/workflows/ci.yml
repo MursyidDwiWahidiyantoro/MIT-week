@@ -61,7 +61,7 @@ jobs:
         run: npm run size
 
   # PRD §5: performance, best practices and SEO >= 90, accessibility >= 95 on
-  # every public route (Lighthouse mobile profile, median of 3 runs).
+  # every public route (Lighthouse mobile profile, median of 5 runs).
   lighthouse:
     runs-on: ubuntu-latest
     defaults:

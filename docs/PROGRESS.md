@@ -357,8 +357,8 @@ frontend: vitest                       60 tests pass, 10 files
 frontend: vite build                   OK, adapter-static
 frontend: contrast                     82 pairs, both themes
 frontend: headers                      vercel.json matches security-headers.json
-frontend: size                         140.9 KB gz / 250 KB
+frontend: size                         142.0 KB gz / 250 KB (all JS)
 frontend: playwright e2e               32/32 (axe ID + EN, mode parity, i18n)
-frontend: lighthouse (mobile, median)  perf 90-99, a11y 100, BP 96-100, SEO 100, CLS 0
+frontend: lighthouse (mobile, median 5) perf 93-100, a11y 100, BP 96-100, SEO 100, CLS 0
 demo diff                              in sync
 ```

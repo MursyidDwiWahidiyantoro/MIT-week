@@ -422,7 +422,7 @@ Frontend (build time): `VITE_API_BASE_URL`, `VITE_API_MODE=http|mock`.
 | FE unit | Vitest + @testing-library/svelte | Zod parsing, token parse, bbox math, a11y helpers, mode store |
 | FE e2e | Playwright | demo (offline), link flow w/ `LLM_MOCK`, upload flow, share-token verify, tamper → invalid |
 | A11y | `@axe-core/playwright` | 0 serious/critical on all routes |
-| Perf | `tools/lighthouse.mjs` (CI job) | ≥ 90 performance/best-practices/SEO, ≥ 95 accessibility, CLS ≤ 0.1, median of 3 mobile runs per route; bundle ≤ 250 KB gz |
+| Perf | `tools/lighthouse.mjs` (CI job) | ≥ 90 performance/best-practices/SEO, ≥ 95 accessibility, CLS ≤ 0.1, median of 5 mobile runs per route; bundle ≤ 250 KB gz |
 | Design tokens | `tools/check-contrast.mjs` | all text/background token pairs ≥ 4.5:1 (UI/large ≥ 3:1) |
 | Security | headers test | CSP/CORS values present on SPA + API |
 | Tactics & reply | `go test` | phrase-substring verification, unknown codes dropped, `/reply` requires valid token, URL stripping, template fallback, length cap |
