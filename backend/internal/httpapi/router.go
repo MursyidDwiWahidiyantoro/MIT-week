@@ -10,9 +10,15 @@ import (
 	"github.com/amba/amba/backend/internal/security"
 )
 
-// NewRouter builds the API router. Routes are added per phase; the envelope,
-// headers and recovery apply to everything mounted here.
+// NewRouter builds the API router with freshly built services.
 func NewRouter(cfg *config.Config) http.Handler {
+	return NewRouterWith(cfg, NewDeps(cfg), nil)
+}
+
+// NewRouterWith builds the API router around shared services. extra, when
+// non-nil, mounts additional routes (the Telegram webhook) under the same
+// headers, recovery and rate limit.
+func NewRouterWith(cfg *config.Config, deps Deps, extra func(chi.Router)) http.Handler {
 	r := chi.NewRouter()
 
 	r.Use(security.APISecurityHeaders)
@@ -25,12 +31,14 @@ func NewRouter(cfg *config.Config) http.Handler {
 		IdleTTL:        10 * time.Minute,
 		SweepInterval:  5 * time.Minute,
 		TrustedProxies: security.ParseTrustedProxies(cfg.TrustedProxy),
+		ClientIPHeader: cfg.ClientIPHeader,
 	})
-	cors := security.NewCORSConfig(cfg.PublicAppURL, !cfg.IsProduction())
-	h := newHandlers(cfg, limiter)
+	cors := security.NewCORSConfig(cfg.PublicAppURL, !cfg.IsProduction()).WithOrigins(cfg.ExtraOrigins...)
+	h := newHandlers(cfg, limiter, deps)
 
 	r.Use(cors.Middleware)
 	r.Use(limiter.Middleware(func(w http.ResponseWriter, _ *http.Request) {
+		deps.Metrics.Inc("amba_rate_limited_total", "reason", "client")
 		writeError(w, errRateLimited)
 	}))
 
@@ -48,6 +56,9 @@ func NewRouter(cfg *config.Config) http.Handler {
 		r.Post("/verify", h.verify)
 		r.Post("/reply", h.reply)
 	})
+	if extra != nil {
+		extra(r)
+	}
 
 	return r
 }

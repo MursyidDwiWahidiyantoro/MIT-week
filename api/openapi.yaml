@@ -374,9 +374,34 @@ components:
           maxItems: 5
           items: { $ref: "#/components/schemas/Tactic" }
         share_token: { type: string }
+        source_metadata:
+          description: >
+            Public description of the submitted link (PRD F1), read via oEmbed
+            or OpenGraph. null for TEXT and FILE input. BLOCKED means the
+            platform refused automated reading; the UI asks for a screenshot.
+          nullable: true
+          allOf: [{ $ref: "#/components/schemas/SourceMetadata" }]
+        ocr_text:
+          type: string
+          maxLength: 2000
+          description: >
+            Text the model read in an uploaded image (FILE input only, "" otherwise).
+            Tactics with source "ocr" are highlighted in it, labelled "dibaca dari gambar".
       required:
         [schema_version, id, timestamp, input_type, source_reference,
          degraded, is_demo, verdict, pillars, tactics, share_token]
+
+    SourceMetadata:
+      type: object
+      properties:
+        status: { type: string, enum: [OK, BLOCKED, UNAVAILABLE] }
+        platform: { type: string, enum: [youtube, tiktok, x, instagram, facebook, threads, web] }
+        via: { type: string, enum: [oembed, opengraph, ""] }
+        title: { type: string, maxLength: 300 }
+        author: { type: string, maxLength: 120 }
+        description: { type: string, maxLength: 1000 }
+        site_name: { type: string, maxLength: 80 }
+      required: [status, platform, via, title, author, description, site_name]
 
     ErrorEnvelope:
       type: object

@@ -124,49 +124,25 @@ func TestTacticsOnlyWhenPhrasePresent(t *testing.T) {
 	}
 }
 
-func TestFactStatusRequiresVerifiedSource(t *testing.T) {
+func TestStatusFromSources(t *testing.T) {
+	c := models.Source{Match: models.FactContradicts}
+	sup := models.Source{Match: models.FactSupports}
+	u := models.Source{Match: models.FactUnverified}
 	tests := []struct {
-		name     string
-		claimed  models.FactStatus
-		sources  []models.Source
-		expected models.FactStatus
+		name    string
+		sources []models.Source
+		want    models.FactStatus
 	}{
-		{
-			name:     "claimed contradicts with a verified contradiction",
-			claimed:  models.FactContradicts,
-			sources:  []models.Source{{URL: "https://antaranews.com/x", Match: models.FactContradicts}},
-			expected: models.FactContradicts,
-		},
-		{
-			name:     "claimed contradicts but the source was downgraded",
-			claimed:  models.FactContradicts,
-			sources:  []models.Source{{URL: "https://example.org/x", Match: models.FactUnverified}},
-			expected: models.FactUnverified,
-		},
-		{
-			name:     "claimed contradicts with no sources at all",
-			claimed:  models.FactContradicts,
-			sources:  nil,
-			expected: models.FactUnverified,
-		},
-		{
-			name:     "claimed supports with a verified support",
-			claimed:  models.FactSupports,
-			sources:  []models.Source{{URL: "https://kompas.com/x", Match: models.FactSupports}},
-			expected: models.FactSupports,
-		},
-		{
-			name:     "claimed supports but only a contradiction exists",
-			claimed:  models.FactSupports,
-			sources:  []models.Source{{URL: "https://kompas.com/x", Match: models.FactContradicts}},
-			expected: models.FactUnverified,
-		},
+		{"one contradiction", []models.Source{u, c}, models.FactContradicts},
+		{"one support", []models.Source{sup, u}, models.FactSupports},
+		{"fact-checkers disagree", []models.Source{c, sup}, models.FactUnverified},
+		{"nothing verified", []models.Source{u}, models.FactUnverified},
+		{"no sources", nil, models.FactUnverified},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := statusFromVerifiedSources(tt.claimed, tt.sources); got != tt.expected {
-				t.Errorf("status = %s, want %s", got, tt.expected)
+			if got := statusFromSources(tt.sources); got != tt.want {
+				t.Errorf("status = %s, want %s", got, tt.want)
 			}
 		})
 	}
