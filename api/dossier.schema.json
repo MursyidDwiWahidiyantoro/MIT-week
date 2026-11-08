@@ -185,6 +185,7 @@
             "enum": [
               "FACT_CONTRADICTED",
               "LINK_MALICIOUS",
+              "LINK_STRONG",
               "ELA_CORROBORATED",
               "ELA_SOLO_CAP",
               "INJECTION_GUARD"
