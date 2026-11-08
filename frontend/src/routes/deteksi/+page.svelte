@@ -25,10 +25,19 @@
   let inputError = $state<string | null>(null);
   let sharedNotice = $state<string | null>(null);
 
-  // The home hero hands a pasted link over as ?q=.
-  $effect(() => {
-    const q = page.url.searchParams.get('q');
-    if (q && !url) url = q;
+  // The home hero hands a pasted link over as ?q= and the check starts at
+  // once, because submitting the hero form was the explicit action (PRD F1:
+  // a link check in as few taps as possible). The "upload a screenshot" call
+  // to action on a blocked link opens the image tab with ?tab=file.
+  onMount(() => {
+    const tab = page.url.searchParams.get('tab');
+    if (tab === 'file' || tab === 'text' || tab === 'url') kind = tab;
+    const q = page.url.searchParams.get('q')?.trim();
+    if (q && !page.url.searchParams.get('share')) {
+      kind = 'url';
+      url = q;
+      void tick().then(submit);
+    }
   });
 
   // A share-target redirect carries a one-time cache id. Read and delete it,
@@ -104,12 +113,31 @@
     }
   }
 
-  // Bundled example dossiers. Loading one makes zero network calls (PRD F8).
-  const demos = demoData.cases.map((c) => ({ id: c.id, label: c.caption, dossier: c.dossier }));
+  // Bundled example dossiers. Loading one makes zero API calls (PRD F8); the
+  // screenshot demo reads its synthetic image from this app's own static
+  // files, which the service worker also keeps for offline use.
+  type DemoCase = { id: string; caption: string; image?: string; dossier: unknown };
+  const demos = (demoData.cases as DemoCase[]).map((c) => ({
+    id: c.id,
+    label: c.caption,
+    image: c.image ?? null,
+    dossier: c.dossier
+  }));
 
-  function openDemo(dossier: unknown): void {
+  async function openDemo(demo: (typeof demos)[number]): Promise<void> {
+    let image: File | null = null;
+    if (demo.image) {
+      try {
+        const res = await fetch(demo.image);
+        if (res.ok) image = new File([await res.blob()], 'contoh-simulasi.jpg', { type: 'image/jpeg' });
+      } catch {
+        // The verdict still opens; only the image viewer is skipped.
+      }
+    }
     try {
-      result.set(parseDossier(dossier), null);
+      const dossier = parseDossier(demo.dossier);
+      const text = dossier.input_type === 'TEXT' ? demo.label : null;
+      result.set(dossier, image, text);
       void goto(resolve('/hasil'));
     } catch {
       // A bundled dossier that fails the contract is a build-time bug, not a
@@ -204,7 +232,7 @@
     <ul>
       {#each demos as demo (demo.id)}
         <li>
-          <button class="demo-btn" type="button" onclick={() => openDemo(demo.dossier)}>
+          <button class="demo-btn" type="button" onclick={() => openDemo(demo)}>
             {demo.label}
           </button>
         </li>
