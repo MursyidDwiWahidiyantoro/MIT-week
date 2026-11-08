@@ -2,7 +2,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import Icon from '$lib/components/ui/Icon.svelte';
   import templates from '$lib/data/reply-templates.json';
-  import { isMockMode } from '$lib/api/config';
+  import { isMockMode, API_BASE } from '$lib/api/config';
   import { isMockToken } from '$lib/api/mock';
   import type { Status } from '$lib/api/types';
 
@@ -50,7 +50,7 @@
 
     loading = true;
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080/api/v1'}/reply`, {
+      const res = await fetch(`${API_BASE}/reply`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token, tone })
@@ -119,7 +119,9 @@
     <Button variant="quiet" onclick={whatsapp}>
       <Icon name="whatsapp" size={18} /> Kirim lewat WhatsApp
     </Button>
-    <span class="src">Sumber: {source === 'llm' ? 'draf model' : 'templat'}</span>
+    <span class="src">
+      {source === 'llm' ? 'Draf AI, sudah dicek aturan sopan dan tautannya' : 'Templat bawaan AMBA'}
+    </span>
   </div>
 </div>
 

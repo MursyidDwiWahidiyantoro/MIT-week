@@ -50,6 +50,7 @@ export class AuditSession {
   #aborted = false;
   /** Held only so the verdict handler can hand it to the result store. */
   #imageFile: File | null = null;
+  #inputText: string | null = null;
 
   get done(): boolean {
     return this.verdict !== null || this.error !== null;
@@ -70,6 +71,7 @@ export class AuditSession {
     this.error = null;
     this.running = true;
     this.#imageFile = payload.file ?? null;
+    this.#inputText = kind === 'text' ? (payload.text ?? null) : null;
     this.stages = { ela: 'idle', ai: 'idle', fact: 'idle', link: 'idle' };
     this.partials = {};
 
@@ -202,7 +204,7 @@ export class AuditSession {
         break;
       case 'verdict':
         this.verdict = parseDossier(event.data);
-        result.set(this.verdict, this.#imageFile);
+        result.set(this.verdict, this.#imageFile, this.#inputText);
         if (this.verdict.degraded) {
           this.announcement = 'Sebagian pemeriksaan tidak berjalan.';
         }

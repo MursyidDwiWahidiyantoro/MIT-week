@@ -12,6 +12,8 @@ export interface ResultEntry {
   dossier: DossierParsed;
   imageFile: File | null;
   imageUrl: string | null;
+  /** The text the user submitted (or a demo caption), for tactic highlights. */
+  inputText: string | null;
 }
 
 let current = $state<ResultEntry | null>(null);
@@ -36,7 +38,10 @@ export const result = {
   get imageFile(): File | null {
     return current?.imageFile ?? null;
   },
-  set(dossier: DossierParsed, imageFile: File | null = null): void {
+  get inputText(): string | null {
+    return current?.inputText ?? null;
+  },
+  set(dossier: DossierParsed, imageFile: File | null = null, inputText: string | null = null): void {
     revoke();
     let imageUrl: string | null = null;
     if (imageFile) {
@@ -46,7 +51,7 @@ export const result = {
         imageUrl = null;
       }
     }
-    current = { dossier, imageFile, imageUrl };
+    current = { dossier, imageFile, imageUrl, inputText };
   },
   clear(): void {
     revoke();

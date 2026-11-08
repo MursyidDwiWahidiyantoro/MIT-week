@@ -12,12 +12,15 @@
   import ShareButton from '$lib/components/share/ShareButton.svelte';
   import ReadAloud from '$lib/components/a11y/ReadAloud.svelte';
   import ElaViewer from '$lib/components/hasil/ElaViewer.svelte';
+  import LinkPreview from '$lib/components/hasil/LinkPreview.svelte';
+  import { autoRead, speak, speechAvailable } from '$lib/a11y.svelte';
   import tacticLabels from '$lib/data/tactics.json';
   import Icon from '$lib/components/ui/Icon.svelte';
   import type { DossierParsed } from '$lib/api/schemas';
 
   let live = $state<DossierParsed | null>(result.value);
   let imageFile = $state<File | null>(result.imageFile);
+  const inputText = result.inputText;
   let shared = $state<VerifyResult | null>(null);
   let checking = $state(false);
   let verdictHeading: HTMLElement | null = $state(null);
@@ -61,6 +64,35 @@
   const elaAnomalies = $derived(
     live && live.pillars.ela.available ? live.pillars.ela.anomalies : []
   );
+
+  // The text tactic phrases were verified against, so the highlights land
+  // where the user can see them: the message they sent, the link's caption,
+  // or what the model read in the image.
+  const highlight = $derived.by(() => {
+    if (!live) return { text: '', label: '' };
+    if (live.input_type === 'FILE') {
+      return { text: live.ocr_text, label: 'Dibaca dari gambar' };
+    }
+    if (live.input_type === 'URL' && live.source_metadata) {
+      const md = live.source_metadata;
+      const caption = [md.title, md.description !== md.title ? md.description : '']
+        .filter(Boolean)
+        .join('\n');
+      return { text: caption, label: 'Dari pratinjau tautan' };
+    }
+    return { text: inputText ?? live.source_reference, label: '' };
+  });
+
+  const spoken = $derived(live ? `${live.verdict.explanation_simple} ${live.verdict.explanation}` : '');
+
+  // Optional auto-read (PRD F14): off by default, speaks once per result.
+  let autoReadDone = false;
+  $effect(() => {
+    if (live && !autoReadDone && autoRead.value && speechAvailable()) {
+      autoReadDone = true;
+      speak(spoken);
+    }
+  });
 </script>
 
 <svelte:head><title>Hasil pemeriksaan — AMBA</title></svelte:head>
@@ -162,9 +194,27 @@
     <p class="sentence" data-info-key="verdict.sentence">{dossier.verdict.explanation_simple}</p>
     <p class="explanation" data-info-key="verdict.explanation">{dossier.verdict.explanation}</p>
     <div class="read-aloud" data-info-key="readaloud">
-      <ReadAloud text={`${dossier.verdict.explanation_simple} ${dossier.verdict.explanation}`} />
+      <ReadAloud text={spoken} />
+      {#if speechAvailable()}
+        <label class="auto-read">
+          <input
+            type="checkbox"
+            checked={autoRead.value}
+            onchange={(e) => autoRead.set((e.currentTarget as HTMLInputElement).checked)}
+          />
+          Bacakan otomatis hasil berikutnya
+        </label>
+      {/if}
     </div>
   </section>
+
+  {#if dossier.input_type === 'URL' && dossier.source_metadata}
+    <Panel title="Isi tautan">
+      <div data-info-key="source.metadata">
+        <LinkPreview metadata={dossier.source_metadata} />
+      </div>
+    </Panel>
+  {/if}
 
   {#if imageFile && dossier.input_type === 'FILE'}
     <Panel title="Tampilan gambar">
@@ -176,7 +226,8 @@
     <Panel title="Pola yang perlu diwaspadai">
       <div data-info-key="tactics">
         <HighlightedText
-          text={dossier.source_reference}
+          text={highlight.text}
+          sourceLabel={highlight.label}
           tactics={dossier.tactics}
           labels={tacticLabels}
         />
@@ -277,7 +328,9 @@
     max-width: 28ch;
   }
   .explanation { color: var(--body-2); max-width: var(--measure); margin: 0; }
-  .read-aloud { margin-top: var(--space-4); }
+  .read-aloud { margin-top: var(--space-4); display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3) var(--space-5); }
+  .auto-read { display: inline-flex; align-items: center; gap: var(--space-2); min-height: 44px; font-size: var(--text-sm); color: var(--body-2); cursor: pointer; }
+  .auto-read input { width: 20px; height: 20px; accent-color: var(--ink); }
   .score-line { margin: var(--space-2) 0 0; font-weight: 700; }
   .note { margin: var(--space-4) 0 0; color: var(--body-2); font-size: var(--text-sm); max-width: var(--measure); }
 
