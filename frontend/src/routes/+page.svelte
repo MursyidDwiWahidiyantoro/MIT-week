@@ -6,6 +6,7 @@
   import ScamSchool from '$lib/components/home/ScamSchool.svelte';
   import MadeForEveryone from '$lib/components/home/MadeForEveryone.svelte';
   import ModePicker from '$lib/components/mode/ModePicker.svelte';
+  import Deferred from '$lib/components/ui/Deferred.svelte';
   import { mode } from '$lib/mode.svelte';
 
   const TRUST = ['Tanpa jargon', 'Teks mudah dibaca', 'Aman untuk seisi rumah'];
@@ -89,6 +90,7 @@
   <div class="wrap"><ModePicker /></div>
 {/if}
 
+<Deferred order={0}>
 <section class="marquee" aria-label="Jenis scam yang bisa dikenali">
   <div class="marquee__track">
     {#each [0, 1] as copy (copy)}
@@ -101,9 +103,11 @@
   </div>
 </section>
 
-<HowItWorks />
-<ScamSchool />
-<MadeForEveryone />
+</Deferred>
+
+<Deferred order={1}><HowItWorks /></Deferred>
+<Deferred order={2}><ScamSchool /></Deferred>
+<Deferred order={3}><MadeForEveryone /></Deferred>
 
 <section class="family-section section" id="family">
   <div class="wrap">
