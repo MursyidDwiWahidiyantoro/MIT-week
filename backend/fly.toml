@@ -45,6 +45,13 @@ primary_region = "sin" # Singapore: the closest Fly region to Indonesia
     path = "/healthz"
     timeout = "3s"
 
+# Optional anonymous counters (TECH_SPEC §7.6) for Fly's private Prometheus.
+# Uncomment together with METRICS_ADDR = "0.0.0.0:9091" in [env]; the port is
+# scraped inside Fly's network and is not public.
+# [metrics]
+#   port = 9091
+#   path = "/metrics"
+
 [[vm]]
   size = "shared-cpu-1x"
   memory = "512mb"

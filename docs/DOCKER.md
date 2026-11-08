@@ -104,6 +104,14 @@ NINEROUTER_MODEL=gemini-3.8-flash
 ```
 `extra_hosts: ["host.docker.internal:host-gateway"]` telah dikonfigurasi secara default sehingga container dapat berkomunikasi langsung ke host machine.
 
+Layanan opsional lain cukup diisi di `.env` (daftar lengkap ada di `.env.example`):
+```env
+GOOGLE_API_KEY=...            # Fact Check Tools + Safe Browsing
+TELEGRAM_BOT_TOKEN=...        # bot berjalan dalam mode polling di Docker lokal
+```
+
+Stack Docker ini untuk lokal dan LAN. Untuk produksi publik (Vercel + Fly.io/Railway), ikuti [DEPLOY.md](DEPLOY.md).
+
 ---
 
 ## 5. Perintah Makefile
