@@ -30,14 +30,16 @@ USER 10001:10001
 WORKDIR /app
 COPY --from=build --chown=10001:10001 /bin/server /app/server
 
+# Safe local defaults. Hosted deployments override these (fly.toml [env],
+# Railway variables); see docs/DEPLOY.md. SERVER_PORT is left unset so a
+# PaaS-injected PORT is honoured, with 8080 as the fallback.
 ENV SERVER_HOST=0.0.0.0 \
-    SERVER_PORT=8080 \
     ENVIRONMENT=development \
     LLM_MOCK=true
 
 EXPOSE 8080
 
 HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=3 \
-  CMD wget -qO- http://127.0.0.1:8080/healthz || exit 1
+  CMD wget -qO- "http://127.0.0.1:${PORT:-${SERVER_PORT:-8080}}/healthz" || exit 1
 
 ENTRYPOINT ["/app/server"]

@@ -1,0 +1,50 @@
+# Fly.io config for the AMBA API. Change `app` to your own app name, then:
+#   fly launch --no-deploy --copy-config   (first time only)
+#   fly secrets set REPORT_SIGNING_KEY=... NINEROUTER_API_KEY=... (see docs/DEPLOY.md)
+#   fly deploy
+app = "amba-api"
+primary_region = "sin" # Singapore: the closest Fly region to Indonesia
+
+[build]
+  dockerfile = "Dockerfile"
+  build-target = "prod"
+
+# Non-secret settings. Keys, the model gateway and the app URL are secrets.
+[env]
+  SERVER_HOST = "0.0.0.0"
+  SERVER_PORT = "8080"
+  ENVIRONMENT = "production"
+  LLM_MOCK = "false"
+  # Every request reaches the machine through Fly's proxy, which writes the
+  # real client address to Fly-Client-IP. Without these two lines all users
+  # would share one rate-limit bucket.
+  TRUSTED_PROXY_CIDRS = "*"
+  CLIENT_IP_HEADER = "Fly-Client-IP"
+  HARD_TIMEOUT_MS = "12000"
+  CACHE_TTL_SECONDS = "600"
+  MAX_UPLOAD_SIZE_MB = "10"
+  TELEGRAM_MODE = "webhook"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  # Keep one machine warm: a cold start would eat most of the 12 s audit budget.
+  min_machines_running = 1
+
+  [http_service.concurrency]
+    type = "requests"
+    soft_limit = 25
+    hard_limit = 40
+
+  [[http_service.checks]]
+    grace_period = "10s"
+    interval = "15s"
+    method = "GET"
+    path = "/healthz"
+    timeout = "3s"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
