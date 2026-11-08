@@ -125,3 +125,132 @@ func longPath(n int) string {
 	}
 	return string(b)
 }
+
+// TestNoFalseBrandMatches pins the precision fix: a brand name that merely
+// appears inside an ordinary word, or on the brand's own or a government
+// domain, is not a lookalike. These were all flagged by the old substring
+// rule, and a link-only verdict now makes such a false alarm visible.
+func TestNoFalseBrandMatches(t *testing.T) {
+	for _, raw := range []string{
+		"https://www.cambridge.org/dictionary",
+		"https://www.novotel.com/",
+		"https://danantara.id/",
+		"https://www.britannica.com/topic/indonesia",
+		"https://fabrikasi.co.id/",
+		"https://www.klikbca.com/",
+		"https://www.bankbsi.co.id/",
+		"https://www.bpjs-kesehatan.go.id/",
+		"https://djponline.pajak.go.id/",
+		"https://chat.whatsapp.com/abc",
+		"https://www.telegraph.co.uk/",
+		"https://www.bilibili.com/",
+		"https://kedanan.com/",
+		"https://www.pajakku.com/",
+		"https://www.kompas.com/cekfakta",
+	} {
+		t.Run(raw, func(t *testing.T) {
+			got := Analyze(raw)
+			if hasReason(got.Findings, ReasonLookalikeBrand) {
+				t.Fatalf("false LOOKALIKE_BRAND on %s: %+v", raw, got.Findings)
+			}
+		})
+	}
+}
+
+func TestBrandLookalikesStillCaught(t *testing.T) {
+	for raw, brand := range map[string]string{
+		"https://briverifikasi.com/":            "bri",
+		"https://loginbca.net/":                 "bca",
+		"https://tokopedla.com/promo":           "tokopedia",
+		"https://shoppe-hadiah.com/":            "shopee",
+		"https://cs-mandiri.online/":            "mandiri",
+		"https://www.danabonus.xyz/":            "dana",
+		"https://instagrarn.com/login":          "instagram",
+		"https://bpjs-kesehatan.co.id/klaim":    "bpjs",
+		"https://kominfo-bansos.web.id/":        "kominfo",
+		"https://xn--br-xyz.com/":               "",
+	} {
+		t.Run(raw, func(t *testing.T) {
+			got := Analyze(raw)
+			if brand == "" {
+				return
+			}
+			found := false
+			for _, f := range got.Findings {
+				if f.Code == ReasonLookalikeBrand && f.Detail == brand {
+					found = true
+				}
+			}
+			if !found {
+				t.Fatalf("expected LOOKALIKE_BRAND(%s) on %s, got %+v", brand, raw, got.Findings)
+			}
+		})
+	}
+}
+
+func TestUnicodeHomoglyphOfOfficialDomainIsFlagged(t *testing.T) {
+	// "bri.co.id" spelled with a Cyrillic "і": it folds to the official name,
+	// which is exactly why it must not inherit the official exemption.
+	got := Analyze("https://brі.co.id/login")
+	if !hasReason(got.Findings, ReasonPunycode) || !hasReason(got.Findings, ReasonLookalikeBrand) {
+		t.Fatalf("homoglyph host not flagged: %+v", got.Findings)
+	}
+	if got.Score < 60 {
+		t.Fatalf("homoglyph of a bank should be strong evidence, got %d", got.Score)
+	}
+}
+
+func TestScamKeywordsInHost(t *testing.T) {
+	got := Analyze("https://bansos-2026.com/")
+	if !hasReason(got.Findings, ReasonScamKeywords) {
+		t.Fatalf("missing SCAM_KEYWORDS: %+v", got.Findings)
+	}
+	clean := Analyze("https://www.hadiahku.com/")
+	if hasReason(clean.Findings, ReasonScamKeywords) {
+		t.Fatalf("keyword glued into a brand-like word should not fire: %+v", clean.Findings)
+	}
+}
+
+func TestCombineScoresTheHiddenDestination(t *testing.T) {
+	short := Analyze("https://bit.ly/abc123")
+	dest := Analyze("https://bri-verifikasi.xyz/login")
+	got := Combine(short, dest)
+	if !hasReason(got.Findings, ReasonShortenerHides) || !hasReason(got.Findings, ReasonLookalikeBrand) {
+		t.Fatalf("combined findings missing: %+v", got.Findings)
+	}
+	if got.Score <= dest.Score && dest.Score < 100 {
+		t.Fatalf("hidden risky destination should add points: short=%d dest=%d got=%d", short.Score, dest.Score, got.Score)
+	}
+	if got.FinalURL != dest.FinalURL {
+		t.Fatalf("final url = %q", got.FinalURL)
+	}
+
+	// Same site after redirect (http -> https, www) is not "hiding" anything.
+	same := Combine(Analyze("http://kompas.com/a"), Analyze("https://www.kompas.com/a"))
+	if hasReason(same.Findings, ReasonShortenerHides) {
+		t.Fatalf("same-site redirect flagged: %+v", same.Findings)
+	}
+
+	// A shortener leading somewhere clean stays low.
+	benign := Combine(short, Analyze("https://www.antaranews.com/berita/1"))
+	if hasReason(benign.Findings, ReasonShortenerHides) || benign.Score > 20 {
+		t.Fatalf("benign destination over-scored: %+v", benign)
+	}
+}
+
+func TestSafeBrowsingHitIsMaximal(t *testing.T) {
+	got := WithSafeBrowsingHit(Analyze("https://example.org/"))
+	if got.Score != 100 || !hasReason(got.Findings, ReasonSafeBrowsing) {
+		t.Fatalf("got %+v", got)
+	}
+	if again := WithSafeBrowsingHit(got); len(again.Findings) != len(got.Findings) {
+		t.Fatalf("hit applied twice: %+v", again.Findings)
+	}
+}
+
+func TestUnparseableHasItsOwnCode(t *testing.T) {
+	got := Analyze("not a url at all")
+	if got.Score != 100 || !hasReason(got.Findings, ReasonUnparseable) || hasReason(got.Findings, ReasonIPHost) {
+		t.Fatalf("got %+v", got)
+	}
+}

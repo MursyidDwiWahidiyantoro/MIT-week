@@ -1,7 +1,8 @@
 // Package linkcheck scores a URL using deterministic heuristics only.
 //
-// Nothing here performs network I/O except UnrollRedirects, and every request
-// it makes goes through the SSRF-safe client.
+// Nothing here performs network I/O except Unroll and the optional Safe
+// Browsing lookup. Unroll goes through the SSRF-safe client; Safe Browsing
+// talks to one fixed Google host.
 package linkcheck
 
 import (
@@ -9,10 +10,11 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"unicode"
 )
 
-// Reason codes are stable identifiers; the Indonesian text is built by the
-// caller from a static table so copy changes never touch this package.
+// Reason codes are stable identifiers; the human text is built by the caller
+// from a static table so copy changes never touch this package.
 const (
 	ReasonLookalikeBrand  = "LOOKALIKE_BRAND"
 	ReasonSuspiciousTLD   = "SUSPICIOUS_TLD"
@@ -26,7 +28,22 @@ const (
 	ReasonNoHTTPS         = "NO_HTTPS"
 	ReasonPortNonStandard = "NONSTANDARD_PORT"
 	ReasonSuspiciousPath  = "SUSPICIOUS_PATH"
+	ReasonScamKeywords    = "SCAM_KEYWORDS"
+	ReasonShortenerHides  = "SHORTENER_HIDES"
+	ReasonSafeBrowsing    = "SAFE_BROWSING"
+	ReasonUnparseable     = "UNPARSEABLE"
 )
+
+// HighSeverity reports codes that on their own say "this link imitates or
+// hides something". They are what makes a link-only verdict defensible.
+func HighSeverity(code string) bool {
+	switch code {
+	case ReasonLookalikeBrand, ReasonPunycode, ReasonIPHost, ReasonCredentials,
+		ReasonAtSymbol, ReasonShortenerHides, ReasonSafeBrowsing, ReasonUnparseable:
+		return true
+	}
+	return false
+}
 
 // brands are the names impersonated most often in Indonesian phishing.
 var brands = []string{
@@ -37,24 +54,69 @@ var brands = []string{
 	"kemendikbud", "kominfo", "komdigi", "pajak", "djp", "bpjs", "jne", "jnt",
 }
 
+// officialDomains are registrable domains that belong to a brand above or to
+// a reviewed publisher. A brand token inside one of these is the real thing.
+var officialDomains = map[string]bool{
+	"bri.co.id": true, "bca.co.id": true, "klikbca.com": true, "bni.co.id": true,
+	"bankmandiri.co.id": true, "bankbsi.co.id": true, "cimbniaga.co.id": true,
+	"permatabank.com": true, "danamon.co.id": true, "gopay.co.id": true,
+	"gojek.com": true, "ovo.id": true, "dana.id": true, "shopeepay.co.id": true,
+	"linkaja.id": true, "qris.id": true, "tokopedia.com": true, "shopee.co.id": true,
+	"shopee.com": true, "lazada.co.id": true, "bukalapak.com": true,
+	"blibli.com": true, "whatsapp.com": true, "whatsapp.net": true, "wa.me": true,
+	"telegram.org": true, "telegram.me": true, "t.me": true, "instagram.com": true,
+	"facebook.com": true, "fb.com": true, "tiktok.com": true, "jne.co.id": true,
+	"jet.co.id": true,
+	// Reviewed publishers (mirrors configs/trusted_sources.yaml).
+	"turnbackhoax.id": true, "cekfakta.com": true, "antaranews.com": true,
+	"kompas.com": true, "detik.com": true, "tempo.co": true,
+	"cnnindonesia.com": true, "liputan6.com": true, "tirto.id": true,
+}
+
+// restrictedSuffixes can only be registered by vetted institutions
+// (government, universities, schools, military, villages), so a brand-like
+// label under them is not a typosquat.
+var restrictedSuffixes = []string{".go.id", ".ac.id", ".sch.id", ".mil.id", ".desa.id"}
+
 // suspiciousTLDs are cheap or frequently abused TLDs.
 var suspiciousTLDs = map[string]bool{
 	"zip": true, "mov": true, "top": true, "xyz": true, "click": true,
 	"link": true, "shop": true, "icu": true, "buzz": true, "rest": true,
-	"cam": true, "monster": true, "sbs": true, "cfd": true,
+	"cam": true, "monster": true, "sbs": true, "cfd": true, "live": true,
+	"cyou": true, "lol": true, "bond": true,
 }
 
 // shorteners hide the destination behind one more hop.
 var shorteners = map[string]bool{
 	"bit.ly": true, "tinyurl.com": true, "t.co": true, "goo.gl": true,
 	"is.gd": true, "ow.ly": true, "buff.ly": true, "cutt.ly": true,
-	"s.id": true, "shorturl.at": true, "rebrand.ly": true,
+	"s.id": true, "shorturl.at": true, "rebrand.ly": true, "tiny.cc": true,
+	"rb.gy": true, "v.gd": true, "lnkd.in": true,
 }
 
 // suspiciousPathWords are common in credential-harvesting pages.
 var suspiciousPathWords = []string{
 	"login", "verifikasi", "verify", "account", "akun", "password",
 	"konfirmasi", "unlock", "secure", "update-data", "hadiah", "klaim",
+}
+
+// scamHostWords are bait words in the host name itself (TECH_SPEC §5
+// SCAM_KEYWORDS). Matching is per token, so "hadiahku" does not fire on its
+// own but "hadiah-bri" does.
+var scamHostWords = map[string]bool{
+	"bansos": true, "undian": true, "hadiah": true, "saldo": true, "klaim": true,
+	"gratis": true, "verifikasi": true, "bonus": true, "giveaway": true,
+	"subsidi": true, "blt": true, "cashback": true, "voucher": true,
+}
+
+// brandAffixes are the words phishers glue to a brand name without a hyphen
+// ("briverifikasi", "loginbca"). A bare substring match is not enough:
+// "cambridge" contains "bri" and "novotel" contains "ovo".
+var brandAffixes = []string{
+	"verifikasi", "verify", "login", "masuk", "promo", "hadiah", "bonus",
+	"klaim", "claim", "update", "secure", "aman", "care", "help", "support",
+	"official", "resmi", "online", "mobile", "center", "pusat", "undian",
+	"gratis", "reward", "poin", "point", "cashback", "cs", "id", "app", "web",
 }
 
 // Finding is one heuristic hit with its contribution to the score.
@@ -77,15 +139,15 @@ func Analyze(raw string) Result {
 	res := Result{FinalURL: raw}
 
 	u, err := url.Parse(strings.TrimSpace(raw))
-	if err != nil || u.Host == "" {
+	if err != nil || u.Host == "" || u.Hostname() == "" {
 		// A URL that cannot be parsed cannot be assessed; callers should have
 		// rejected it earlier, so score it as maximally suspicious.
 		res.Score = 100
-		res.Findings = append(res.Findings, Finding{Code: ReasonIPHost, Weight: 100, Detail: "unparseable"})
+		res.Findings = append(res.Findings, Finding{Code: ReasonUnparseable, Weight: 100, Detail: "unparseable"})
 		return res
 	}
 
-	host := strings.ToLower(u.Hostname())
+	host := strings.ToLower(strings.TrimSuffix(u.Hostname(), "."))
 	res.Host = host
 
 	if u.User != nil {
@@ -105,8 +167,17 @@ func Analyze(raw string) Result {
 	}
 	if isIPHost(host) {
 		res.Findings = append(res.Findings, Finding{Code: ReasonIPHost, Weight: 35})
+		res.Score = capScore(sumWeights(res.Findings))
+		return res
 	}
-	if strings.HasPrefix(host, "xn--") || strings.Contains(host, ".xn--") {
+
+	// A Unicode host (homoglyphs such as a Cyrillic "а") is folded to its
+	// Latin look-alike so the brand rules see "bri" in "bгі" too.
+	folded, unicodeHost := skeleton(host)
+	if unicodeHost {
+		res.Findings = append(res.Findings, Finding{Code: ReasonPunycode, Weight: 30, Detail: "unicode"})
+		host = folded
+	} else if strings.HasPrefix(host, "xn--") || strings.Contains(host, ".xn--") {
 		res.Findings = append(res.Findings, Finding{Code: ReasonPunycode, Weight: 30})
 	}
 	if strings.Count(host, ".") >= 4 {
@@ -120,8 +191,11 @@ func Analyze(raw string) Result {
 	if shorteners[registrable(host)] {
 		res.Findings = append(res.Findings, Finding{Code: ReasonURLShortener, Weight: 20, Detail: registrable(host)})
 	}
-	if brand, ok := lookalikeBrand(host); ok {
+	if brand, ok := lookalikeBrand(host, unicodeHost); ok {
 		res.Findings = append(res.Findings, Finding{Code: ReasonLookalikeBrand, Weight: 45, Detail: brand})
+	}
+	if word, ok := scamHostWord(host); ok {
+		res.Findings = append(res.Findings, Finding{Code: ReasonScamKeywords, Weight: 20, Detail: word})
 	}
 
 	path := strings.ToLower(u.Path)
@@ -134,6 +208,50 @@ func Analyze(raw string) Result {
 
 	res.Score = capScore(sumWeights(res.Findings))
 	return res
+}
+
+// Combine merges the analysis of a link with the analysis of where it really
+// leads. A shortener that hides a risky destination is scored as that
+// destination plus SHORTENER_HIDES (TECH_SPEC §5), so "bit.ly/x" pointing at
+// a BRI lookalike is never rated as a harmless short link.
+func Combine(first, final Result) Result {
+	if final.Host == "" || registrable(final.Host) == registrable(first.Host) {
+		return first
+	}
+	out := Result{Host: final.Host, FinalURL: final.FinalURL}
+	seen := map[string]bool{}
+	add := func(f Finding) {
+		if seen[f.Code] {
+			return
+		}
+		seen[f.Code] = true
+		out.Findings = append(out.Findings, f)
+	}
+	for _, f := range final.Findings {
+		add(f)
+	}
+	for _, f := range first.Findings {
+		add(f)
+	}
+	score := max(first.Score, final.Score)
+	if final.Score >= 30 {
+		add(Finding{Code: ReasonShortenerHides, Weight: 15, Detail: final.Host})
+		score += 15
+	}
+	out.Score = capScore(score)
+	return out
+}
+
+// WithSafeBrowsingHit marks a result as a known-malicious link.
+func WithSafeBrowsingHit(r Result) Result {
+	for _, f := range r.Findings {
+		if f.Code == ReasonSafeBrowsing {
+			return r
+		}
+	}
+	r.Findings = append([]Finding{{Code: ReasonSafeBrowsing, Weight: 100}}, r.Findings...)
+	r.Score = 100
+	return r
 }
 
 func sumWeights(findings []Finding) int {
@@ -154,38 +272,154 @@ func capScore(n int) int {
 	return n
 }
 
-// lookalikeBrand reports a brand name that appears in the host but is not the
-// brand's own registrable domain, which is the classic typosquat pattern.
-func lookalikeBrand(host string) (string, bool) {
-	reg := registrable(host)
-	labels := strings.Split(host, ".")
-	for _, brand := range brands {
-		if !strings.Contains(host, brand) {
-			continue
-		}
-		// The brand's own domain (brand.co.id, brand.com) is not a lookalike.
-		if reg == brand+".com" || reg == brand+".co.id" || reg == brand+".id" ||
-			reg == brand+".net" || reg == brand+".org" {
+// lookalikeBrand reports a brand that a host imitates. It works on tokens of
+// the registrable name and its subdomains, never on raw substrings, so
+// ordinary words that happen to contain a brand ("cambridge", "novotel",
+// "danantara") are not flagged.
+// A folded Unicode host is never exempt: the real "bri.co.id" is ASCII, so a
+// host that only looks like it after folding is the imitation.
+func lookalikeBrand(host string, folded bool) (string, bool) {
+	if !folded {
+		if officialDomains[registrable(host)] {
 			return "", false
 		}
-		// A hyphen or an extra label around the brand is the usual giveaway.
-		for _, label := range labels {
-			if label == brand {
+		for _, suffix := range restrictedSuffixes {
+			if strings.HasSuffix(host, suffix) {
 				return "", false
 			}
-			if strings.Contains(label, brand) && label != brand {
-				return brand, true
+		}
+	}
+	for _, label := range nameLabels(host) {
+		for _, token := range tokens(label) {
+			for _, brand := range brands {
+				if brandMatches(token, brand) {
+					return brand, true
+				}
 			}
 		}
-		return brand, true
 	}
 	return "", false
+}
+
+func brandMatches(token, brand string) bool {
+	if token == brand {
+		return true
+	}
+	for _, affix := range brandAffixes {
+		if token == brand+affix || token == affix+brand {
+			return true
+		}
+	}
+	// Typosquats ("tokopedla", "shoppe") only for names long enough that one
+	// or two edits still leave something recognisable.
+	if len(brand) >= 5 {
+		limit := 1
+		if len(brand) >= 9 {
+			limit = 2
+		}
+		if abs(len(token)-len(brand)) <= limit && levenshtein(token, brand) <= limit {
+			return true
+		}
+	}
+	return false
+}
+
+func scamHostWord(host string) (string, bool) {
+	for _, label := range nameLabels(host) {
+		for _, token := range tokens(label) {
+			if scamHostWords[token] {
+				return token, true
+			}
+		}
+	}
+	return "", false
+}
+
+// nameLabels returns the labels a registrant chose: the registrable name and
+// any subdomains, without the public suffix.
+func nameLabels(host string) []string {
+	reg := registrable(host)
+	suffix := strings.TrimPrefix(reg, strings.SplitN(reg, ".", 2)[0])
+	name := strings.TrimSuffix(host, suffix)
+	if name == "" {
+		return nil
+	}
+	return strings.Split(name, ".")
+}
+
+// tokens splits a label on hyphens, underscores and digits.
+func tokens(label string) []string {
+	return strings.FieldsFunc(label, func(r rune) bool {
+		return r == '-' || r == '_' || unicode.IsDigit(r)
+	})
+}
+
+// confusables maps the Cyrillic and Greek letters most used in homoglyph
+// domains to the Latin letter they imitate. It is a short, reviewed table,
+// not the full Unicode confusables list.
+var confusables = map[rune]rune{
+	'а': 'a', 'в': 'b', 'е': 'e', 'ё': 'e', 'г': 'r', 'і': 'i', 'ї': 'i', 'ј': 'j',
+	'к': 'k', 'м': 'm', 'н': 'h', 'о': 'o', 'р': 'p', 'с': 'c', 'т': 't', 'у': 'y',
+	'х': 'x', 'ѕ': 's', 'ԁ': 'd', 'ɡ': 'g', 'ı': 'i', 'ӏ': 'l', 'ո': 'n', 'ս': 'u',
+	'α': 'a', 'β': 'b', 'ε': 'e', 'ι': 'i', 'κ': 'k', 'ν': 'v', 'ο': 'o', 'ρ': 'p',
+	'τ': 't', 'υ': 'u', 'χ': 'x', 'ω': 'w',
+}
+
+// skeleton folds a Unicode host to ASCII look-alikes and reports whether the
+// host contained any non-ASCII rune at all.
+func skeleton(host string) (string, bool) {
+	unicodeHost := false
+	var b strings.Builder
+	for _, r := range host {
+		if r <= unicode.MaxASCII {
+			b.WriteRune(r)
+			continue
+		}
+		unicodeHost = true
+		if latin, ok := confusables[unicode.ToLower(r)]; ok {
+			b.WriteRune(latin)
+		} else {
+			b.WriteRune('x')
+		}
+	}
+	return b.String(), unicodeHost
+}
+
+func levenshtein(a, b string) int {
+	ra, rb := []rune(a), []rune(b)
+	prev := make([]int, len(rb)+1)
+	cur := make([]int, len(rb)+1)
+	for j := range prev {
+		prev[j] = j
+	}
+	for i := 1; i <= len(ra); i++ {
+		cur[0] = i
+		for j := 1; j <= len(rb); j++ {
+			cost := 1
+			if ra[i-1] == rb[j-1] {
+				cost = 0
+			}
+			cur[j] = min(prev[j]+1, cur[j-1]+1, prev[j-1]+cost)
+		}
+		prev, cur = cur, prev
+	}
+	return prev[len(rb)]
+}
+
+func abs(n int) int {
+	if n < 0 {
+		return -n
+	}
+	return n
 }
 
 func lastLabel(host string) string {
 	parts := strings.Split(host, ".")
 	return parts[len(parts)-1]
 }
+
+// Registrable approximates the eTLD+1 for the TLDs this project cares about.
+func Registrable(host string) string { return registrable(strings.ToLower(host)) }
 
 // registrable approximates the eTLD+1 for the TLDs this project cares about.
 // It is deliberately simple: a full public-suffix list is out of scope, and
@@ -195,11 +429,12 @@ func registrable(host string) string {
 	if len(parts) < 2 {
 		return host
 	}
-	// Handle common Indonesian two-part suffixes.
+	// Handle common two-part suffixes (Indonesian SLDs and a few others).
 	if len(parts) >= 3 {
 		second := parts[len(parts)-2]
 		if second == "co" || second == "ac" || second == "or" || second == "go" ||
-			second == "net" || second == "sch" || second == "web" {
+			second == "net" || second == "sch" || second == "web" || second == "mil" ||
+			second == "desa" || second == "my" || second == "biz" || second == "com" {
 			return strings.Join(parts[len(parts)-3:], ".")
 		}
 	}
@@ -228,27 +463,24 @@ func isIPHost(host string) bool {
 }
 
 // Unroll follows redirects through the safe client and returns the chain.
-// It stops at maxHops and never returns a body.
+// It stops at maxHops and never returns a body. HEAD is tried first; servers
+// that refuse HEAD get a one-byte ranged GET (TECH_SPEC §5).
 func Unroll(ctx context.Context, client *http.Client, raw string, maxHops int) ([]string, string, error) {
 	chain := []string{raw}
 	current := raw
 
+	// Do not follow redirects inside the client: the chain is the output.
+	c := *client
+	c.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+
 	for i := 0; i < maxHops; i++ {
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, current, nil)
+		resp, err := hop(ctx, &c, http.MethodHead, current)
+		if err == nil && (resp.StatusCode == http.StatusMethodNotAllowed || resp.StatusCode == http.StatusNotImplemented || resp.StatusCode == http.StatusForbidden) {
+			resp, err = hop(ctx, &c, http.MethodGet, current)
+		}
 		if err != nil {
 			return chain, current, err
 		}
-		req.Header.Set("User-Agent", "AMBA/0.1 (+literacy check)")
-
-		// Do not follow redirects here: the chain is the output.
-		c := *client
-		c.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
-
-		resp, err := c.Do(req)
-		if err != nil {
-			return chain, current, err
-		}
-		_ = resp.Body.Close()
 
 		if resp.StatusCode < 300 || resp.StatusCode >= 400 {
 			return chain, current, nil
@@ -261,8 +493,28 @@ func Unroll(ctx context.Context, client *http.Client, raw string, maxHops int) (
 		if err != nil {
 			return chain, current, err
 		}
+		if next.Scheme != "http" && next.Scheme != "https" {
+			return chain, current, nil
+		}
 		current = next.String()
 		chain = append(chain, current)
 	}
 	return chain, current, nil
+}
+
+func hop(ctx context.Context, c *http.Client, method, target string) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, method, target, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("User-Agent", "AMBA/1.0 (+https://github.com/fujimaruC/MIT-week; literacy check)")
+	if method == http.MethodGet {
+		req.Header.Set("Range", "bytes=0-0")
+	}
+	resp, err := c.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	_ = resp.Body.Close()
+	return resp, nil
 }
