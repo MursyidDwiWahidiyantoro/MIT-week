@@ -1,9 +1,18 @@
 import { readSSE, type SSEEvent } from './sse';
-import { parseDossier, SchemaVersionError, ContractError, type DossierParsed } from './api/schemas';
+import { SchemaVersionError, ContractError } from './api/errors';
+import type { DossierParsed } from './api/schemas';
 import { API_BASE, isMockMode } from './api/config';
-import { mockAuditStream, type MockKind, type MockPayload } from './api/mock';
+import type { MockKind, MockPayload } from './api/mock';
 import { result } from './result.svelte';
 import { t, locale } from './i18n/index.svelte';
+
+/**
+ * Zod (about 25 KB gz) and the mock stream load on demand: neither is needed
+ * to paint the form, and keeping them out of the first task keeps the page
+ * responsive on a mid-range phone. The import starts with the audit, so the
+ * parser is ready long before the verdict arrives.
+ */
+const loadSchemas = () => import('./api/schemas');
 
 export type PillarKey = 'ela' | 'ai' | 'fact' | 'link';
 export type StageStatus = 'idle' | 'running' | 'done' | 'skipped' | 'failed';
@@ -75,6 +84,9 @@ export class AuditSession {
     this.#inputText = kind === 'text' ? (payload.text ?? null) : null;
     this.stages = { ela: 'idle', ai: 'idle', fact: 'idle', link: 'idle' };
     this.partials = {};
+    void loadSchemas().catch(() => {
+      // Retried by the verdict handler; a failure there is a network error.
+    });
 
     if (typeof navigator !== 'undefined' && navigator.onLine === false) {
       this.error = { kind: 'offline', message: t('err.offline') };
@@ -133,8 +145,9 @@ export class AuditSession {
 
     // Frontend-only preview: same event contract, no server required.
     if (isMockMode) {
+      const { mockAuditStream } = await import('./api/mock');
       for await (const event of mockAuditStream(kind as MockKind, payload as MockPayload, signal)) {
-        this.#apply(event);
+        await this.#apply(event);
         if (event.type === 'done') return;
       }
       return;
@@ -165,7 +178,7 @@ export class AuditSession {
     }
 
     for await (const event of readSSE(response, signal)) {
-      this.#apply(event);
+      await this.#apply(event);
       if (event.type === 'done') return;
     }
   }
@@ -198,19 +211,21 @@ export class AuditSession {
     return new ApiFailure({ kind: 'network', message });
   }
 
-  #apply(event: SSEEvent): void {
+  async #apply(event: SSEEvent): Promise<void> {
     switch (event.type) {
       case 'stage':
         this.stages = { ...this.stages, [event.pillar]: event.status };
         this.#announce(event);
         break;
-      case 'verdict':
+      case 'verdict': {
+        const { parseDossier } = await loadSchemas();
         this.verdict = parseDossier(event.data);
         result.set(this.verdict, this.#imageFile, this.#inputText);
         if (this.verdict.degraded) {
           this.announcement = t('announce.degraded');
         }
         break;
+      }
       case 'error':
         this.error = { kind: 'network', message: t('err.stopped') };
         break;

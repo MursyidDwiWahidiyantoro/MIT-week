@@ -77,11 +77,11 @@ Hasil terakhir (8 Nov 2026):
 | `eslint` | bersih |
 | `vitest` | 60 test lulus di 10 file |
 | `vite build` | sukses, adapter-static |
-| bundle | 140,9 KB gz / batas 250 KB |
+| bundle | 142,0 KB gz / batas 250 KB |
 | contrast | 82 pasang, dua tema |
 | headers | `vercel.json` = `security-headers.json` |
 | Playwright e2e | 32/32 (axe ID dan EN, paritas mode, i18n, tautan, demo) |
-| Lighthouse (mobile, median 3) | performa 90–99, a11y 100, best practices 96–100, SEO 100, CLS 0 |
+| Lighthouse (mobile, median 5) | performa 93–100, a11y 100, best practices 96–100, SEO 100, CLS 0 |
 | demo diff | sinkron |
 
 ---
@@ -203,7 +203,7 @@ Semua detail di `docs/DECISIONS.md`. Yang paling sering ditanya:
 - **`tokens.css` wajib diimpor sebelum `app.css`.**
 - **`go mod tidy` dengan toolchain lebih baru** menulis ulang direktif `go`.
 - **Kontras** diperiksa `tools/check-contrast.mjs` (82 pasang, dua tema).
-- **Budget bundle** 250 KB gz; sekarang 140,9 KB.
+- **Budget bundle** 250 KB gz; sekarang 142,0 KB (total semua JS; JS awal per halaman lebih kecil).
 - **Lighthouse** dijalankan dari folder `frontend` setelah `npm run build`.
 - **Jangan memakai emoji Unicode**; ikon dari `@lucide/svelte`.
 - **Jangan mencetak `err` dari `http.Client.Do`** untuk layanan luar: pesannya

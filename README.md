@@ -235,7 +235,7 @@ cd frontend && npm run build && npm run size && npm run contrast && npm run head
 | `npm run lint` | ESLint, termasuk aturan a11y Svelte |
 | `npm run test` | 60 unit test (Vitest + jsdom), termasuk paritas kamus ID/EN |
 | `npm run contrast` | 82 pasang warna ≥ 4.5:1 di tema gelap dan terang, dibaca langsung dari `tokens.css` |
-| `npm run size` | JS awal ≤ 250 KB gzip (sekarang 140,9 KB) |
+| `npm run size` | total JS ≤ 250 KB gzip (sekarang 142,0 KB) |
 | `npm run headers` | header di `vercel.json` sama dengan `security-headers.json` |
 | `npm run lighthouse` | dari folder `frontend` setelah build: performa/best practices/SEO ≥ 90, a11y ≥ 95, CLS ≤ 0,1 di setiap rute |
 
