@@ -108,9 +108,25 @@ func TestProductionAcceptsLongKey(t *testing.T) {
 		"ENVIRONMENT":        "production",
 		"REPORT_SIGNING_KEY": strings.Repeat("k", 32),
 		"PUBLIC_APP_URL":     "https://amba.example",
+		"LLM_MOCK":           "false",
+		"NINEROUTER_API_KEY": "key",
+		"NINEROUTER_MODEL":   "model",
 	})
 	if _, err := Load(); err != nil {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+// The mock model's findings are invented; production must never serve them.
+func TestProductionRefusesMockLLM(t *testing.T) {
+	setEnv(t, map[string]string{
+		"ENVIRONMENT":        "production",
+		"REPORT_SIGNING_KEY": strings.Repeat("k", 32),
+		"PUBLIC_APP_URL":     "https://amba.example",
+		"LLM_MOCK":           "",
+	})
+	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "LLM_MOCK") {
+		t.Fatalf("want LLM_MOCK error, got %v", err)
 	}
 }
 

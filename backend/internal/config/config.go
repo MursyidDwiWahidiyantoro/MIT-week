@@ -31,7 +31,7 @@ type Config struct {
 	CacheTTL      time.Duration
 	MetricsAddr   string
 	// ClientIPHeader names the header a trusted proxy puts the client address
-	// in (Fly-Client-IP on Fly.io, X-Forwarded-For on Railway).
+	// in (Fly-Client-IP on Fly.io, X-Real-IP on Railway).
 	ClientIPHeader string
 	// ExtraOrigins are additional exact CORS origins (e.g. a custom domain
 	// next to the vercel.app one).
@@ -157,6 +157,11 @@ func Load() (*Config, error) {
 	}
 	if c.IsProduction() && !strings.HasPrefix(c.PublicAppURL, "https://") {
 		errs = append(errs, errors.New("PUBLIC_APP_URL: must be an https:// origin in production"))
+	}
+	// The mock model invents deterministic findings. Real users must never
+	// receive them (STATUS.md rule 4), so production refuses to boot with it.
+	if c.IsProduction() && c.LLMMock {
+		errs = append(errs, errors.New("LLM_MOCK: must be false in production (the mock invents findings)"))
 	}
 
 	if len(errs) > 0 {
