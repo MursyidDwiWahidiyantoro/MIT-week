@@ -3,9 +3,7 @@
   import { page } from '$app/state';
   import '../lib/styles/tokens.css';
   import '../app.css';
-  import '@fontsource-variable/bricolage-grotesque';
-  import '@fontsource/atkinson-hyperlegible/400.css';
-  import '@fontsource/atkinson-hyperlegible/700.css';
+  import '../lib/styles/fonts.css';
   import { mode } from '$lib/mode.svelte';
   import { textSize } from '$lib/a11y.svelte';
   import ThemeSwitch from '$lib/components/ui/ThemeSwitch.svelte';

@@ -52,7 +52,7 @@ html:root body .input,html:root body .textarea,html:root body .select {border-st
 
 html:root body .preview {background:var(--yellow-tint);color:var(--ink)}
 
-html:root body main.is-home .hero-backdrop { opacity: 0; }
+html:root body main.is-home .hero-backdrop { display: none; }
 html:root body main.is-home .marquee__group { background: transparent; }
 html:root body main.is-home .marquee__item { color: var(--on-panel-dark); }
 
