@@ -14,6 +14,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"regexp"
 	"strings"
@@ -369,12 +370,18 @@ func (c *Client) complete(ctx context.Context, messages []message, name, schema 
 
 	resp, err := c.HTTP.Do(req)
 	if err != nil {
+		logCallFailure(ctx, "llm gateway", 0)
 		return "", ErrUnavailable
 	}
 	defer func() { _ = resp.Body.Close() }()
 
+	if resp.StatusCode != http.StatusOK {
+		logCallFailure(ctx, "llm gateway", resp.StatusCode)
+		return "", ErrUnavailable
+	}
 	raw, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
-	if err != nil || resp.StatusCode != http.StatusOK {
+	if err != nil {
+		logCallFailure(ctx, "llm gateway", 0)
 		return "", ErrUnavailable
 	}
 	var envelope struct {
@@ -385,9 +392,26 @@ func (c *Client) complete(ctx context.Context, messages []message, name, schema 
 		} `json:"choices"`
 	}
 	if err := json.Unmarshal(raw, &envelope); err != nil || len(envelope.Choices) == 0 {
+		slog.Warn("llm gateway call failed", "reason", "unreadable_response")
 		return "", ErrUnavailable
 	}
 	return stripFence(envelope.Choices[0].Message.Content), nil
+}
+
+// logCallFailure tells operators why an upstream call failed (a timeout, a
+// transport error or an HTTP status such as 400 for an unsupported
+// response_format, 401/403 for a bad key, 429 for quota). It logs only the
+// service, the reason and the status: never the URL (it can carry a key or
+// the user's query), the request or the response body.
+func logCallFailure(ctx context.Context, service string, status int) {
+	reason := "transport"
+	switch {
+	case ctx.Err() != nil:
+		reason = "timeout"
+	case status != 0:
+		reason = "http_status"
+	}
+	slog.Warn(service+" call failed", "reason", reason, "status", status)
 }
 
 // wrap marks content as data (TECH_SPEC §6 prompt-injection containment). A
