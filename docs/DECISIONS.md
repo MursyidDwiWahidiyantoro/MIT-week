@@ -118,7 +118,10 @@ Demo data still shows CONTRADICTS with `example.org` sources because TECH_SPEC
 §9 requires demo sources to be placeholders labelled "Sumber Contoh"; demo
 dossiers are pre-baked and never pass through grounding.
 
-## 2026-11-01 · OPEN — link-only audits always return INSUFFICIENT
+## 2026-11-01 · RESOLVED 2026-11-08 — link-only audits always return INSUFFICIENT
+
+Resolved by the `LINK_STRONG` floor; see the 2026-11-08 entry below.
+
 Verified behaviour: a URL audit whose only available pillar is Link returns
 `INSUFFICIENT` with `score: null`, even when the link score is 85 and the
 reasons include a lookalike bank brand, a suspicious TLD and a verification
@@ -251,7 +254,10 @@ Decision: every surface maps to one of four roles — `--on-fill` (pastel fills)
 themes. Revisit: if a fifth surface family is introduced, add a role rather
 than a one-off hex.
 
-## 2026-11-05 · Demo case IDs differ from PRD F8
+## 2026-11-05 · SUPERSEDED 2026-11-08 — Demo case IDs differ from PRD F8
+
+The IDs now follow PRD F8; see the 2026-11-08 entry below.
+
 
 PRD F8 names `demo-tiktok`, `demo-berita-ig`, `demo-resmi`. The implementation
 ships `contoh-hoax-bantuan`, `contoh-tautan-mencurigakan`, `contoh-informasi-aman`
@@ -283,3 +289,111 @@ reports every CR as trailing whitespace and the pre-commit gate fails.
 
 Revisit: if the team standardises on a Windows-only toolchain, `eol=crlf`
 would also work; `-text` stays correct either way.
+
+## 2026-11-08 · Strong link evidence may decide on its own (`LINK_STRONG`)
+
+Team decision ("bukti tautan kuat cukup"). When no weighted score exists
+(W < 0.30, typically a bare URL) and the link pillar scored at least 50, the
+link score becomes the score, capped at 85 so it never exceeds what a
+Safe Browsing hit or a link score >= 90 earns. It never produces SAFE and runs
+after the first three floors (TECH_SPEC §3.3 floor 3b). Vectors 9-12 cover 85,
+weak AI + 55, 45 (still INSUFFICIENT) and the 89 cap. Lead sentence: "Tautan
+ini punya tanda penipuan. Sebaiknya jangan diklik." Revisit: the threshold of
+50 if field data shows false alarms on ordinary links.
+
+## 2026-11-08 · Contract additions: `source_metadata` and `ocr_text`
+
+Both optional and nullable, added contract-first (OpenAPI → JSON Schema → Go
+→ Zod) in one commit. `source_metadata` carries the link's public preview
+(status OK | BLOCKED | UNAVAILABLE, platform, title, author, description,
+site name) so the result can say "Isi halaman tautan tidak dapat dibaca" and
+offer the screenshot route instead of pretending the content was checked.
+`ocr_text` is the model's reading of a screenshot; tactics found in it are
+labelled `source: "ocr"`.
+
+## 2026-11-08 · Search provider: Google Fact Check Tools, verified in Go
+
+The model never searches and never states a fact status. Go sends the
+model's `search_query` to Fact Check Tools (`claims:search`, Indonesian),
+keeps at most 5 allowlisted https results, and a second structured call
+classifies each one against the claim. Only URLs from that result set can be
+verified; with no result set nothing verifies (fail closed). This replaces
+the model-driven tool rounds sketched in TECH_SPEC §6. Revisit: a news search
+API could be added behind the same `Searcher` interface.
+
+## 2026-11-08 · Progressive SSE and per-step budgets
+
+Each pillar sends exactly one terminal `stage` event and its `partial` as soon
+as it finishes; a `: ping` heartbeat keeps proxies from closing a quiet
+stream. Budgets: ELA 4 s (a 12 MP photo takes about 1.4 s on a dev machine
+and longer on a shared-CPU host, so the spec's 0.8 s would drop it), link 2.5 s,
+metadata 2.5 s, model 9 s, search 2.5 s, classify 3 s, each bounded by the 12 s
+hard deadline minus a 300 ms reserve so the verdict always gets out.
+
+## 2026-11-08 · Demo IDs follow PRD F8, demos are generated
+
+`demo-tiktok`, `demo-berita-ig`, `demo-resmi`, plus `demo-tautan` for the link
+flow. The old `contoh-*` IDs remain as aliases. `go run ./cmd/gendemo` draws
+the synthetic screenshot, runs the real forensics and scorer, and writes both
+JSON copies, the screenshot and the Edukasi quiz images; CI regenerates them
+and fails on any diff, so a demo can never show a verdict the code would not
+give.
+
+## 2026-11-08 · Balas Sopan: model draft, validated, template fallback
+
+The model gets only the verified token payload (status, title, claim,
+sources). Drafts over 280 characters, with a URL outside the sources, or with
+certainty, score or shaming words are rejected and the status x tone
+template is used. The share link is not given to the model: a full token
+does not fit in 280 characters, and the share button already carries it.
+
+## 2026-11-08 · Proof card keeps the short disclaimer line
+
+PRD §10 asks for the full disclaimer "in footer and proof card", while F6 asks
+for an "INDIKATIF — bukan alat bukti hukum" line legible in a WhatsApp
+preview. A 100-word paragraph on a 1200x630 card is unreadable at preview
+size, so the card keeps the short line and its QR code opens the shared
+report, whose footer carries the full text verbatim. The footer of every page
+now shows the full §10 text in Indonesian (`lang="id"`), in both languages.
+
+## 2026-11-08 · English toggle, Indonesian by default
+
+P1 EN/ID toggle. Indonesian stays the default and the reference copy
+(STATUS.md rule 6 still holds for the default experience). English verdict
+text is rebuilt from the verdict codes rather than machine-translated from
+the server's Indonesian sentences, so nothing is invented. Polite replies
+stay Indonesian (they are sent to Indonesian chats) and the English UI says
+so. The choice is stored in `amba.lang` and applied before first paint.
+
+## 2026-11-08 · Deployment in scope: Vercel + Fly.io or Railway
+
+Team decision. The SPA stays static on Vercel; the API runs on Fly.io
+(Singapore, one warm machine so a cold start cannot eat the 12 s budget) or
+Railway. CSP `connect-src` is generated from `VITE_API_BASE_URL` at build
+time. Production refuses to boot with the mock model, without a signing key,
+or without an https `PUBLIC_APP_URL`. Client identity comes from the host's
+edge header (`Fly-Client-IP`, Railway's `X-Real-IP`), never from a header a
+client can append to. Guide: `docs/DEPLOY.md`.
+
+## 2026-11-08 · Telegram bot shares the audit pipeline
+
+P2. Webhook with Telegram's secret header (or long polling locally), the same
+pipeline and verdict as the web, a per-chat limit (3 then 1 per 10 s), photos
+and documents through the same upload validation, and a plain-text reply with
+the report link. Nothing is stored and chat IDs are never logged. Safe
+Browsing is free for non-commercial use only; commercial use would need Web
+Risk.
+
+## 2026-11-08 · OPEN — the ELA score is a global mean
+
+TECH_SPEC §3.4 defines the ELA score as the image-wide mean difference x 3.5.
+A small pasted region lights up clearly in the heat map but barely moves the
+mean: the edited demo screenshot scores 3/100 although its price line glows
+as a bright box. Consequences: `ELA_CORROBORATED` (needs >= 70) almost never
+fires on ordinary photos, and the ELA pillar pulls a weighted score down even
+when the heat map shows an edit. Today the AI pillar (vision model) and the
+fact pillar carry such cases. Options: score the contrast between the hottest
+grid cells and the image's typical cells, or weight hotspots that overlap
+model anomaly boxes. Either changes §3.4 and needs new forensics tests with
+false-positive cases (text on flat backgrounds, PNG screenshots) before it
+ships.

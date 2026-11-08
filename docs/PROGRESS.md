@@ -1,6 +1,6 @@
 # Progress
 
-_Last updated: 2026-11-05_
+_Last updated: 2026-11-08_
 
 ## Phase 0 — Scaffold & contract
 
@@ -292,5 +292,73 @@ frontend: vite build                   OK, adapter-static
 frontend: contrast                     82 pairs, both themes
 frontend: size                         120.2 KB gz / 250 KB
 frontend: playwright e2e               14/14 (incl. axe on 6 surfaces)
+demo diff                              in sync
+```
+
+## Production readiness — PRD P0/P1/P2 complete (2026-11-08)
+
+Goal: every PRD requirement built and the app deployable. Delivered as a
+commit series on top of `1bef567` (`git log 1bef567..`).
+
+| Area | Before | Now |
+|---|---|---|
+| Link-only verdict | `INSUFFICIENT` even for a clear phishing link | `LINK_STRONG` floor (team decision), vectors 9–12 |
+| Lookalike detection | Levenshtein on the whole host | token-based, Cyrillic/Greek fold, official domains, `.go.id`-style suffixes |
+| Safe Browsing | key read, never used | checked on the whole redirect chain; a hit sets `LINK_MALICIOUS` |
+| Fact grounding | model-cited sources | Google Fact Check Tools search in Go, second classify call, fail closed |
+| Link content (F1) | not read | oEmbed/OpenGraph preview; BLOCKED/UNAVAILABLE explained, screenshot route offered |
+| Screenshots (F2) | ELA only | image sent to the model, OCR text, URL in the OCR gets the link pillar, OCR tactics |
+| SSE | verdict at the end | stage/partial per pillar as it finishes, heartbeat, per-step budgets |
+| Balas Sopan (F12) | templates only | validated model draft, template fallback |
+| Demo (F8) | `contoh-*`, hand-written | PRD IDs + `demo-tautan`, generated with the real scorer, real screenshot |
+| Edukasi (F7) | 3 modus + 3 questions | + "Bedah forensik" quiz with real ELA heat maps |
+| EN/ID toggle (P1) | — | 500+ keys, Indonesian default, English verdict rebuilt from codes |
+| Metrics (P1) | env var read, unused | anonymous Prometheus counters on an internal listener |
+| Telegram (P2) | — | webhook/polling bot on the same pipeline |
+| Performance | CLS 0.134, no offline shell | CLS 0, fonts preloaded, offline app shell, Lighthouse gate |
+| Deployment | out of scope | Vercel + Fly.io/Railway configs, `docs/DEPLOY.md`, production boot checks |
+| Operations | silent upstream failures | reason + status logged, never URLs or keys |
+
+### Defects found while building
+
+- Telegram accepted `http://127.0.0.1/...` as a link to check: `ValidateFetchURL`
+  now refuses internal targets before any request.
+- Empty text was answered with the invalid-URL message.
+- CSP `connect-src` was hard-coded to `http://localhost:8080`, which would have
+  blocked every API call in production.
+- The mobile header wrapped into three rows once the language switch was
+  added: the display controls now fold behind one toggle.
+- The screenshot quiz explanation described an even glow while the heat map
+  shows the yellow text brightest; the copy now explains that contrast, not
+  editing, makes it glow.
+
+### Manual checklist (cannot be automated)
+
+- [ ] Android Chrome: install the PWA from the production URL, share a link
+      from another app to AMBA, confirm the audit starts and the shared item is
+      gone from Cache Storage afterwards.
+- [ ] Android Chrome: share a screenshot to AMBA.
+- [ ] iOS Safari: paste button reads the clipboard after a tap.
+- [ ] Telegram: `/start`, `/cek <link>`, a forwarded text, a photo; the reply
+      link opens the signed report.
+- [ ] Real keys: the boot `readiness` log shows `llm_model_listed=true`,
+      `fact_search=true`, `safe_browsing=true`.
+
+### Verification (2026-11-08)
+
+```
+backend : gofmt -l .                   clean
+backend : go vet ./...                 no issues
+backend : go test -race ./...          385 tests pass, 16 packages
+backend : go run ./cmd/gendemo         deterministic, no diff
+frontend: svelte-check                 0 errors, 0 warnings
+frontend: eslint                       no issues
+frontend: vitest                       60 tests pass, 10 files
+frontend: vite build                   OK, adapter-static
+frontend: contrast                     82 pairs, both themes
+frontend: headers                      vercel.json matches security-headers.json
+frontend: size                         140.9 KB gz / 250 KB
+frontend: playwright e2e               32/32 (axe ID + EN, mode parity, i18n)
+frontend: lighthouse (mobile, median)  perf 90-99, a11y 100, BP 96-100, SEO 100, CLS 0
 demo diff                              in sync
 ```
