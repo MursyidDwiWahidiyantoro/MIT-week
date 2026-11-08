@@ -159,16 +159,16 @@ func TestNoFalseBrandMatches(t *testing.T) {
 
 func TestBrandLookalikesStillCaught(t *testing.T) {
 	for raw, brand := range map[string]string{
-		"https://briverifikasi.com/":            "bri",
-		"https://loginbca.net/":                 "bca",
-		"https://tokopedla.com/promo":           "tokopedia",
-		"https://shoppe-hadiah.com/":            "shopee",
-		"https://cs-mandiri.online/":            "mandiri",
-		"https://www.danabonus.xyz/":            "dana",
-		"https://instagrarn.com/login":          "instagram",
-		"https://bpjs-kesehatan.co.id/klaim":    "bpjs",
-		"https://kominfo-bansos.web.id/":        "kominfo",
-		"https://xn--br-xyz.com/":               "",
+		"https://briverifikasi.com/":         "bri",
+		"https://loginbca.net/":              "bca",
+		"https://tokopedla.com/promo":        "tokopedia",
+		"https://shoppe-hadiah.com/":         "shopee",
+		"https://cs-mandiri.online/":         "mandiri",
+		"https://www.danabonus.xyz/":         "dana",
+		"https://instagrarn.com/login":       "instagram",
+		"https://bpjs-kesehatan.co.id/klaim": "bpjs",
+		"https://kominfo-bansos.web.id/":     "kominfo",
+		"https://xn--br-xyz.com/":            "",
 	} {
 		t.Run(raw, func(t *testing.T) {
 			got := Analyze(raw)
