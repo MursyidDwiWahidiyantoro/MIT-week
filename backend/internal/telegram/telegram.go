@@ -427,7 +427,7 @@ func (b *Bot) call(ctx context.Context, method string, params map[string]any, ou
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, b.APIBase+"/bot"+url.PathEscape(b.Token)+"/"+method, bytes.NewReader(body))
 	if err != nil {
-		return err
+		return errors.New("telegram request could not be built") // never wrap err: it quotes the URL
 	}
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := b.HTTP.Do(req)

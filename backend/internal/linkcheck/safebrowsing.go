@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"time"
@@ -73,10 +74,18 @@ func (s *SafeBrowsing) Check(ctx context.Context, urls []string) (bool, error) {
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := s.HTTP.Do(req)
 	if err != nil {
+		// Never log err: it quotes the URL, which holds the key.
+		reason := "transport"
+		if ctx.Err() != nil {
+			reason = "timeout"
+		}
+		slog.Warn("safe browsing call failed", "reason", reason, "status", 0)
 		return false, ErrLookupFailed
 	}
 	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
+		// 403 usually means the Safe Browsing API is not enabled for the key.
+		slog.Warn("safe browsing call failed", "reason", "http_status", "status", resp.StatusCode)
 		return false, ErrLookupFailed
 	}
 	var out struct {

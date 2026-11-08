@@ -1,9 +1,12 @@
 package grounding
 
 import (
+	"bytes"
 	"context"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -65,5 +68,32 @@ func TestFactCheckSearcherDisabledAndFailing(t *testing.T) {
 	s.Endpoint = srv.URL
 	if _, err := s.Search(context.Background(), "x"); err == nil {
 		t.Fatal("a failed search must be an error")
+	}
+}
+
+// A failed search tells operators the status (403: API not enabled for the
+// key) without ever logging the key or the user's query.
+func TestFailedSearchLogsStatusOnly(t *testing.T) {
+	var logs bytes.Buffer
+	prev := slog.Default()
+	slog.SetDefault(slog.New(slog.NewJSONHandler(&logs, nil)))
+	defer slog.SetDefault(prev)
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "API not enabled", http.StatusForbidden)
+	}))
+	defer srv.Close()
+	s := NewFactCheckSearcher("secret-key-123", New(DefaultAllowlist))
+	s.Endpoint = srv.URL
+	_, _ = s.Search(context.Background(), "pesan rahasia pengguna")
+
+	out := logs.String()
+	if !strings.Contains(out, `"status":403`) {
+		t.Fatalf("want the status in the log, got %q", out)
+	}
+	for _, leak := range []string{"secret-key-123", "rahasia", srv.URL} {
+		if strings.Contains(out, leak) {
+			t.Fatalf("log leaks %q: %s", leak, out)
+		}
 	}
 }

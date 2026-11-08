@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strings"
@@ -88,10 +89,14 @@ func (s *FactCheckSearcher) Search(ctx context.Context, query string) ([]Result,
 	}
 	resp, err := s.HTTP.Do(req)
 	if err != nil {
+		// Never log err: it quotes the URL, which holds the key and the query.
+		slog.Warn("fact check search call failed", "reason", failureReason(ctx), "status", 0)
 		return nil, ErrSearchFailed
 	}
 	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
+		// 403 usually means the Fact Check Tools API is not enabled for the key.
+		slog.Warn("fact check search call failed", "reason", "http_status", "status", resp.StatusCode)
 		return nil, ErrSearchFailed
 	}
 
@@ -163,4 +168,12 @@ func truncate(s string, n int) string {
 		return s
 	}
 	return string(r[:n-1]) + "…"
+}
+
+// failureReason distinguishes a spent time budget from a transport error.
+func failureReason(ctx context.Context) string {
+	if ctx.Err() != nil {
+		return "timeout"
+	}
+	return "transport"
 }
