@@ -86,6 +86,8 @@ const audit = async (page: import('@playwright/test').Page) => {
 for (const path of ['/', '/deteksi', '/edukasi', '/tentang', '/cek-cepat']) {
   test(`axe: no serious or critical violations on ${path}`, async ({ page }) => {
     await page.goto(path);
+    // The SPA sets <title> after hydration; auditing before that is a race.
+    await expect(page).toHaveTitle(/AMBA/);
     expect(await audit(page), `dark theme: ${path}`).toEqual([]);
     // The theme toggle is a real control; light mode is a second palette and
     // must be gated, not assumed.
