@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n/index.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import Icon from '$lib/components/ui/Icon.svelte';
   import { buildShareUrl } from '$lib/verify';
@@ -10,7 +11,7 @@
     shareText?: string;
   }
 
-  let { token, title, shareText = 'Hasil pemeriksaan AMBA' }: Props = $props();
+  let { token, title, shareText = '' }: Props = $props();
 
   let copied = $state(false);
   let error = $state<string | null>(null);
@@ -31,12 +32,12 @@
       setTimeout(() => (copied = false), 2500);
     } catch {
       // Clipboard can be blocked; the field below is the manual fallback.
-      error = 'Tidak bisa menyalin otomatis. Salin tautan di bawah ini.';
+      error = t('share.copyFailed');
     }
   }
 
   function whatsapp(): void {
-    const text = `${shareText}: ${title}\n${url}`;
+    const text = `${shareText || t('share.text')}: ${title}\n${url}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener');
   }
 </script>
@@ -44,26 +45,25 @@
 <div class="share">
   <Button variant="quiet" onclick={copy}>
     <Icon name={copied ? 'check' : 'link'} size={18} />
-    {copied ? 'Tautan disalin' : 'Salin tautan'}
+    {copied ? t('share.copied') : t('share.copy')}
   </Button>
   <Button variant="quiet" onclick={whatsapp}>
-    <Icon name="whatsapp" size={18} /> Bagikan ke WhatsApp
+    <Icon name="whatsapp" size={18} /> {t('share.whatsapp')}
   </Button>
 
   <label class="field">
-    <span>Tautan laporan</span>
+    <span>{t('share.field')}</span>
     <input class="input" readonly value={url} onfocus={(e) => e.currentTarget.select()} />
   </label>
 
   {#if error}<p class="error-text" role="alert">{error}</p>{/if}
   {#if preview}
     <p class="note">
-      Ini tautan contoh dari mode pratinjau. Tautan tidak ditandatangani server
-      dan hanya bisa dibuka sebagai laporan contoh.
+      {t('share.previewNote')}
     </p>
   {:else}
     <p class="note">
-      Tautan memuat tanda tangan digital. Jika isinya diubah, laporan akan ditandai tidak sah.
+      {t('share.signedNote')}
     </p>
   {/if}
 </div>

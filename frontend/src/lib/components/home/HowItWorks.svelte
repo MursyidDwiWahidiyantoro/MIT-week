@@ -1,37 +1,38 @@
 <script lang="ts">
+  import { t } from '$lib/i18n/index.svelte';
   const STEPS = [
     {
       n: '1',
       tone: 'indigo',
-      title: 'Tempel isinya',
-      body: 'Dapat pesan aneh, tautan, atau panggilan? Masukkan di sini. Tidak perlu akun untuk mencoba.'
+      title: 'how.1.title',
+      body: 'how.1.body'
     },
     {
       n: '2',
       tone: 'lime',
-      title: 'AI memeriksa',
-      body: 'Kata-kata, tautan, dan taktik desakan diperiksa, lalu keluar satu kesimpulan yang jelas.'
+      title: 'how.2.title',
+      body: 'how.2.body'
     },
     {
       n: '3',
       tone: 'yellow',
-      title: 'Pahami alasannya',
-      body: 'Setiap tanda bahaya dijelaskan, jadi lain kali Anda bisa mengenalinya sendiri.'
+      title: 'how.3.title',
+      body: 'how.3.body'
     }
   ] as const;
 </script>
 
 <section class="section how-section" aria-labelledby="how-title">
   <div class="wrap">
-    <p class="eyebrow">Cara kerja</p>
-    <h2 class="h2" id="how-title">Tiga langkah, tanpa panik.</h2>
+    <p class="eyebrow">{t('how.eyebrow')}</p>
+    <h2 class="h2" id="how-title">{t('how.title')}</h2>
 
     <ol class="steps">
       {#each STEPS as step (step.n)}
         <li class="step card lift">
           <span class="num num--{step.tone}" aria-hidden="true">{step.n}</span>
-          <h3>{step.title}</h3>
-          <p>{step.body}</p>
+          <h3>{t(step.title)}</h3>
+          <p>{t(step.body)}</p>
         </li>
       {/each}
     </ol>

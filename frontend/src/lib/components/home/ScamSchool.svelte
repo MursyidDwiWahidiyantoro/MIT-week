@@ -1,19 +1,20 @@
 <script lang="ts">
+  import { t } from '$lib/i18n/index.svelte';
   import Icon from '$lib/components/ui/Icon.svelte';
 
   const LESSONS = [
-    { title: 'Biaya paket palsu', minutes: 4, progress: 100 },
-    { title: 'Trik nomor baru', minutes: 5, progress: 60 },
-    { title: 'Mengenali tautan palsu', minutes: 3, progress: 25 },
-    { title: 'Investasi yang terlalu bagus', minutes: 6, progress: 5 }
-  ];
+    { title: 'school.l1', minutes: 4, progress: 100 },
+    { title: 'school.l2', minutes: 5, progress: 60 },
+    { title: 'school.l3', minutes: 3, progress: 25 },
+    { title: 'school.l4', minutes: 6, progress: 5 }
+  ] as const;
 
   const BADGES = [
-    { label: 'Detektif tautan', tone: 'badge--indigo' },
-    { label: 'Penelepon tenang', tone: 'badge--yellow' },
-    { label: 'Ahli paket', tone: 'badge--lime' },
-    { label: 'Penakluk hadiah palsu', tone: 'badge--coral' }
-  ];
+    { label: 'school.b1', tone: 'badge--indigo' },
+    { label: 'school.b2', tone: 'badge--yellow' },
+    { label: 'school.b3', tone: 'badge--lime' },
+    { label: 'school.b4', tone: 'badge--coral' }
+  ] as const;
 
   let answer = $state<null | 'real' | 'scam'>(null);
   const correct = $derived(answer === 'scam');
@@ -21,38 +22,36 @@
 
 <section class="section learn-section" id="learn" aria-labelledby="learn-title">
   <div class="wrap">
-    <p class="eyebrow">Sekolah scam</p>
-    <h2 class="h2" id="learn-title">Pelajari triknya, bukan cuma hasilnya.</h2>
-    <p class="lede learn-lede">
-      Pelajaran singkat yang disusun dari pesan penipuan sungguhan. Lima menit sudah cukup.
-    </p>
+    <p class="eyebrow">{t('school.eyebrow')}</p>
+    <h2 class="h2" id="learn-title">{t('school.title')}</h2>
+    <p class="lede learn-lede">{t('school.lede')}</p>
 
     <div class="bento">
       <!-- Red flag of the week (7 cols) -->
       <article class="bento-card card card-flag lift">
         <div class="card-head">
-          <span class="pill pill--coral">Tanda bahaya minggu ini</span>
-          <span class="head-note">Trik “nomor baru”</span>
+          <span class="pill pill--coral">{t('school.flagPill')}</span>
+          <span class="head-note">{t('school.flagNote')}</span>
         </div>
 
         <blockquote class="bubble">
-          Halo Bu, HP saya rusak. Ini <mark class="hl hl--yellow">nomor baru</mark> saya. Bisa
-          kirim uang <mark class="hl hl--coral">sekarang juga</mark>?
-          <mark class="hl hl--lime">Jangan telepon</mark>, saya sedang rapat.
+          {t('school.bubble.a')} <mark class="hl hl--yellow">{t('school.bubble.mark1')}</mark>{t('school.bubble.b').startsWith('.') ? '' : ' '}{t('school.bubble.b')}
+          <mark class="hl hl--coral">{t('school.bubble.mark2')}</mark>?
+          <mark class="hl hl--lime">{t('school.bubble.mark3')}</mark>{t('school.bubble.c')}
         </blockquote>
 
         <ol class="explain">
           <li>
             <span class="dot dot--yellow" aria-hidden="true">1</span>
-            <span><strong>Nomor asing.</strong> Keluarga asli tetap bisa dihubungi di nomor lama.</span>
+            <span><strong>{t('school.e1.lead')}</strong> {t('school.e1.rest')}</span>
           </li>
           <li>
             <span class="dot dot--coral" aria-hidden="true">2</span>
-            <span><strong>Desakan.</strong> Penipu tidak suka Anda punya waktu berpikir.</span>
+            <span><strong>{t('school.e2.lead')}</strong> {t('school.e2.rest')}</span>
           </li>
           <li>
             <span class="dot dot--lime" aria-hidden="true">3</span>
-            <span><strong>Larang menelepon.</strong> Mereka menghindari satu hal yang membuktikan identitas.</span>
+            <span><strong>{t('school.e3.lead')}</strong> {t('school.e3.rest')}</span>
           </li>
         </ol>
       </article>
@@ -61,19 +60,19 @@
       <article class="bento-card card--ink card-lessons lift">
         <div class="lessons-head">
           <span class="book" aria-hidden="true"><Icon name="book" size={22} /></span>
-          <h3>Pelajaran singkat</h3>
+          <h3>{t('school.lessons')}</h3>
         </div>
         <ul>
           {#each LESSONS as lesson (lesson.title)}
             <li>
               <div class="lesson-row">
-                <span class="lesson-title">{lesson.title}</span>
-                <span class="lesson-time">{lesson.minutes} mnt</span>
+                <span class="lesson-title">{t(lesson.title)}</span>
+                <span class="lesson-time">{t('school.minutes', { n: lesson.minutes })}</span>
               </div>
               <div
                 class="bar"
                 role="img"
-                aria-label={`Progres ${lesson.progress} persen`}
+                aria-label={t('school.progress', { n: lesson.progress })}
               >
                 <span class="bar-fill" style:width="{lesson.progress}%"></span>
               </div>
@@ -84,31 +83,28 @@
 
       <!-- Quiz (7 cols) -->
       <article class="bento-card card--lime card-quiz lift">
-        <p class="eyebrow quiz-eyebrow">Kuis kilat</p>
-        <h3>Asli atau scam?</h3>
-        <p class="quiz-bubble">
-          Selamat! Anda menang HP gratis. Klaim dalam 10 menit: bit.ly/win-now
-        </p>
+        <p class="eyebrow quiz-eyebrow">{t('school.quizEyebrow')}</p>
+        <h3>{t('school.quizTitle')}</h3>
+        <p class="quiz-bubble">{t('school.quizText')}</p>
 
         <div class="quiz-live" aria-live="polite">
           {#if answer === null}
             <div class="quiz-actions">
               <button class="btn btn--quiet btn--sm" type="button" onclick={() => (answer = 'real')}>
-                Itu asli
+                {t('school.quizReal')}
               </button>
               <button class="btn btn--ink btn--sm" type="button" onclick={() => (answer = 'scam')}>
-                Itu scam
+                {t('school.quizScam')}
               </button>
             </div>
           {:else}
             <div class="feedback">
-              <p class="feedback-title">{correct ? 'Tepat sekali!' : 'Hampir! Ini scam.'}</p>
+              <p class="feedback-title">{correct ? t('school.quizRight') : t('school.quizWrong')}</p>
               <p class="feedback-body">
-                Batas waktu palsu dan tautan yang dipendekkan adalah dua tanda klasik.
-                Hadiah asli tidak pernah mengejar Anda.
+                {t('school.quizWhy')}
               </p>
               <button class="btn btn--ink btn--sm" type="button" onclick={() => (answer = null)}>
-                <Icon name="refresh" size={16} /> Coba lagi
+                <Icon name="refresh" size={16} /> {t('school.quizAgain')}
               </button>
             </div>
           {/if}
@@ -117,11 +113,11 @@
 
       <!-- Badges (5 cols) -->
       <article class="bento-card card card-badges lift">
-        <h3>Kumpulkan lencananya</h3>
-        <p>Tuntaskan pelajaran, dapatkan stiker, lalu tantang keluarga.</p>
+        <h3>{t('school.badgesTitle')}</h3>
+        <p>{t('school.badgesBody')}</p>
         <ul class="badge-list">
           {#each BADGES as badge (badge.label)}
-            <li class="badge {badge.tone} lift">{badge.label}</li>
+            <li class="badge {badge.tone} lift">{t(badge.label)}</li>
           {/each}
         </ul>
       </article>

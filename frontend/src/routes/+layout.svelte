@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t, locale, type MessageKey } from '$lib/i18n/index.svelte';
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
   import '../lib/styles/tokens.css';
@@ -9,17 +10,21 @@
   import ThemeSwitch from '$lib/components/ui/ThemeSwitch.svelte';
   import TextSize from '$lib/components/a11y/TextSize.svelte';
   import ModeSwitch from '$lib/components/mode/ModeSwitch.svelte';
+  import LangSwitch from '$lib/components/a11y/LangSwitch.svelte';
   import '../lib/styles/refinement.css';
   import PreviewBadge from '$lib/components/ui/PreviewBadge.svelte';
   import Icon from '$lib/components/ui/Icon.svelte';
 
   let { children } = $props();
+  // On phones the four display controls live behind one toggle, so the
+  // header stays two rows and never overlaps the navigation.
+  let toolsOpen = $state(false);
 
-  const LINKS = [
-    { href: '/deteksi', label: 'Periksa', match: ['/deteksi', '/hasil'] },
-    { href: '/cek-cepat', label: 'Cek cepat', match: ['/cek-cepat'] },
-    { href: '/edukasi', label: 'Belajar', match: ['/edukasi'] },
-    { href: '/tentang', label: 'Tentang', match: ['/tentang'] }
+  const LINKS: Array<{ href: string; label: MessageKey; match: string[] }> = [
+    { href: '/deteksi', label: 'nav.check', match: ['/deteksi', '/hasil'] },
+    { href: '/cek-cepat', label: 'nav.quick', match: ['/cek-cepat'] },
+    { href: '/edukasi', label: 'nav.learn', match: ['/edukasi'] },
+    { href: '/tentang', label: 'nav.about', match: ['/tentang'] }
   ];
 
   // Read the stored preference once the component is live.
@@ -50,18 +55,18 @@
   });
 </script>
 
-<a class="skip-link" href="#main">Langsung ke isi utama</a>
+<a class="skip-link" href="#main">{t('layout.skip')}</a>
 
 <PreviewBadge />
 
 <header class="site-header">
   <div class="wrap header-inner">
-    <a class="brand" href={resolve('/')} aria-label="AMBA, ke beranda">
+    <a class="brand" href={resolve('/')} aria-label={t('layout.home')}>
       <span class="logo" aria-hidden="true"><Icon name="shield-check" size={24} /></span>
       <span class="wordmark">AMBA</span>
     </a>
 
-    <nav aria-label="Navigasi utama">
+    <nav aria-label={t('layout.nav')}>
       <ul>
         {#each LINKS as link (link.href)}
           <li>
@@ -70,15 +75,28 @@
               href={resolve(link.href as '/' | '/deteksi' | '/cek-cepat' | '/edukasi' | '/tentang')}
               aria-current={link.match.includes(page.url.pathname) ? 'page' : undefined}
             >
-              {link.label}
+              {t(link.label)}
             </a>
           </li>
         {/each}
       </ul>
     </nav>
 
-    <div class="tools">
+    <button
+      class="tools-toggle"
+      type="button"
+      aria-expanded={toolsOpen}
+      aria-controls="site-tools"
+      aria-label={toolsOpen ? t('layout.displayClose') : t('layout.displayOpen')}
+      onclick={() => (toolsOpen = !toolsOpen)}
+    >
+      <Icon name="type" size={20} />
+      <span>{t('layout.display')}</span>
+    </button>
+
+    <div class="tools" id="site-tools" class:open={toolsOpen}>
       <TextSize />
+      <LangSwitch />
       <ModeSwitch />
       <ThemeSwitch />
     </div>
@@ -99,15 +117,20 @@
   <div class="wrap footer-inner">
     <p class="footer-brand">AMBA</p>
     <p class="footer-note">
-      AMBA membantu Anda menilai risiko informasi. Hasilnya <strong>indikatif</strong>,
-      bukan bukti pasti dan bukan alat bukti hukum.
+      {t('layout.footerNote1')} <strong>{t('layout.footerIndicative')}</strong>,
+      {t('layout.footerNote2')}
     </p>
     <ul class="footer-links">
-      <li><a href={resolve('/deteksi')}>Periksa</a></li>
-      <li><a href={resolve('/edukasi')}>Belajar</a></li>
-      <li><a href={resolve('/cek-cepat')}>Cek cepat</a></li>
-      <li><a href={resolve('/tentang')}>Tentang</a></li>
+      <li><a href={resolve('/deteksi')}>{t('nav.check')}</a></li>
+      <li><a href={resolve('/edukasi')}>{t('nav.learn')}</a></li>
+      <li><a href={resolve('/cek-cepat')}>{t('nav.quick')}</a></li>
+      <li><a href={resolve('/tentang')}>{t('nav.about')}</a></li>
     </ul>
+  </div>
+  <!-- PRD §10: the legal disclaimer is kept verbatim, in Indonesian, in every language. -->
+  <div class="wrap footer-legal">
+    {#if locale.value === 'en'}<p class="footer-legal-note">{t('about.disclaimerNoteEn')}</p>{/if}
+    <p class="footer-legal-text" lang="id">{t('disclaimer.full')}</p>
   </div>
 </footer>
 
@@ -173,6 +196,22 @@
     gap: var(--space-3);
     flex: none;
   }
+  .tools-toggle {
+    display: none;
+    align-items: center;
+    gap: var(--space-2);
+    min-height: 44px;
+    padding: 0 14px;
+    background: var(--white);
+    color: var(--ink);
+    border: var(--border-width) solid var(--border);
+    border-radius: var(--radius-md);
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .tools-toggle[aria-expanded='true'] { background: var(--brand); color: var(--on-brand); }
+  .tools-toggle:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
 
   main {
     padding-block: 0;
@@ -228,6 +267,20 @@
     transition: color var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
   }
   .footer-links a:hover { color: var(--indigo-text); text-decoration: underline; transform: translateY(-2px); }
+  .footer-legal {
+    margin-top: var(--space-5);
+    padding-top: var(--space-4);
+    border-top: 1px solid var(--border);
+  }
+  .footer-legal-note,
+  .footer-legal-text {
+    margin: 0;
+    max-width: 96ch;
+    color: var(--body-2);
+    font-size: var(--text-xs);
+    line-height: 1.55;
+  }
+  .footer-legal-note { margin-bottom: var(--space-1); font-weight: 700; }
 
   /* Mobile: 2 deliberate rows (Row 1: brand + tools; Row 2: 4 equal nav links)
    * Keeps mobile header compact (~80px instead of 180px) and clean. */
@@ -251,35 +304,24 @@
     .wordmark {
       font-size: 1.35em;
     }
-    .tools {
+    /* Four segmented controls never fit beside the wordmark on a phone.
+     * They sit in a panel under the navigation, opened by one toggle. */
+    .tools-toggle {
+      display: inline-flex;
       grid-column: 2;
       grid-row: 1;
-      justify-content: flex-end;
-      gap: var(--space-2);
     }
+    .tools {
+      display: none;
+      grid-column: 1 / -1;
+      grid-row: 3;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: flex-start;
+      padding-top: 4px;
+    }
+    .tools.open { display: flex; }
     .tools :global(.text-size .label) { display: none; }
-    /* Two segmented controls plus the wordmark do not fit a 360px row, and
-     * overflow-x:clip was silently cutting the mode switch in half. Below
-     * 26rem the tools get their own row instead of being clipped. */
-    @media (max-width: 26rem) {
-      .header-inner {
-        grid-template-columns: 1fr;
-        gap: 8px;
-      }
-      .brand { grid-row: 1; }
-      .tools {
-        grid-row: 2;
-        grid-column: 1;
-        width: 100%;
-        justify-content: space-between;
-      }
-      nav { grid-row: 3; }
-      /* Keep the row inside 320px: label off, both segments compact. */
-      .tools { flex-wrap: wrap; gap: 6px; }
-      .tools :global(.text-size .label) { display: none; }
-      .tools :global(.seg button) { min-width: 40px; padding: 0 4px; }
-      .tools :global(.mode-switch button) { padding: 0 9px; font-size: 0.8rem; }
-    }
     nav {
       grid-column: 1 / -1;
       grid-row: 2;

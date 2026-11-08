@@ -15,6 +15,7 @@
   import ScanningRadar from '$lib/components/deteksi/ScanningRadar.svelte';
   import demoData from '$lib/data/demo-cases.json';
   import Icon from '$lib/components/ui/Icon.svelte';
+  import { t, type MessageKey } from '$lib/i18n/index.svelte';
 
   const session = new AuditSession();
 
@@ -48,11 +49,11 @@
   });
 
   async function openShared(id: string): Promise<void> {
-    sharedNotice = 'Membuka konten yang dibagikan…';
+    sharedNotice = t('det.sharedOpening');
     const item = await readSharedItem(id);
     if (!item) {
       sharedNotice = null;
-      inputError = 'Konten yang dibagikan tidak ditemukan atau sudah kedaluwarsa. Tempel manual di bawah.';
+      inputError = t('det.sharedMissing');
       return;
     }
 
@@ -97,7 +98,7 @@
 
       const value = (await navigator.clipboard.readText()).trim();
       if (!value) {
-        inputError = 'Clipboard kosong. Salin tautan atau teks terlebih dahulu.';
+        inputError = t('det.clipEmpty');
         return;
       }
       const found = firstHttpUrl(value);
@@ -109,7 +110,7 @@
         text = value;
       }
     } catch {
-      inputError = 'Tidak bisa membaca clipboard. Tempel manual dengan Ctrl+V atau tekan lama lalu pilih Tempel.';
+      inputError = t('det.clipDenied');
     }
   }
 
@@ -148,15 +149,15 @@
   function validate(): string | null {
     if (kind === 'url') {
       const value = url.trim();
-      if (!value) return 'Tempel tautan yang ingin diperiksa.';
-      if (!/^https?:\/\//i.test(value)) return 'Tautan harus dimulai dengan http:// atau https://';
-      if (value.length > 2048) return 'Tautan terlalu panjang.';
+      if (!value) return t('det.errUrlEmpty');
+      if (!/^https?:\/\//i.test(value)) return t('det.errUrlScheme');
+      if (value.length > 2048) return t('det.errUrlLong');
     }
     if (kind === 'text') {
-      if (!text.trim()) return 'Tulis atau tempel pesan yang ingin diperiksa.';
-      if (text.length > 5000) return 'Teks terlalu panjang. Maksimal 5000 karakter.';
+      if (!text.trim()) return t('det.errTextEmpty');
+      if (text.length > 5000) return t('det.errTextLong');
     }
-    if (kind === 'file' && !file) return 'Pilih gambar terlebih dahulu.';
+    if (kind === 'file' && !file) return t('det.errFile');
     return null;
   }
 
@@ -173,33 +174,27 @@
 </script>
 
 <svelte:head>
-  <title>Periksa konten — AMBA</title>
-  <meta
-    name="description"
-    content="Tempel tautan, teks pesan, atau unggah tangkapan layar. AMBA menjelaskan tanda bahaya dengan kata sederhana."
-  />
+  <title>{t('det.title')}</title>
+  <meta name="description" content={t('det.description')} />
 </svelte:head>
 
 <section class="head">
-  <p class="eyebrow">Pemeriksaan</p>
-  <h1 class="h1">Periksa konten</h1>
-  <p class="lede">
-    Pilih jenis konten, lalu jalankan pemeriksaan. Hasilnya indikatif, bukan bukti pasti.
-  </p>
+  <p class="eyebrow">{t('det.eyebrow')}</p>
+  <h1 class="h1">{t('det.h1')}</h1>
+  <p class="lede">{t('det.lede')}</p>
 </section>
 
 {#if isMockMode}
   <p class="notice" role="note">
-    <strong>Mode pratinjau.</strong> Pemeriksaan memakai aturan contoh di perangkat ini,
-    bukan server AMBA. Hasilnya diberi tanda CONTOH.
+    <strong>{t('det.previewTitle')}</strong> {t('det.previewBody')}
   </p>
 {/if}
 
-<section class="console card" aria-label="Formulir pemeriksaan">
+<section class="console card" aria-label={t('det.form')}>
   <div class="console-top">
     <ModeSelectorTabs selected={kind} onselect={(k) => { kind = k; inputError = null; }} />
     <Button variant="quiet" onclick={pasteClipboard}>
-      <Icon name="copy" size={18} /> Tempel dari clipboard
+      <Icon name="copy" size={18} /> {t('det.paste')}
     </Button>
   </div>
 
@@ -208,17 +203,17 @@
   {/if}
 
   {#if kind === 'url'}
-    <Field id="url" label="Tautan" type="url" bind:value={url} hint="Contoh: https://example.org/artikel" error={inputError ?? undefined} />
+    <Field id="url" label={t('det.urlLabel')} type="url" bind:value={url} hint={t('det.urlHint')} error={inputError ?? undefined} />
   {:else if kind === 'text'}
     <div class="field">
-      <label for="teks">Teks pesan</label>
+      <label for="teks">{t('det.textLabel')}</label>
       <textarea
         class="textarea"
         id="teks"
         rows="6"
         bind:value={text}
         aria-invalid={inputError ? 'true' : undefined}
-        placeholder="Tempel pesan yang Anda terima di sini."
+        placeholder={t('det.textPlaceholder')}
       ></textarea>
       {#if inputError}<p class="error-text" role="alert">{inputError}</p>{/if}
     </div>
@@ -228,26 +223,26 @@
   {/if}
 
   <div class="demos">
-    <p class="demos-label">Coba contoh</p>
+    <p class="demos-label">{t('det.demos')}</p>
     <ul>
       {#each demos as demo (demo.id)}
         <li>
           <button class="demo-btn" type="button" onclick={() => openDemo(demo)}>
-            {demo.label}
+            {t(`demo.${demo.id}` as MessageKey) === `demo.${demo.id}` ? demo.label : t(`demo.${demo.id}` as MessageKey)}
           </button>
         </li>
       {/each}
     </ul>
-    <p class="demos-note">Contoh dimuat dari perangkat Anda, tanpa koneksi ke server.</p>
+    <p class="demos-note">{t('det.demosNote')}</p>
   </div>
 
   <div class="actions">
     <Button size="lg" onclick={submit} loading={session.running}>
       <Icon name="sparkle" size={18} />
-      {session.running ? 'Memeriksa…' : 'Mulai periksa'}
+      {session.running ? t('det.running') : t('det.start')}
     </Button>
     {#if session.running}
-      <Button variant="quiet" onclick={() => session.abort()}>Batalkan</Button>
+      <Button variant="quiet" onclick={() => session.abort()}>{t('det.cancel')}</Button>
     {/if}
   </div>
 
@@ -260,10 +255,10 @@
 
 {#if session.error}
   <div class="error-panel" role="alert">
-    <p class="error-title">Pemeriksaan tidak selesai</p>
+    <p class="error-title">{t('det.errTitle')}</p>
     <p>{session.error.message}</p>
     {#if session.error.retryAfter}
-      <p class="hint">Tunggu {session.error.retryAfter} detik sebelum mencoba lagi.</p>
+      <p class="hint">{t('det.wait', { n: session.error.retryAfter })}</p>
     {/if}
   </div>
 {/if}

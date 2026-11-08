@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n/index.svelte';
   import { resolve } from '$app/paths';
   import Icon from '$lib/components/ui/Icon.svelte';
 
@@ -19,58 +20,58 @@
     flags: Array<{ lead: string; rest: string }>;
   }
 
-  const EXAMPLES: Example[] = [
+  const EXAMPLES: Example[] = $derived([
     {
       id: 'message',
-      tab: 'Pesan',
+      tab: t('scan.msg.tab'),
       icon: 'chat',
-      label: 'Pesan yang Anda terima',
-      text: 'URGENT: Paket Anda tertahan di bea cukai. Bayar biaya rilis hari ini di bit-ly-parcel-id.co atau paket dikembalikan.',
-      verdict: 'Kemungkinan scam',
+      label: t('scan.msg.label'),
+      text: t('scan.msg.text'),
+      verdict: t('scan.msg.verdict'),
       score: 92,
       tone: 'danger',
       flags: [
-        { lead: 'Mendesak.', rest: 'Kurir resmi tidak mengancam dengan batas waktu.' },
-        { lead: 'Tautan aneh.', rest: 'Alamatnya meniru merek pengiriman.' },
-        { lead: 'Biaya mendadak.', rest: 'Biaya tidak pernah ditagih lewat tautan acak.' }
+        { lead: t('scan.msg.f1.lead'), rest: t('scan.msg.f1.rest') },
+        { lead: t('scan.msg.f2.lead'), rest: t('scan.msg.f2.rest') },
+        { lead: t('scan.msg.f3.lead'), rest: t('scan.msg.f3.rest') }
       ]
     },
     {
       id: 'link',
-      tab: 'Tautan',
+      tab: t('scan.link.tab'),
       icon: 'link',
-      label: 'Tautan yang dikirim',
+      label: t('scan.link.label'),
       text: 'https://secure-bank-login.verify-account.top/id',
-      verdict: 'Tautan berbahaya',
+      verdict: t('scan.link.verdict'),
       score: 96,
       tone: 'danger',
       flags: [
-        { lead: 'Nama mirip.', rest: 'Tertulis bank, tapi domain aslinya lain.' },
-        { lead: 'Akhiran asing.', rest: 'Bank jarang memakai akhiran web yang murah.' },
-        { lead: 'Minta masuk.', rest: 'Jangan pernah masuk dari tautan yang tidak Anda minta.' }
+        { lead: t('scan.link.f1.lead'), rest: t('scan.link.f1.rest') },
+        { lead: t('scan.link.f2.lead'), rest: t('scan.link.f2.rest') },
+        { lead: t('scan.link.f3.lead'), rest: t('scan.link.f3.rest') }
       ]
     }
-  ];
+  ]);
 
   let active = $state<Example['id']>('message');
   const current = $derived(EXAMPLES.find((e) => e.id === active) ?? EXAMPLES[0]);
 </script>
 
 <div class="scan-wrap">
-  <p class="sticker sticker--coral" style="--r:6deg">URGENT!! Segera</p>
+  <p class="sticker sticker--coral" style="--r:6deg">{t('scan.sticker1')}</p>
   <p class="sticker sticker--yellow" style="--r:-5deg; animation-delay:1s">
-    Anda menang hadiah!
+    {t('scan.sticker2')}
   </p>
 
   <!-- Double-bezel outer shell -->
   <div class="scan-shell">
     <div class="scan-core" id="scan">
       <div class="head">
-        <h2>Ini scam atau bukan?</h2>
-        <span class="pill pill--soft">Contoh</span>
+        <h2>{t('scan.title')}</h2>
+        <span class="pill pill--soft">{t('scan.example')}</span>
       </div>
 
-      <div class="tabs" role="tablist" aria-label="Jenis contoh">
+      <div class="tabs" role="tablist" aria-label={t('scan.tabs')}>
         {#each EXAMPLES as example (example.id)}
           <button
             type="button"
@@ -106,7 +107,7 @@
         <p class="sample">{current.text}</p>
 
         <a class="scan-bar group" href={resolve('/deteksi')}>
-          <span>Periksa punya Anda</span>
+          <span>{t('scan.cta')}</span>
           <span class="scan-bar-circle" aria-hidden="true">
             <Icon name="arrow-right" size={18} />
           </span>
@@ -115,15 +116,15 @@
         <div class="verdict" class:verdict--warn={current.tone === 'warn'}>
           <div class="verdict-top">
             <span class="chip chip--{current.tone}">{current.verdict}</span>
-            <span class="risk-label">Tingkat risiko</span>
+            <span class="risk-label">{t('scan.risk')}</span>
           </div>
 
-          <div class="meter" role="img" aria-label={`Tingkat risiko ${current.score} dari 100`}>
+          <div class="meter" role="img" aria-label={t('scan.riskMeter', { score: current.score })}>
             <span class="meter-fill meter-fill--{current.tone}" style:width="{current.score}%"></span>
           </div>
 
           <ol class="flags">
-            {#each current.flags as flag, i (flag.lead)}
+            {#each current.flags as flag, i (i)}
               <li>
                 <span class="num" aria-hidden="true">{i + 1}</span>
                 <span><strong>{flag.lead}</strong> {flag.rest}</span>

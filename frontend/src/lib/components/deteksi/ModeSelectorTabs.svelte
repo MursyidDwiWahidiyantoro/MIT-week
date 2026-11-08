@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n/index.svelte';
   import Icon from '$lib/components/ui/Icon.svelte';
 
   export type InputKind = 'url' | 'file' | 'text';
@@ -10,14 +11,14 @@
 
   let { selected, onselect }: Props = $props();
 
-  const tabs: Array<{ value: InputKind; label: string; icon: 'link' | 'image' | 'text' }> = [
-    { value: 'url', label: 'Tautan', icon: 'link' },
-    { value: 'file', label: 'Gambar', icon: 'image' },
-    { value: 'text', label: 'Teks', icon: 'text' }
+  const tabs: Array<{ value: InputKind; label: 'tabs.url' | 'tabs.file' | 'tabs.text'; icon: 'link' | 'image' | 'text' }> = [
+    { value: 'url', label: 'tabs.url', icon: 'link' },
+    { value: 'file', label: 'tabs.file', icon: 'image' },
+    { value: 'text', label: 'tabs.text', icon: 'text' }
   ];
 </script>
 
-<div class="tabs" role="tablist" aria-label="Jenis konten">
+<div class="tabs" role="tablist" aria-label={t('tabs.label')}>
   {#each tabs as tab (tab.value)}
     <button
       type="button"
@@ -42,7 +43,7 @@
       }}
     >
       <Icon name={tab.icon} size={18} />
-      {tab.label}
+      {t(tab.label)}
     </button>
   {/each}
 </div>

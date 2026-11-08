@@ -3,6 +3,7 @@ import { parseDossier, SchemaVersionError, ContractError, type DossierParsed } f
 import { API_BASE, isMockMode } from './api/config';
 import { mockAuditStream, type MockKind, type MockPayload } from './api/mock';
 import { result } from './result.svelte';
+import { t, locale } from './i18n/index.svelte';
 
 export type PillarKey = 'ela' | 'ai' | 'fact' | 'link';
 export type StageStatus = 'idle' | 'running' | 'done' | 'skipped' | 'failed';
@@ -76,7 +77,7 @@ export class AuditSession {
     this.partials = {};
 
     if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-      this.error = { kind: 'offline', message: 'Kamu sedang offline. Contoh kasus masih bisa dibuka.' };
+      this.error = { kind: 'offline', message: t('err.offline') };
       this.running = false;
       return;
     }
@@ -93,7 +94,7 @@ export class AuditSession {
           return;
         }
         if (err instanceof SchemaVersionError) {
-          this.error = { kind: 'schema', message: 'Perbarui aplikasi' };
+          this.error = { kind: 'schema', message: t('err.update') };
           this.running = false;
           return;
         }
@@ -102,7 +103,7 @@ export class AuditSession {
           // Retrying cannot fix that, so say so instead of "try again".
           this.error = {
             kind: 'schema',
-            message: 'Format hasil tidak dikenali. Coba muat ulang halaman ini.'
+            message: t('err.format')
           };
           this.running = false;
           return;
@@ -118,7 +119,7 @@ export class AuditSession {
         }
         this.error = {
           kind: 'network',
-          message: 'Pemeriksaan terhenti sebelum selesai. Coba lagi.'
+          message: t('err.stopped')
         };
         this.running = false;
         return;
@@ -160,7 +161,7 @@ export class AuditSession {
       throw await this.#failure(response);
     }
     if (!response.body) {
-      throw new ApiFailure({ kind: 'network', message: 'Pemeriksaan terhenti sebelum selesai. Coba lagi.' });
+      throw new ApiFailure({ kind: 'network', message: t('err.stopped') });
     }
 
     for await (const event of readSSE(response, signal)) {
@@ -170,10 +171,11 @@ export class AuditSession {
   }
 
   async #failure(response: Response): Promise<ApiFailure> {
-    let message = 'Terjadi kendala di sisi kami. Coba lagi.';
+    let message = t('err.generic');
     try {
       const body = (await response.json()) as { error?: { message?: string } };
-      if (body.error?.message) message = body.error.message;
+      // Server messages are Indonesian; in English keep the local copy.
+      if (body.error?.message && locale.value === 'id') message = body.error.message;
     } catch {
       // Keep the generic message; never surface raw server text.
     }
@@ -182,16 +184,16 @@ export class AuditSession {
       const retry = Number(response.headers.get('Retry-After') ?? '0');
       return new ApiFailure({
         kind: 'rate_limited',
-        message: `Terlalu banyak pemeriksaan. Coba lagi dalam ${retry || 30} detik.`,
+        message: t('err.rate', { n: retry || 30 }),
         retryAfter: retry || 30
       });
     }
     if (response.status === 504) {
       // No verdict exists on a 504; the UI shows retry only.
-      return new ApiFailure({ kind: 'timeout', message: 'Pemeriksaan belum selesai. Coba lagi.' });
+      return new ApiFailure({ kind: 'timeout', message: t('err.timeout') });
     }
     if (response.status === 415 || response.status === 413) {
-      return new ApiFailure({ kind: 'unsupported', message });
+      return new ApiFailure({ kind: 'unsupported', message: locale.value === 'id' ? message : t('err.unsupported') });
     }
     return new ApiFailure({ kind: 'network', message });
   }
@@ -206,11 +208,11 @@ export class AuditSession {
         this.verdict = parseDossier(event.data);
         result.set(this.verdict, this.#imageFile, this.#inputText);
         if (this.verdict.degraded) {
-          this.announcement = 'Sebagian pemeriksaan tidak berjalan.';
+          this.announcement = t('announce.degraded');
         }
         break;
       case 'error':
-        this.error = { kind: 'network', message: 'Pemeriksaan terhenti sebelum selesai. Coba lagi.' };
+        this.error = { kind: 'network', message: t('err.stopped') };
         break;
       case 'partial':
         this.partials = { ...this.partials, [event.pillar]: event.data };
@@ -224,18 +226,13 @@ export class AuditSession {
   #announce(event: Extract<SSEEvent, { type: 'stage' }>): void {
     if (this.#announceTimer) clearTimeout(this.#announceTimer);
     this.#announceTimer = setTimeout(() => {
-      const labels: Record<PillarKey, string> = {
-        ela: 'Analisis gambar',
-        ai: 'Deteksi jejak AI',
-        fact: 'Pengecekan fakta',
-        link: 'Pemeriksaan tautan'
-      };
+      const name = t(`pillar.${event.pillar}`);
       if (event.status === 'running') {
-        this.announcement = `Memeriksa ${labels[event.pillar].toLowerCase()}.`;
+        this.announcement = t('announce.running', { name: name.toLowerCase() });
       } else if (event.status === 'done') {
-        this.announcement = `${labels[event.pillar]} selesai.`;
+        this.announcement = t('announce.done', { name });
       } else if (event.status === 'skipped' || event.status === 'failed') {
-        this.announcement = `${labels[event.pillar]} tidak dapat diperiksa.`;
+        this.announcement = t('announce.failed', { name });
       }
     }, 250);
   }

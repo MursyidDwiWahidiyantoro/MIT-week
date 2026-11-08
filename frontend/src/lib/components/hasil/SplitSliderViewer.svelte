@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n/index.svelte';
   import type { Anomaly } from '$lib/api/types';
 
   interface Props {
@@ -8,7 +9,7 @@
     alt?: string;
   }
 
-  let { src, elaSrc = null, anomalies = [], alt = 'Gambar yang diperiksa' }: Props = $props();
+  let { src, elaSrc = null, anomalies = [], alt = '' }: Props = $props();
 
   let position = $state(50);
   let view = $state<'slider' | 'original' | 'ela'>('slider');
@@ -50,22 +51,22 @@
 </script>
 
 <div class="viewer">
-  <div class="tabs" role="tablist" aria-label="Cara melihat gambar">
+  <div class="tabs" role="tablist" aria-label={t('slider.tabs')}>
     {#if hasEla}
-      <button type="button" role="tab" aria-selected={view === 'slider'} onclick={() => (view = 'slider')}>Geser</button>
+      <button type="button" role="tab" aria-selected={view === 'slider'} onclick={() => (view = 'slider')}>{t('slider.slide')}</button>
     {/if}
-    <button type="button" role="tab" aria-selected={view === 'original'} onclick={() => (view = 'original')}>Asli</button>
+    <button type="button" role="tab" aria-selected={view === 'original'} onclick={() => (view = 'original')}>{t('slider.original')}</button>
     {#if hasEla}
       <button type="button" role="tab" aria-selected={view === 'ela'} onclick={() => (view = 'ela')}>ELA</button>
     {/if}
   </div>
 
   <div class="stage">
-    <img {src} {alt} class="base" />
+    <img {src} alt={alt || t('slider.alt')} class="base" />
 
     {#if hasEla && view !== 'original'}
       <div class="overlay" style:clip-path={view === 'slider' ? `inset(0 0 0 ${position}%)` : 'none'}>
-        <img src={elaSrc} alt="Peta perbedaan kompresi (ELA)" class="base fill" />
+        <img src={elaSrc} alt={t('slider.elaAlt')} class="base fill" />
       </div>
     {/if}
 
@@ -94,8 +95,8 @@
       max="100"
       step="1"
       bind:value={position}
-      aria-label="Geser untuk membandingkan gambar asli dan hasil ELA"
-      aria-valuetext="{position}% gambar asli"
+      aria-label={t('slider.aria')}
+      aria-valuetext={t('slider.valuetext', { n: position })}
       onkeydown={onRangeKey}
     />
   {/if}
@@ -107,7 +108,7 @@
       <li>
         <span class="anomaly-num" aria-hidden="true">{i + 1}</span>
         <span>
-          <strong>Area {i + 1}</strong>
+          <strong>{t('slider.area', { n: i + 1 })}</strong>
           {#if box.text}<span class="quote">“{box.text}”</span>{/if}
           {#if box.reason}<span class="reason">{box.reason}</span>{/if}
         </span>
