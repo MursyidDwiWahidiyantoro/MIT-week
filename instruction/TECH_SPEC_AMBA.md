@@ -1,5 +1,5 @@
 # AMBA — Technical Specification v10.1
-Companion to `PRD_AMBA_v10.md`. This file is the source of truth for contracts, algorithms and security. If it conflicts with v9 or v10.0, **this file wins**. Deployment, hosting, domain and Docker are out of scope for now (local development only).
+Companion to `PRD_AMBA_v10.md`. This file is the source of truth for contracts, algorithms and security. If it conflicts with v9 or v10.0, **this file wins**. Deployment entered scope on 2026-11-08: the SPA on Vercel, the API on Fly.io or Railway (`docs/DEPLOY.md`); Docker remains the local/LAN stack.
 
 ---
 
@@ -142,6 +142,7 @@ Apply in this order, then clamp 0–100:
 1. `FACT_CONTRADICTED`: ≥1 source with `match=CONTRADICTS`, host on allowlist, URL came from search tool → `score = max(score, 85)`.
 2. `LINK_MALICIOUS`: Safe Browsing hit or `S_Link ≥ 90` → `score = max(score, 85)`.
 3. `ELA_CORROBORATED`: `S_ELA ≥ 70` **and** an LLM text anomaly box overlapping an ELA hotspot (IoU ≥ 0.1 or centre inside) → `score = max(score, 70)`.
+3b. `LINK_STRONG` (added 2026-11-08, team decision "strong link evidence is enough"): if there is still **no** score (W < 0.30, e.g. a bare-URL audit) and the link pillar is available with `S_Link ≥ 50` → `score = min(S_Link, 85)`. The cap keeps a link-only verdict at or below the `LINK_MALICIOUS` floor, so a score never rises as evidence gets thinner. It can never produce `SAFE`. Lead sentence: "Tautan ini punya tanda penipuan. Sebaiknya jangan diklik."
 4. `ELA_SOLO_CAP`: if **no** other pillar has score ≥ 50 and no floor 1–3 applied → `score = min(score, 60)`.
 5. `INJECTION_GUARD`: if LLM output was flagged by the injection detector → `score = max(score, 40)` and `basis` adds `"llm_untrusted"`.
 
@@ -161,6 +162,10 @@ Decode (limit dimensions via `image.DecodeConfig` first; reject > 4096 px side o
 | 6 | n/a | n/a | n/a | n/a | W=0 → INSUFFICIENT |
 | 7 | n/a | n/a | SUPPORTS | 5 | (0+1.0)/0.55 ≈ 1.8 → 2 → W=0.55 → SAFE |
 | 8 | n/a | n/a | n/a | 95 | S_Link ≥ 90 → floor 85 → TAMPERED (W=0.20 → floor still applies; status TAMPERED) |
+| 9 | n/a | n/a | n/a | 85 | W=0.20 → no weighted score; S_Link 85 < 90 → LINK_STRONG → 85 → TAMPERED |
+| 10 | n/a | 20, 0.5 | n/a | 55 | W=0.075+0.20=0.275 < 0.30 → LINK_STRONG → 55 → SUSPICIOUS |
+| 11 | n/a | n/a | n/a | 45 | S_Link < 50 → no floor → INSUFFICIENT |
+| 12 | n/a | n/a | n/a | 89 | LINK_STRONG → min(89, 85) = 85 → TAMPERED |
 
 Row 8 note: floors may rescue an otherwise-`INSUFFICIENT` input to `SUSPICIOUS/TAMPERED` (never to `SAFE`).
 **Agent must recompute vectors 1–7 in tests and fix the table here if arithmetic differs.**
@@ -171,13 +176,16 @@ Row 8 note: floors may rescue an otherwise-`INSUFFICIENT` input to `SUSPICIOUS/T
 
 ```
 request ctx (12 s hard deadline)
- ├─ validate + hash (SHA-256) → cache hit? return immediately (TTL 10 min, max 500 entries, LRU)
- ├─ errgroup (each pillar has its own sub-deadline & never fails the group):
- │    ela    : 0.8 s  (FILE only)
- │    link    : 2.5 s  (URL or URLs extracted from text/OCR)
- │    llm     : 9 s    (single structured call w/ tools; yields ai + fact + anomalies + claim)
- ├─ each finished pillar → SSE `partial`
- └─ scoring.Compute → sign token → SSE `verdict`
+ ├─ validate + hash (SHA-256) → cache hit? replay stage/partial events, then verdict (TTL 10 min, max 500 entries, LRU)
+ ├─ errgroup (each step has its own budget, bounded by the hard deadline minus a 300 ms reserve; no step fails the group):
+ │    ela      : 4 s    (FILE only; server ELA on up to 16 MP)
+ │    link     : 2.5 s  (URL, or the first URL in the text / the model's OCR) → unroll ≤ 3 hops → heuristics on first and final host → Safe Browsing on the chain
+ │    metadata : 2.5 s  (URL only; oEmbed for YouTube/TikTok/X, else OpenGraph, via the SSRF client) → `source_metadata`
+ │    llm      : 9 s    (one structured call: claim, search_query, ai score, anomalies, OCR, tactics)
+ │    search   : 2.5 s  (Fact Check Tools `claims:search` with the model's `search_query`, allowlist-filtered)
+ │    classify : 3 s    (second structured call: CONTRADICTS/SUPPORTS/UNVERIFIED per search result)
+ ├─ every pillar emits exactly one terminal `stage` event; finished pillars → SSE `partial`; `: ping` heartbeat while waiting
+ └─ scoring.Compute → sign token → SSE `verdict` → `done`
 ```
 - A pillar error/timeout → `available=false` + entry in `verdict.not_checked`; if any pillar degraded, `degraded=true`.
 - Never return cached/demo data for a live request. Cache stores only final Dossier JSON (no raw input).
@@ -203,16 +211,23 @@ Deterministic, each rule adds capped points; final `S_Link = min(100, Σ)`.
 
 Redirect unrolling: max 3 hops through the SSRF-safe client, `HEAD` then `GET` with `Range: bytes=0-0` fallback, record chain. Official-domain allowlist (e.g. `kompas.com`, `antaranews.com`, `go.id`) reduces `LOOKALIKE_BRAND` false positives. Table tests with ≥ 25 URLs (good and bad).
 
+Implementation notes (2026-11-08; the weights in `internal/linkcheck` and its table tests are the reference):
+- `LOOKALIKE_BRAND` matches hostname **tokens** after folding Cyrillic and Greek look-alike letters to Latin (a short reviewed table): an exact brand token, a brand plus affix (`bri-verifikasi`), or Levenshtein ≤ 1 (≤ 2 for brand names of 9+ letters). It never fires on a brand's official registrable domain, nor under suffixes only vetted institutions can register (`.go.id .ac.id .sch.id .mil.id .desa.id`). A folded host never gets the official-domain exemption.
+- `UNPARSEABLE` (100): a URL that does not parse is never treated as safe.
+- `SHORTENER_HIDES` (+15) is added when the unrolled final host is a different site rated ≥ 30; the score is computed on the final URL.
+- A Safe Browsing hit on any URL of the redirect chain sets `S_Link = 100` and the `LINK_MALICIOUS` floor. A failed lookup is not a hit and is not reported as one.
+- A URL found in the model's OCR of a screenshot gets the same link pillar as a pasted URL.
+
 ---
 
 ## 6. LLM integration (`internal/llm`)
 
 - Client speaks OpenAI-compatible API to `NINEROUTER_BASE_URL` using a **separate** `http.Client` (it must reach localhost/tunnel, so it is NOT the SSRF client). Model from `NINEROUTER_MODEL`; at startup call `GET /models` and log (without secrets) whether the model exists.
-- **One** call per audit, `response_format` = JSON schema `LLMFindings`:
-  `{claim, ai_score, ai_indicators[], text_anomalies[{bounding_box, extracted_text, reason}], fact_status, sources[], ocr_text, tactics[{code, phrase}], injection_suspected}`.
-- Tools executed by Go, never by the model: `inspect_social_url(url)` (oEmbed/OG via SSRF client, returns ≤ 2 KB metadata) and `search_verified_news(query)` (search grounding, returns title/publisher/url/snippet). Max 3 tool rounds.
+- **Analyze** call per audit, `response_format` = strict JSON schema `LLMFindings`:
+  `{claim, search_query, ai_score, ai_indicators[], text_anomalies[{bounding_box, extracted_text, reason}], ocr_text, tactics[{code, phrase}], injection_suspected}`. Images are sent as an `image_url` data URI: a small JPEG as is, anything larger or PNG re-encoded as JPEG q85 with the longest side ≤ 1600 px (normalised 0–1000 boxes are unaffected), WebP passed through. The model never returns a fact status or sources.
+- Go runs the "tools" itself, before and after the model, instead of model-driven tool rounds: the link's public metadata (oEmbed/OG via the SSRF client, ≤ 2 KB) is fetched first and passed inside `<untrusted_content>`; the model's `search_query` goes to the search provider (Google Fact Check Tools `claims:search`, `languageCode=id`, max 5 allowlisted results); a second **Classify** call labels each returned result `CONTRADICTS | SUPPORTS | UNVERIFIED` against the claim. In mock mode Classify maps the fact-checker's own rating.
 - **Prompt-injection containment:** all external text wrapped in `<untrusted_content>…</untrusted_content>`; system prompt states content inside is data; model never emits a verdict/score (those fields do not exist in the schema); on schema violation → treat LLM pillars as failed (`available=false`), not retry loops; `injection_suspected` or regex hits on ("ignore previous", "system prompt", "set verdict") → flag `INJECTION_GUARD`.
-- **Source verification (`internal/grounding`):** accept a source only if (a) URL appears in the tool's own result set, (b) host (eTLD+1) is in `configs/trusted_sources.yaml`, (c) scheme https. Else downgrade that source to `UNVERIFIED`. Starter allowlist: turnbackhoax.id, cekfakta.com, komdigi.go.id, kominfo.go.id, antaranews.com, kompas.com, detik.com, tempo.co, cnnindonesia.com, liputan6.com, tirto.id (reviewed by team).
+- **Source verification (`internal/grounding`):** accept a source only if (a) URL appears in the search provider's own result set (no result set → nothing verifies: fail closed), (b) host (eTLD+1) is in `configs/trusted_sources.yaml`, (c) scheme https. Else downgrade that source to `UNVERIFIED`. Starter allowlist: turnbackhoax.id, cekfakta.com, komdigi.go.id, kominfo.go.id, antaranews.com, kompas.com, detik.com, tempo.co, cnnindonesia.com, liputan6.com, tirto.id (reviewed by team).
 - **`LLM_MOCK=true`:** deterministic fake responses keyed by input hash prefix so frontend/e2e work without 9router. Required for CI.
 
 ### 6.1 Tactics (`internal/tactics`) — informational, never scored
@@ -223,7 +238,7 @@ Server verification: normalize (NFKC, lowercase, collapse whitespace) both phras
 ### 6.2 Balas Sopan (`internal/reply`, `POST /reply`)
 - Input is the **signed share token** + tone; the server verifies the token and uses only its payload (`status, title, claim, srcs`). No raw user content is needed or accepted.
 - Small LLM call (schema `{text}`, 4 s timeout, rate-limited like audits). Prompt rules: Indonesian; polite; talks about the content, not the person; ≤ 280 chars; tone `hormat` (honorifics, soft), `santai`, `singkat` (one line); no invented facts; no certainty words ("pasti", "100%").
-- **Validation:** ≤ 280 chars; every URL must be in `{payload.srcs[].url, share link}` else strip the URL (and if text becomes empty/invalid → fallback); no profanity/shaming regex hits; no score or "terbukti" claims.
+- **Validation:** ≤ 280 chars; every URL must be in `payload.srcs[].url` else strip the URL (and if text becomes empty/invalid → fallback); no profanity/shaming regex hits; no score or "terbukti" claims. The share link is not given to the model: a full token does not fit in 280 characters, and the UI's share button already carries it.
 - **Fallback:** deterministic templates per status × tone in `configs/reply_templates.json` (embedded in Go; copied to `frontend/src/lib/data/reply-templates.json`, CI diff). Used when LLM is mock/unavailable, validation fails, or in the offline demo (client renders templates directly).
 - Cache by SHA-256(token+tone) for 10 min. `source` in the response tells the UI whether it was LLM or template.
 
@@ -283,19 +298,19 @@ Tests (table, `httptest` + custom resolver): 127.0.0.1, `localhost`, 10.x, 172.1
 Read at most 10 MB + 1; verify magic bytes (JPEG `FFD8FF`, PNG `89504E47`, WebP `RIFF….WEBP`), ignore client MIME; `image.DecodeConfig` for dimensions before full decode; strip nothing server-side (never persisted); reject animated/oversized. Never write to disk (use `bytes.Reader`).
 
 ### 7.3 Rate limiting & proxy trust
-`golang.org/x/time/rate`, 15 req/min/client, burst 5, plus global in-flight cap. Client key = forwarded-client header **only if** the immediate peer is in `TRUSTED_PROXY_CIDRS` (empty by default; hosting setup deferred), else `RemoteAddr`. Hash key with a salt rotated at boot; limiter map swept every 5 min (idle > 10 min evicted). Never log the key.
+`golang.org/x/time/rate`, 15 req/min/client, burst 5, plus global in-flight cap. Client key = forwarded-client header **only if** the immediate peer is in `TRUSTED_PROXY_CIDRS` (empty by default; `*` on Fly.io/Railway, whose machines are only reachable through their proxy), else `RemoteAddr`. The header is `CLIENT_IP_HEADER` when set (`Fly-Client-IP` on Fly.io, `X-Real-IP` on Railway: both overwritten by the edge), otherwise the **rightmost** `X-Forwarded-For` entry (the one the trusted proxy appended). `/healthz` is exempt. Hash key with a salt rotated at boot; limiter map swept every 5 min (idle > 10 min evicted). Never log the key.
 
 ### 7.4 Headers, CSP, CORS
 - Go API (JSON only): `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `Cache-Control: no-store`, `Content-Security-Policy: default-src 'none'; frame-ancestors 'none'`.
-- **Frontend** (authored once in `frontend/security-headers.json`; applied by a Vite dev/preview plugin now, to be emitted into a host-specific file when deployment enters scope): `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' <API_ORIGIN>; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'none'; object-src 'none'` + `Permissions-Policy: camera=(), microphone=(), geolocation=()`. (Remove `https:` wildcards; `img-src` for oEmbed thumbnails is **not** needed — never hotlink external images.)
-- CORS: allow only `PUBLIC_APP_URL` (+ `http://localhost:5173` in dev); methods GET/POST; no credentials.
+- **Frontend** (authored once in `frontend/security-headers.json`; applied by a Vite dev/preview plugin and mirrored in `frontend/vercel.json`, CI-checked by `npm run headers`; the CSP itself is emitted by SvelteKit with script hashes, and `connect-src` is generated from `VITE_API_BASE_URL` at build time): `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' <API_ORIGIN>; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'none'; object-src 'none'` + `Permissions-Policy: camera=(), microphone=(), geolocation=()`. (Remove `https:` wildcards; `img-src` for oEmbed thumbnails is **not** needed — never hotlink external images.)
+- CORS: allow only `PUBLIC_APP_URL` and the exact origins in `CORS_EXTRA_ORIGINS` (+ `http://localhost:5173` in dev); methods GET/POST; no credentials.
 
 ### 7.5 Signed tokens (`internal/token`)
 `v1.` + base64url(JSON payload) + `.` + base64url(HMAC-SHA256(key=`REPORT_SIGNING_KEY`, msg=`v1.`+payload)). Payload: `{id, ts, status, score, title(≤80), claim?(≤120), srcs:[{pub,url,m}] (≤3)}` ≤ 2 KB. Constant-time compare (`hmac.Equal`). Key ≥ 32 bytes, required in production (server refuses to start otherwise). Mini-token for QR = `{id, ts, status, score}`.
 Frontend puts token in the **URL fragment** (`/hasil#t=…`) so servers/CDNs never see it; it POSTs to `/verify` in the body.
 
 ### 7.6 Logging / metrics
-Only the anonymous line format from v9 §14.2 plus counters; no URLs, titles, IPs. Metrics on a separate internal listener (`METRICS_ADDR`, default off).
+Only the anonymous line format from v9 §14.2 plus counters; no URLs, titles, IPs. Metrics on a separate internal listener (`METRICS_ADDR`, default off; Prometheus text at `/metrics`, labels are fixed enums). A failed upstream call (LLM gateway, Fact Check Tools, Safe Browsing) logs only the service, a reason (`timeout | transport | http_status | unreadable_response`) and the HTTP status: never the request URL, which carries keys and user queries.
 
 ---
 
@@ -339,7 +354,7 @@ Only the anonymous line format from v9 §14.2 plus counters; no URLs, titles, IP
 - **One component tree, two presentations.** Components do not fork content; modes differ only in decoration density, motion, character moments, type size and layout density (Essential: single column, base text ≥ 18 px, more spacing, plainer labels). Forbidden differences: any data, control, destination or capability.
 - **Parity contract:** every information item carries `data-info-key="<key>"` (e.g. `verdict.score`, `verdict.sentence`, `pillar.ela`, `pillar.fact`, `sources`, `tactics`, `reply`, `share`, `proofcard`, `readaloud`). Playwright renders the same Dossier in both modes and asserts identical key sets and equal text per key.
 - Mode switching never resets input, progress or result (state lives in `AuditSession`, outside mode components). Test it mid-SSE and after the verdict.
-- `explanation_simple` is produced **in Go by deterministic templates** (no LLM): `FACT_CONTRADICTED` → "Kabar ini dibantah sumber terpercaya. Jangan disebarkan."; `LINK_MALICIOUS` → "Tautan ini mirip penipuan. Jangan diklik."; `ELA_CORROBORATED` → "Gambar ini terindikasi diedit. Jangan langsung percaya."; other `SUSPICIOUS` → "Belum jelas benar atau tidak. Cek dulu sebelum menyebarkan."; `INSUFFICIENT` → "Informasinya belum cukup untuk dipastikan."; `SAFE` → "Tidak ditemukan tanda bahaya, tapi tetap bijak sebelum menyebarkan." Unit-tested. It is the lead sentence of every result in both modes.
+- `explanation_simple` is produced **in Go by deterministic templates** (no LLM): `FACT_CONTRADICTED` → "Kabar ini dibantah sumber terpercaya. Jangan disebarkan."; `LINK_MALICIOUS` → "Tautan ini mirip penipuan. Jangan diklik."; `LINK_STRONG` → "Tautan ini punya tanda penipuan. Sebaiknya jangan diklik."; `ELA_CORROBORATED` → "Gambar ini terindikasi diedit. Jangan langsung percaya."; other `SUSPICIOUS` → "Belum jelas benar atau tidak. Cek dulu sebelum menyebarkan."; `INSUFFICIENT` → "Informasinya belum cukup untuk dipastikan."; `SAFE` → "Tidak ditemukan tanda bahaya, tapi tetap bijak sebelum menyebarkan." Unit-tested. It is the lead sentence of every result in both modes.
 - Read-aloud (and optional auto-read) is a setting independent of mode; it speaks `explanation_simple` first, then the explanation.
 
 ### 8.3 Tactic highlighter (F13)
@@ -358,7 +373,8 @@ Only the anonymous line format from v9 §14.2 plus counters; no URLs, titles, IP
 
 ## 9. Demo data rules
 - `backend/internal/demo/demo-cases.json` is canonical; CI copies/diffs to `frontend/src/lib/data/demo-cases.json`.
-- Images: generate synthetic screenshots (script `tools/gen_demo_assets.*`), include **real** heatmaps computed from them, embed as small WebP/PNG data URIs (< 150 KB each).
+- Images: generated by `backend/cmd/gendemo` (`go run ./cmd/gendemo`), which draws the synthetic screenshot, runs the real forensics and scorer on it, and writes both demo-cases.json copies, `frontend/static/demo/berita-ig.jpg` and the Edukasi quiz images with their **real** ELA heat maps (`frontend/static/edukasi/`). Static files instead of data URIs keep the JSON small; CI regenerates them and fails on any diff.
+- Case IDs follow PRD F8 (`demo-tiktok`, `demo-berita-ig`, `demo-resmi`) plus `demo-tautan` for the link flow; the earlier `contoh-*` IDs remain as aliases.
 - Every demo Dossier: `is_demo: true`, visible watermark "CONTOH / SIMULASI", no real person/brand logos, no invented URLs for real publishers — use `https://example.org/contoh-cek-fakta` style placeholders with `publisher: "Sumber Contoh"`.
 - Validate demo JSON against the Dossier JSON Schema in both Go and Vitest tests.
 - Demo Dossiers include `tactics` (phrases must appear in the synthetic caption/OCR text) and `explanation_simple`; the demo Balas Sopan card renders from `reply-templates.json` with zero network calls.
@@ -368,22 +384,30 @@ Only the anonymous line format from v9 §14.2 plus counters; no URLs, titles, IP
 ## 10. Config (`.env.example`)
 ```bash
 SERVER_HOST=0.0.0.0
-SERVER_PORT=8080
-ENVIRONMENT=development            # production requires REPORT_SIGNING_KEY
+SERVER_PORT=8080                   # falls back to a PaaS-injected PORT, then 8080
+ENVIRONMENT=development            # production requires REPORT_SIGNING_KEY, an https PUBLIC_APP_URL and LLM_MOCK=false
 PUBLIC_APP_URL=http://localhost:5173
-TRUSTED_PROXY_CIDRS=               # leave empty until hosting is set up
+CORS_EXTRA_ORIGINS=                # optional exact origins, comma-separated
+TRUSTED_PROXY_CIDRS=               # "*" on Fly.io/Railway
+CLIENT_IP_HEADER=                  # Fly-Client-IP (Fly.io), X-Real-IP (Railway); empty = rightmost X-Forwarded-For
 NINEROUTER_BASE_URL=http://localhost:20128/v1
 NINEROUTER_API_KEY=changeme
 NINEROUTER_MODEL=gemini-3.8-flash  # verify against /models at boot
-LLM_MOCK=true
+LLM_MOCK=true                      # refused in production: the mock invents findings
 REPORT_SIGNING_KEY=                # >=32 random bytes, base64
-GOOGLE_SAFE_BROWSING_KEY=          # optional
+GOOGLE_API_KEY=                    # Fact Check Tools + Safe Browsing
+GOOGLE_FACTCHECK_KEY=              # optional override
+GOOGLE_SAFE_BROWSING_KEY=          # optional override
+TELEGRAM_BOT_TOKEN=                # optional (PRD P2); empty = disabled
+TELEGRAM_MODE=webhook              # webhook | polling | off
+TELEGRAM_WEBHOOK_SECRET=           # webhook: >=16 chars of A-Z a-z 0-9 _ -
+TELEGRAM_WEBHOOK_URL=              # webhook: https://<api>/telegram/webhook, registered at boot
 MAX_UPLOAD_SIZE_MB=10
 HARD_TIMEOUT_MS=12000
 CACHE_TTL_SECONDS=600
 METRICS_ADDR=                      # empty = disabled
 ```
-Frontend: `VITE_API_BASE_URL`.
+Frontend (build time): `VITE_API_BASE_URL`, `VITE_API_MODE=http|mock`.
 
 ## 11. Test matrix
 | Layer | Tool | Must cover |
@@ -398,7 +422,7 @@ Frontend: `VITE_API_BASE_URL`.
 | FE unit | Vitest + @testing-library/svelte | Zod parsing, token parse, bbox math, a11y helpers, mode store |
 | FE e2e | Playwright | demo (offline), link flow w/ `LLM_MOCK`, upload flow, share-token verify, tamper → invalid |
 | A11y | `@axe-core/playwright` | 0 serious/critical on all routes |
-| Perf | Lighthouse CI | ≥ 90 all, bundle ≤ 250 KB gz |
+| Perf | `tools/lighthouse.mjs` (CI job) | ≥ 90 performance/best-practices/SEO, ≥ 95 accessibility, CLS ≤ 0.1, median of 3 mobile runs per route; bundle ≤ 250 KB gz |
 | Design tokens | `tools/check-contrast.mjs` | all text/background token pairs ≥ 4.5:1 (UI/large ≥ 3:1) |
 | Security | headers test | CSP/CORS values present on SPA + API |
 | Tactics & reply | `go test` | phrase-substring verification, unknown codes dropped, `/reply` requires valid token, URL stripping, template fallback, length cap |

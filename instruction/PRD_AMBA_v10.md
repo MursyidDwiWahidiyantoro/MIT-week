@@ -10,7 +10,9 @@
 | Companion docs | `TECH_SPEC_AMBA.md` (how), `CLAUDE.md` (agent playbook/backlog), `DESIGN.md` (visual & interaction system, authoritative for look-and-feel) |
 | Supersedes | PRD v9.0.0 and v10.0 (file names keep the `v10` label) |
 
-**Language convention:** specs are in English so agents work precisely; **all user-facing copy is Indonesian** (plain, warm, no jargon).
+**Language convention:** specs are in English so agents work precisely; **all user-facing copy is Indonesian** (plain, warm, no jargon). Since 2026-11-08 an optional English toggle (P1) exists; Indonesian stays the default and the reference copy, and the §10 disclaimer stays verbatim in Indonesian.
+
+**Status notes (2026-11-08):** deployment re-entered scope at the team's request (Vercel for the SPA, Fly.io or Railway for the API; `docs/DEPLOY.md`). Link-only audits with strong link evidence now produce a verdict (`LINK_STRONG`, TECH_SPEC §3.3). P1 and P2 items are implemented; see `STATUS.md`.
 
 ---
 
@@ -42,7 +44,7 @@ v10.0 specified how AMBA analyzes content but not **how people reach it** or **w
 - **F14 Mode Jelajah / Mode Esensial:** two presentation modes chosen by preference (never by age), identical information in both, per `DESIGN.md`.
 - **F15 Cek Cepat + Sandi Keluarga (P1):** offline 6-question check for scams with no link/image (fake-relative DMs/calls) and a printable family safe-word card.
 
-**Removed from scope for now:** deployment, hosting, domain, Docker (local development only).
+**Removed from scope for now:** deployment, hosting, domain, Docker (local development only). *(Superseded 2026-11-08: deployment is in scope; see the status notes above.)*
 **Considered and rejected:** "Scam Radar" (link-popularity counts) — needs a datastore, contradicts zero-database privacy pitch.
 
 **Stack and design alignment (v10.1):** the frontend is **Svelte 5 + SvelteKit** (earlier drafts wrongly assumed React). Visuals and interaction follow `DESIGN.md` (dark atmospheric technical look, Explore/Essential modes). The earlier age-framed "Mode Sederhana" that hid scores/ELA is replaced by preference-based modes with identical information.
@@ -96,7 +98,7 @@ Telegram bot entry point (iOS users lack Web Share Target).
 - No scraping behind platform logins. No auto-reporting bots.
 - No claim of legal evidence (see disclaimer).
 - No PDF/video-file analysis in MVP.
-- No deployment, hosting, domain, or Docker work at this stage (local development only).
+- ~~No deployment, hosting, domain, or Docker work at this stage (local development only).~~ Superseded 2026-11-08: Vercel + Fly.io/Railway.
 - No datastore of any kind for link popularity / "Scam Radar".
 
 ---
