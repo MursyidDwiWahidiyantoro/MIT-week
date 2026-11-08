@@ -18,6 +18,7 @@ import (
 	"image"
 	"image/color"
 	"image/jpeg"
+	"image/png"
 	"log"
 	"os"
 	"path/filepath"
@@ -70,6 +71,135 @@ func main() {
 		}
 	}
 	fmt.Printf("wrote %d cases, screenshot %d bytes\n", len(cases), len(img))
+
+	if err := forensicQuiz(img); err != nil {
+		log.Fatal(err)
+	}
+}
+
+// forensicQuiz writes the PRD F7 "bedah forensik" images: three synthetic
+// posts and the ELA heat map AMBA computes for each, so the Edukasi quiz can
+// reveal real forensic output offline.
+func forensicQuiz(edited []byte) error {
+	const dir = "../frontend/static/edukasi"
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+
+	// 1. An untouched post, saved once.
+	var original bytes.Buffer
+	if err := jpeg.Encode(&original, poster("LIBUR SEKOLAH", "MULAI SENIN", "INFO RESMI", color.RGBA{38, 70, 83, 255}, color.RGBA{220, 220, 220, 255}), &jpeg.Options{Quality: 85}); err != nil {
+		return err
+	}
+	// 2. The edited news post from the demo case.
+	// 3. A lossless screenshot: ELA lights up every edge the same way.
+	var shot bytes.Buffer
+	if err := png.Encode(&shot, poster("CHAT GRUP", "BESOK GRATIS", "SEBARKAN!", color.RGBA{60, 60, 70, 255}, color.RGBA{255, 214, 10, 255})); err != nil {
+		return err
+	}
+
+	items := []struct {
+		id    string
+		data  []byte
+		ext   string
+		label string
+	}{
+		{"asli", original.Bytes(), "jpg", "asli"},
+		{"diedit", edited, "jpg", "diedit"},
+		{"tangkapan", shot.Bytes(), "png", "belum-pasti"},
+	}
+	type entry struct {
+		ID     string `json:"id"`
+		Image  string `json:"image"`
+		ELA    string `json:"ela"`
+		Answer string `json:"answer"`
+	}
+	var out []entry
+	for _, it := range items {
+		// The real pipeline must accept every quiz image.
+		if _, err := forensics.Analyze(it.data); err != nil {
+			return err
+		}
+		heat, err := heatmap(it.data)
+		if err != nil {
+			return err
+		}
+		name := "quiz-" + it.id
+		if err := os.WriteFile(filepath.Join(dir, name+"."+it.ext), it.data, 0o644); err != nil {
+			return err
+		}
+		if err := os.WriteFile(filepath.Join(dir, name+"-ela.jpg"), heat, 0o644); err != nil {
+			return err
+		}
+		out = append(out, entry{ID: it.id, Image: "/edukasi/" + name + "." + it.ext, ELA: "/edukasi/" + name + "-ela.jpg", Answer: it.label})
+	}
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(map[string]any{"items": out}); err != nil {
+		return err
+	}
+	return os.WriteFile("../frontend/src/lib/data/forensic-quiz.json", buf.Bytes(), 0o644)
+}
+
+// poster draws a simple synthetic announcement card. Saturated colours light
+// up in ELA on their own, so the untouched example avoids them.
+func poster(line1, line2, line3 string, bg, accent color.RGBA) *image.RGBA {
+	const w, h = 360, 480
+	img := image.NewRGBA(image.Rect(0, 0, w, h))
+	for y := 0; y < h; y++ {
+		for x := 0; x < w; x++ {
+			n := uint8((x*7 + y*13 + (x*y)%11) % 9)
+			img.SetRGBA(x, y, color.RGBA{bg.R + n, bg.G + n, bg.B + n, 255})
+		}
+	}
+	drawText(img, line1, 24, 120, 4, color.RGBA{241, 241, 241, 255})
+	drawText(img, line2, 24, 180, 4, color.RGBA{241, 241, 241, 255})
+	drawText(img, line3, 24, 260, 3, accent)
+	fill(img, image.Rect(0, 412, w, 444), color.RGBA{214, 40, 40, 255})
+	drawText(img, "CONTOH / SIMULASI", (w-textWidth("CONTOH / SIMULASI", 2))/2, 421, 2, color.RGBA{255, 255, 255, 255})
+	return img
+}
+
+// heatmap is the ELA difference image: re-encode at quality 90, amplify the
+// per-pixel difference and colour it from dark to warm.
+func heatmap(encoded []byte) ([]byte, error) {
+	src, _, err := image.Decode(bytes.NewReader(encoded))
+	if err != nil {
+		return nil, err
+	}
+	var re bytes.Buffer
+	if err := jpeg.Encode(&re, src, &jpeg.Options{Quality: forensics.JPEGQuality}); err != nil {
+		return nil, err
+	}
+	again, err := jpeg.Decode(&re)
+	if err != nil {
+		return nil, err
+	}
+	b := src.Bounds()
+	out := image.NewRGBA(b)
+	for y := b.Min.Y; y < b.Max.Y; y++ {
+		for x := b.Min.X; x < b.Max.X; x++ {
+			r1, g1, b1, _ := src.At(x, y).RGBA()
+			r2, g2, b2, _ := again.At(x, y).RGBA()
+			d := (absDiff(r1, r2) + absDiff(g1, g2) + absDiff(b1, b2)) / 3 >> 8
+			v := min(255, int(d)*14)
+			// dark -> violet -> orange -> yellow
+			out.SetRGBA(x, y, color.RGBA{uint8(min(255, v*2)), uint8(max(0, v*2-255)), uint8(max(0, 120-v/2)), 255})
+		}
+	}
+	var buf bytes.Buffer
+	if err := jpeg.Encode(&buf, out, &jpeg.Options{Quality: 80}); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func absDiff(a, b uint32) uint32 {
+	if a > b {
+		return a - b
+	}
+	return b - a
 }
 
 // base is the shared skeleton of every demo dossier.
