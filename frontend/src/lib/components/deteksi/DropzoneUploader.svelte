@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n/index.svelte';
   import Icon from '$lib/components/ui/Icon.svelte';
 
   const MAX_BYTES = 10 * 1024 * 1024;
@@ -16,10 +17,10 @@
 
   function validate(file: File): string | null {
     if (!ACCEPTED.includes(file.type)) {
-      return 'Jenis berkas ini belum didukung. Gunakan JPG, PNG, atau WebP.';
+      return t('drop.unsupported');
     }
     if (file.size > MAX_BYTES) {
-      return 'Berkas terlalu besar. Maksimal 10 MB.';
+      return t('drop.tooLarge');
     }
     return null;
   }
@@ -44,7 +45,7 @@
   class:dragging
   role="button"
   tabindex="0"
-  aria-label="Pilih gambar atau lepas berkas di sini"
+  aria-label={t('drop.aria')}
   onclick={() => document.getElementById('amba-file')?.click()}
   onkeydown={(e) => {
     if (e.key === 'Enter' || e.key === ' ') {
@@ -71,8 +72,8 @@
     onchange={(e) => accept(e.currentTarget.files?.[0])}
   />
   <span class="icon" aria-hidden="true"><Icon name="image" size={34} /></span>
-  <p class="title">{fileName ?? 'Pilih gambar atau lepas di sini'}</p>
-  <p class="hint">JPG, PNG, atau WebP. Maksimal 10 MB.</p>
+  <p class="title">{fileName ?? t('drop.title')}</p>
+  <p class="hint">{t('drop.hint')}</p>
 </div>
 
 {#if error}

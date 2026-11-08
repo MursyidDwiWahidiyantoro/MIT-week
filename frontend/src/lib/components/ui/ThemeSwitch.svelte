@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n/index.svelte';
 import { onMount } from 'svelte';
 let theme = $state('dark');
 function setTheme(value: string) {
@@ -8,4 +9,4 @@ function setTheme(value: string) {
 }
 onMount(() => {try {setTheme(localStorage.getItem('amba-theme') === 'light' ? 'light' : 'dark');} catch {setTheme('dark');}});
 </script>
-<fieldset class="theme-switch"><legend class="sr-only">Tema warna</legend><button type="button" aria-pressed={theme === 'dark'} onclick={() => setTheme('dark')}>Gelap</button><button type="button" aria-pressed={theme === 'light'} onclick={() => setTheme('light')}>Terang</button></fieldset>
+<fieldset class="theme-switch"><legend class="sr-only">{t('theme.legend')}</legend><button type="button" aria-pressed={theme === 'dark'} onclick={() => setTheme('dark')}>{t('theme.dark')}</button><button type="button" aria-pressed={theme === 'light'} onclick={() => setTheme('light')}>{t('theme.light')}</button></fieldset>

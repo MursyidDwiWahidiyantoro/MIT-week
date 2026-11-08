@@ -1,14 +1,15 @@
 <script lang="ts">
+  import { t } from '$lib/i18n/index.svelte';
   import { mode, type Mode } from '$lib/mode.svelte';
 
-  const options: Array<{ value: Mode; label: string }> = [
-    { value: 'explore', label: 'Jelajah' },
-    { value: 'essential', label: 'Esensial' }
+  const options: Array<{ value: Mode; label: 'mode.explore' | 'mode.essential' }> = [
+    { value: 'explore', label: 'mode.explore' },
+    { value: 'essential', label: 'mode.essential' }
   ];
 </script>
 
 <fieldset class="mode-switch">
-  <legend>Tampilan</legend>
+  <legend>{t('mode.legend')}</legend>
   {#each options as option (option.value)}
     <button
       type="button"
@@ -16,7 +17,7 @@
       aria-pressed={mode.resolved === option.value}
       onclick={() => mode.set(option.value)}
     >
-      {option.label}
+      {t(option.label)}
     </button>
   {/each}
 </fieldset>

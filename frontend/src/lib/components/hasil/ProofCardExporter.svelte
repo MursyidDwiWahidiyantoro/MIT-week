@@ -1,7 +1,9 @@
 <script lang="ts">
+  import { t } from '$lib/i18n/index.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import Icon from '$lib/components/ui/Icon.svelte';
-  import { statusLabel } from '$lib/format';
+  import { statusLabel, formatScore } from '$lib/format';
+  import { simpleSentence } from '$lib/i18n/verdict';
   import type { DossierParsed } from '$lib/api/schemas';
 
   interface Props {
@@ -39,7 +41,7 @@
       link.href = dataUrl;
       link.click();
     } catch {
-      error = 'Kartu bukti tidak bisa dibuat di peramban ini. Coba lagi atau gunakan tangkapan layar.';
+      error = t('proof.error');
     } finally {
       busy = false;
     }
@@ -48,7 +50,7 @@
 
 <div class="exporter">
   <Button variant="quiet" onclick={exportPng} loading={busy}>
-    <Icon name="download" size={18} /> Simpan kartu bukti
+    <Icon name="download" size={18} /> {t('proof.save')}
   </Button>
   {#if error}<p class="error-text" role="alert">{error}</p>{/if}
 
@@ -56,23 +58,23 @@
   <div class="card" bind:this={card} aria-hidden="true">
     <div class="card-top">
       <p class="brand">AMBA</p>
-      <p class="stamp">{dossier.is_demo ? 'CONTOH / SIMULASI' : 'LAPORAN PEMERIKSAAN'}</p>
+      <p class="stamp">{dossier.is_demo ? t('proof.stampDemo') : t('proof.stamp')}</p>
     </div>
 
     <p class="status">{statusLabel(dossier.verdict.status)}</p>
     <p class="score">
-      {dossier.verdict.score === null ? 'Belum ada skor' : `Skor risiko ${dossier.verdict.score} dari 100`}
+      {formatScore(dossier.verdict.score)}
     </p>
-    <p class="sentence">{dossier.verdict.explanation_simple}</p>
+    <p class="sentence">{simpleSentence(dossier)}</p>
 
     <div class="card-bottom">
       <p class="disclaimer">
-        INDIKATIF — bukan alat bukti hukum. Skor menunjukkan risiko, bukan tingkat keyakinan.
+        {t('proof.disclaimer')}
       </p>
       {#if shareUrl}
         <img data-qr alt="" width="160" height="160" />
       {:else}
-        <div class="qr-placeholder">CONTOH<br />tanpa tautan</div>
+        <div class="qr-placeholder">{t('proof.example')}<br />{t('proof.noLink')}</div>
       {/if}
     </div>
   </div>

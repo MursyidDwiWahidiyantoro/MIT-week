@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n/index.svelte';
   import { textSize, type TextScale } from '$lib/a11y.svelte';
 
   const OPTIONS: Array<{ value: TextScale; label: string; scale: string }> = [
@@ -9,14 +10,14 @@
 </script>
 
 <div class="text-size">
-  <span class="label" id="text-size-label">Ukuran teks</span>
+  <span class="label" id="text-size-label">{t('textsize.label')}</span>
   <div class="seg" role="group" aria-labelledby="text-size-label">
     {#each OPTIONS as option (option.value)}
       <button
         type="button"
         class:is-active={textSize.value === option.value}
         aria-pressed={textSize.value === option.value}
-        aria-label={`Text size ${option.label}`}
+        aria-label={t('textsize.option', { label: option.label })}
         style:font-size={option.scale}
         onclick={() => textSize.set(option.value)}
       >

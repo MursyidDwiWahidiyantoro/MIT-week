@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t, type MessageKey } from '$lib/i18n/index.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import {
     evaluateQuickCheck,
@@ -50,31 +51,25 @@
 </script>
 
 <svelte:head>
-  <title>Cek cepat — AMBA</title>
-  <meta
-    name="description"
-    content="Enam pertanyaan singkat untuk menilai situasi mencurigakan tanpa tautan atau gambar."
-  />
+  <title>{t('qc.title')}</title>
+  <meta name="description" content={t('qc.description')} />
 </svelte:head>
 
 <section class="head">
-  <p class="eyebrow">Tanpa tautan</p>
-  <h1 class="h1">Cek cepat</h1>
-  <p class="lede">
-    Untuk pesan, telepon, atau situasi yang tidak punya tautan atau gambar. Enam
-    pertanyaan, tanpa mengirim data ke mana pun.
-  </p>
+  <p class="eyebrow">{t('qc.eyebrow')}</p>
+  <h1 class="h1">{t('qc.h1')}</h1>
+  <p class="lede">{t('qc.lede')}</p>
 </section>
 
 <section class="questions no-print" aria-labelledby="questions-title">
-  <h2 class="h2" id="questions-title">Jawab sejujur mungkin</h2>
-  <p class="hint">Pilih “Ya” atau “Tidak”. Hasil muncul setelah pertanyaan terakhir dijawab.</p>
+  <h2 class="h2" id="questions-title">{t('qc.questionsTitle')}</h2>
+  <p class="hint">{t('qc.hint')}</p>
 
   {#each quickCheckQuestions as question, i (question.id)}
     <div class="q lift" role="group" aria-labelledby={`qc-label-${question.id}`}>
       <p class="q-legend" id={`qc-label-${question.id}`}>
         <span class="q-num" aria-hidden="true">{i + 1}</span>
-        {question.text}
+        {t(`qc.q.${question.id}` as MessageKey)}
       </p>
       <div class="choices">
         <button
@@ -84,7 +79,7 @@
           aria-pressed={answers[question.id] === true}
           onclick={() => choose(question.id, true)}
         >
-          Ya
+          {t('qc.yes')}
         </button>
         <button
           type="button"
@@ -93,38 +88,35 @@
           aria-pressed={answers[question.id] === false}
           onclick={() => choose(question.id, false)}
         >
-          Tidak
+          {t('qc.no')}
         </button>
       </div>
     </div>
   {/each}
 
   {#if answered}
-    <p class="answered" role="status">Semua pertanyaan sudah dijawab.</p>
+    <p class="answered" role="status">{t('qc.answered')}</p>
   {/if}
 </section>
 
 {#if result}
   <section class="result-panel card lift" aria-labelledby="result-title">
-    <h2 id="result-title" class="h2">Hasil cek cepat</h2>
+    <h2 id="result-title" class="h2">{t('qc.resultTitle')}</h2>
     <div class="result" role="status" aria-live="polite">
-      <p class="level" data-level={result.level}>{result.label}</p>
-      <p class="summary">{result.summary}</p>
+      <p class="level" data-level={result.level}>{t(`qc.${result.level}.label` as MessageKey)}</p>
+      <p class="summary">{t(`qc.${result.level}.summary` as MessageKey)}</p>
       {#if result.forcedByOtp}
         <p class="override">
-          Karena ada permintaan OTP/PIN/kata sandi, hasil langsung Tinggi.
+          {t('qc.override')}
         </p>
       {/if}
-      <h3>Langkah yang disarankan</h3>
+      <h3>{t('qc.stepsTitle')}</h3>
       <ol class="steps">
-        {#each result.steps as step (step)}<li>{step}</li>{/each}
+        {#each result.steps.map((_, n) => n) as i (i)}<li>{t(`qc.${result.level}.step${i + 1}` as MessageKey)}</li>{/each}
       </ol>
-      <p class="note">
-        Ini bukan penilaian pasti. Jawaban hanya ada di halaman ini dan tidak
-        dikirim ke server.
-      </p>
+      <p class="note">{t('qc.note')}</p>
       <Button variant="quiet" onclick={reset}>
-        <Icon name="refresh" size={18} /> Ulangi
+        <Icon name="refresh" size={18} /> {t('qc.again')}
       </Button>
     </div>
   </section>
@@ -132,39 +124,32 @@
 
 <section class="family no-print" aria-labelledby="family-title">
   <div class="family-panel card--soft lift">
-    <h2 class="h2" id="family-title">Sandi Keluarga</h2>
-    <p class="family-lede">
-      Sepakati dua kata rahasia dengan keluarga. Saat ada yang mengaku sebagai
-      kerabat lewat nomor baru, minta sandi ini untuk memastikan.
-    </p>
+    <h2 class="h2" id="family-title">{t('qc.familyTitle')}</h2>
+    <p class="family-lede">{t('qc.familyLede')}</p>
 
     <div class="family-actions">
       <Button onclick={makeCode}>
-        <Icon name="lock" size={18} /> Buat sandi
+        <Icon name="lock" size={18} /> {t('qc.make')}
       </Button>
       {#if code}
         <Button variant="quiet" onclick={copyCode}>
-          <Icon name={copied ? 'check' : 'copy'} size={18} /> {copied ? 'Tersalin' : 'Salin'}
+          <Icon name={copied ? 'check' : 'copy'} size={18} /> {copied ? t('qc.copied') : t('qc.copy')}
         </Button>
         <Button variant="quiet" onclick={printCard}>
-          <Icon name="print" size={18} /> Cetak kartu
+          <Icon name="print" size={18} /> {t('qc.print')}
         </Button>
       {/if}
     </div>
 
     {#if code}
       <div class="print-card" data-testid="family-card">
-        <p class="card-label">SANDI KELUARGA AMBA</p>
+        <p class="card-label">{t('qc.cardLabel')}</p>
         <p class="card-code">{code}</p>
-        <p class="card-copy">
-          Jangan berikan sandi ini lewat pesan. Saat ada yang mengaku keluarga
-          lewat nomor baru, telepon nomor lama dan minta sandi ini.
-        </p>
-        <p class="card-foot">Simpan di tempat yang hanya keluarga tahu.</p>
+        <p class="card-copy">{t('qc.cardCopy')}</p>
+        <p class="card-foot">{t('qc.cardFoot')}</p>
       </div>
       <p class="note no-print">
-        Sandi dibuat di perangkat Anda dengan pengacak aman. Tidak ada yang dikirim
-        atau disimpan di server.
+        {t('qc.codeNote')}
       </p>
     {/if}
   </div>

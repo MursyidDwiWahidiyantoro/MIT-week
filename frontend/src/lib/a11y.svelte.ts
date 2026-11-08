@@ -1,3 +1,5 @@
+import { bcp47 } from './i18n/index.svelte';
+
 /**
  * Accessibility preferences that are independent of presentation mode:
  * text size and read-aloud. Both persist to localStorage and both degrade
@@ -57,7 +59,7 @@ export function speak(text: string): void {
   if (!speechAvailable()) return;
   window.speechSynthesis.cancel();
   const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = 'id-ID';
+  utterance.lang = bcp47();
   utterance.rate = 0.95;
   window.speechSynthesis.speak(utterance);
 }

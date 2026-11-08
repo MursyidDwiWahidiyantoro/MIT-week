@@ -1,34 +1,35 @@
 <script lang="ts">
   import Icon, { type IconName } from '$lib/components/ui/Icon.svelte';
+  import { t, type MessageKey } from '$lib/i18n/index.svelte';
 
   const TILES: Array<{
     icon: IconName;
-    title: string;
-    body: string;
+    title: MessageKey;
+    body: MessageKey;
     tone: string;
   }> = [
     {
       icon: 'type',
-      title: 'Teks mudah dibaca',
-      body: 'Huruf jelas dan kontras kuat, agar informasi lebih mudah dibaca.',
+      title: 'access.1.title',
+      body: 'access.1.body',
       tone: 'tile--soft'
     },
     {
       icon: 'shield-check',
-      title: 'Alasan yang jelas',
-      body: 'Kenali tanda yang mencurigakan melalui penjelasan singkat, satu per satu.',
+      title: 'access.2.title',
+      body: 'access.2.body',
       tone: 'tile--yellow'
     },
     {
       icon: 'check',
-      title: 'Langkah sederhana',
-      body: 'Tempel pesan atau tautan, periksa, lalu pahami hasilnya.',
+      title: 'access.3.title',
+      body: 'access.3.body',
       tone: 'tile--ink'
     },
     {
       icon: 'chat',
-      title: 'Kata sederhana',
-      body: 'Tanpa istilah teknis. Kalau satu kalimat butuh kamus, kami tulis ulang.',
+      title: 'access.4.title',
+      body: 'access.4.body',
       tone: 'tile--lime'
     }
   ];
@@ -38,22 +39,17 @@
   <div class="wrap">
     <div class="access-grid">
       <div class="access-copy">
-        <p class="eyebrow">Untuk semua orang</p>
-        <h2 class="h2" id="access-title">
-          Cukup keren untuk feed Anda. Cukup jelas untuk orang tua Anda.
-        </h2>
-        <p class="lede">
-          Tombol besar, kontras kuat, dan kata sehari-hari. Dibuat jelas sejak awal,
-          tanpa pengaturan tambahan.
-        </p>
+        <p class="eyebrow">{t('access.eyebrow')}</p>
+        <h2 class="h2" id="access-title">{t('access.title')}</h2>
+        <p class="lede">{t('access.lede')}</p>
       </div>
 
       <ul class="tiles">
         {#each TILES as tile (tile.title)}
           <li class="tile card lift {tile.tone}">
             <span class="icon" aria-hidden="true"><Icon name={tile.icon} size={30} /></span>
-            <h3>{tile.title}</h3>
-            <p>{tile.body}</p>
+            <h3>{t(tile.title)}</h3>
+            <p>{t(tile.body)}</p>
           </li>
         {/each}
       </ul>

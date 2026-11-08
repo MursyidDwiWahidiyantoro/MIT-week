@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n/index.svelte';
   import { mode } from '$lib/mode.svelte';
   import { pillarSummary } from '$lib/pillar-summary';
   import type { PillarKey, StageStatus } from '$lib/audit.svelte';
@@ -11,36 +12,24 @@
 
   let { stages, partials = {} }: Props = $props();
 
-  const labels: Record<PillarKey, string> = {
-    ela: 'Analisis gambar',
-    ai: 'Deteksi jejak AI',
-    fact: 'Pengecekan fakta',
-    link: 'Pemeriksaan tautan'
-  };
+
   const order: PillarKey[] = ['ela', 'ai', 'fact', 'link'];
 
   const doneCount = $derived(order.filter((k) => stages[k] === 'done').length);
   const calm = $derived(mode.resolved === 'essential');
 
-  const STATUS_TEXT: Record<StageStatus, string> = {
-    idle: 'menunggu',
-    running: 'sedang diperiksa',
-    done: 'selesai',
-    skipped: 'dilewati',
-    failed: 'tidak dapat diperiksa'
-  };
-  const statusText = (s: StageStatus): string => STATUS_TEXT[s];
+  const statusText = (s: StageStatus): string => t(`stage.${s}`);
 </script>
 
 <div class="radar card" data-calm={calm}>
   <p class="summary">
-    {doneCount} dari {order.length} pemeriksaan selesai
+    {t('radar.summary', { done: doneCount, total: order.length })}
   </p>
   <ol>
     {#each order as key (key)}
       <li class={stages[key]}>
         <span class="dot" aria-hidden="true"></span>
-        <span class="name">{labels[key]}</span>
+        <span class="name">{t(`pillar.${key}`)}</span>
         <span class="state">{statusText(stages[key])}</span>
         {#if pillarSummary(key, partials[key])}
           <span class="detail">{pillarSummary(key, partials[key])}</span>

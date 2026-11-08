@@ -1,10 +1,11 @@
 <script lang="ts">
+  import { t } from '$lib/i18n/index.svelte';
   import { mode, type Mode } from '$lib/mode.svelte';
 
-  const options: Array<{ value: Mode; title: string; detail: string }> = [
-    { value: 'explore', title: 'Jelajah', detail: 'Lebih banyak detail visual dan animasi.' },
-    { value: 'essential', title: 'Esensial', detail: 'Lebih tenang, teks lebih besar, gerak minimal.' }
-  ];
+  const options = [
+    { value: 'explore', title: 'mode.explore', detail: 'picker.exploreDetail' },
+    { value: 'essential', title: 'mode.essential', detail: 'picker.essentialDetail' }
+  ] as const satisfies ReadonlyArray<{ value: Mode; title: string; detail: string }>;
 
   /**
    * This is an inline, non-modal choice sitting in the page flow, not a dialog.
@@ -16,18 +17,18 @@
 </script>
 
 <section class="picker card" aria-labelledby="mode-picker-title">
-  <h2 id="mode-picker-title">Pilih tampilan yang paling nyaman</h2>
-  <p class="intro">Keduanya menampilkan informasi dan fungsi yang sama.</p>
+  <h2 id="mode-picker-title">{t('picker.title')}</h2>
+  <p class="intro">{t('picker.intro')}</p>
   <div class="options">
     {#each options as option (option.value)}
       <button class="option lift" type="button" onclick={() => mode.set(option.value)}>
-        <strong>{option.title}</strong>
-        <span>{option.detail}</span>
+        <strong>{t(option.title)}</strong>
+        <span>{t(option.detail)}</span>
       </button>
     {/each}
   </div>
   <button class="later btn btn--quiet btn--sm" type="button" onclick={() => mode.dismiss()}>
-    Pakai pengaturan saat ini
+    {t('picker.later')}
   </button>
 </section>
 

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n/index.svelte';
   import { resolve } from '$app/paths';
   import Icon from '$lib/components/ui/Icon.svelte';
   import type { SourceMetadata } from '$lib/api/types';
@@ -16,9 +17,9 @@
     instagram: 'Instagram',
     facebook: 'Facebook',
     threads: 'Threads',
-    web: 'Situs web'
+    web: ''
   };
-  const platform = $derived(PLATFORM[metadata.platform] ?? 'Situs web');
+  const platform = $derived(PLATFORM[metadata.platform] || t('lp.web'));
 </script>
 
 {#if metadata.status === 'OK'}
@@ -32,26 +33,22 @@
     {#if metadata.description && metadata.description !== metadata.title}
       <p class="desc">{metadata.description}</p>
     {/if}
-    <p class="note">Dibaca dari pratinjau publik tautan. Gambar dari situs lain tidak pernah dimuat.</p>
+    <p class="note">{t('lp.note')}</p>
   </div>
 {:else}
   <div class="blocked" role="note">
     <p class="blocked-title">
       <Icon name="alert" size={18} />
-      {metadata.status === 'BLOCKED'
-        ? `${platform} tidak mengizinkan pembacaan otomatis`
-        : 'Isi halaman tautan tidak dapat dibaca'}
+      {metadata.status === 'BLOCKED' ? t('lp.blocked', { platform }) : t('lp.unavailable')}
     </p>
     <p class="desc">
-      {metadata.status === 'BLOCKED'
-        ? 'Isi unggahannya belum ikut diperiksa. Unggah tangkapan layarnya supaya AMBA bisa membaca teks dan memeriksa gambarnya.'
-        : 'Situsnya mungkin sedang tidak aktif atau bukan halaman web biasa. Tangkapan layar tetap bisa diperiksa.'}
+      {metadata.status === 'BLOCKED' ? t('lp.blockedBody') : t('lp.unavailableBody')}
     </p>
     <!-- A GET form, like the home hero: navigates to /deteksi?tab=file. -->
     <form action={resolve('/deteksi')} method="GET">
       <input type="hidden" name="tab" value="file" />
       <button class="btn btn--primary" type="submit">
-        <Icon name="image" size={18} /> Unggah tangkapan layar
+        <Icon name="image" size={18} /> {t('lp.upload')}
       </button>
     </form>
   </div>

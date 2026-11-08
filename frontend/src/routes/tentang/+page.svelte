@@ -1,44 +1,26 @@
 <script lang="ts">
   import Icon from '$lib/components/ui/Icon.svelte';
+  import { t } from '$lib/i18n/index.svelte';
 
-  const PRINCIPLES = [
-    'Tidak mengklaim kepastian. Kami memakai kata “terindikasi”, bukan “pasti”.',
-    'Tidak mengarang sumber. Sumber yang tidak terverifikasi tidak ditampilkan sebagai bukti.',
-    'Tidak menyimpan data Anda. Tidak ada akun dan tidak ada basis data.',
-    'Tidak menghakimi orang. Hasil membahas kontennya, bukan pengirimnya.'
-  ];
+  const PRINCIPLES = ['about.p1', 'about.p2', 'about.p3', 'about.p4'] as const;
 
-  const LIMITS = [
-    'Skor 0–100 menunjukkan tingkat risiko, bukan tingkat keyakinan.',
-    'Analisis gambar (ELA) melemah pada PNG dan tangkapan layar.',
-    'Pemeriksaan fakta hanya memakai sumber yang sudah kami tinjau.',
-    'Hasil tidak dapat dipakai sebagai alat bukti hukum.',
-    'Menu bagikan ke AMBA hanya tersedia di peramban yang mendukung Web Share Target, misalnya Chrome di Android. Di iOS, gunakan tombol tempel.'
-  ];
+  const LIMITS = ['about.l1', 'about.l2', 'about.l3', 'about.l4', 'about.l5'] as const;
 </script>
 
 <svelte:head>
-  <title>Tentang — AMBA</title>
-  <meta
-    name="description"
-    content="AMBA adalah alat bantu literasi digital. Hasil analisis bersifat indikatif, bukan bukti pasti."
-  />
+  <title>{t('about.title')}</title>
+  <meta name="description" content={t('about.description')} />
 </svelte:head>
 
 <section class="head">
-  <p class="eyebrow">Tentang</p>
+  <p class="eyebrow">{t('about.eyebrow')}</p>
   <h1 class="h1">AMBA</h1>
-  <p class="lede">
-    AMBA (Aplikasi Mengenali &amp; Bertindak Aman) membantu Anda memeriksa tautan,
-    tangkapan layar, dan pesan yang mencurigakan sebelum menyebarkannya.
-  </p>
+  <p class="lede">{t('about.lede')}</p>
 </section>
 
 <section class="team" aria-labelledby="team-title">
-  <h2 class="h2" id="team-title">Tim di balik AMBA</h2>
-  <p class="lede team-lede">
-    Dibuat untuk MIT-Week 2026, Universitas Mulawarman.
-  </p>
+  <h2 class="h2" id="team-title">{t('about.teamTitle')}</h2>
+  <p class="lede team-lede">{t('about.teamLede')}</p>
   <ul class="team-grid">
     <li><strong>Mursyid D. W.</strong><span>PM &amp; Lead Architect</span></li>
     <li><strong>M. Ridho A.</strong><span>UI/UX Lead</span></li>
@@ -48,63 +30,50 @@
 </section>
 
 <section class="data card lift" aria-labelledby="data-title">
-  <h2 class="h2" id="data-title">Apa yang kami kirim ke layanan AI</h2>
+  <h2 class="h2" id="data-title">{t('about.dataTitle')}</h2>
   <dl>
     <div class="row">
-      <dt><span class="tag tag--send">Dikirim</span></dt>
-      <dd>
-        Isi yang Anda periksa, yaitu tautan, teks, atau gambar, dikirim ke model
-        bahasa untuk dinilai. Pemeriksaan fakta memakai pencarian ke sumber terpercaya.
-      </dd>
+      <dt><span class="tag tag--send">{t('about.sent')}</span></dt>
+      <dd>{t('about.sentBody')}</dd>
     </div>
     <div class="row">
-      <dt><span class="tag tag--no">Tidak dikirim</span></dt>
-      <dd>
-        Nama, akun, alamat IP, atau riwayat pemeriksaan Anda. AMBA tidak punya akun
-        dan tidak menyimpan input.
-      </dd>
+      <dt><span class="tag tag--no">{t('about.notSent')}</span></dt>
+      <dd>{t('about.notSentBody')}</dd>
     </div>
     <div class="row">
-      <dt><span class="tag tag--none">Disimpan</span></dt>
-      <dd>
-        Tidak ada. Hasil hanya tersimpan selama halaman hasil terbuka. Satu-satunya
-        pengecualian: saat Anda membagikan konten lewat menu bagikan ponsel, item
-        ditahan beberapa detik di perangkat Anda lalu dihapus.
-      </dd>
+      <dt><span class="tag tag--none">{t('about.stored')}</span></dt>
+      <dd>{t('about.storedBody')}</dd>
     </div>
   </dl>
 </section>
 
 <div class="two-col">
   <section class="card limits lift" aria-labelledby="limits-title">
-    <h2 class="h2" id="limits-title">Batas yang perlu Anda tahu</h2>
+    <h2 class="h2" id="limits-title">{t('about.limitsTitle')}</h2>
     <ul>
       {#each LIMITS as item (item)}
         <li>
           <span class="bullet" aria-hidden="true"><Icon name="alert" size={16} /></span>
-          {item}
+          {t(item)}
         </li>
       {/each}
     </ul>
   </section>
 
   <section class="card principles lift" aria-labelledby="principles-title">
-    <h2 class="h2" id="principles-title">Prinsip kami</h2>
+    <h2 class="h2" id="principles-title">{t('about.principlesTitle')}</h2>
     <ul>
       {#each PRINCIPLES as item (item)}
         <li>
           <span class="bullet bullet--ok" aria-hidden="true"><Icon name="check" size={16} /></span>
-          {item}
+          {t(item)}
         </li>
       {/each}
     </ul>
   </section>
 </div>
 
-<p class="disclaimer">
-  Hasil analisis bersifat indikatif dan bukan alat bukti hukum. Untuk keputusan
-  penting, konfirmasikan ke pihak berwenang atau sumber resmi.
-</p>
+<p class="disclaimer">{t('about.disclaimerShort')}</p>
 
 <style>
   .head { max-width: 54rem; margin-bottom: var(--space-7); }
