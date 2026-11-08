@@ -309,7 +309,7 @@ components:
           type: array
           items:
             type: string
-            enum: [FACT_CONTRADICTED, LINK_MALICIOUS, ELA_CORROBORATED,
+            enum: [FACT_CONTRADICTED, LINK_MALICIOUS, LINK_STRONG, ELA_CORROBORATED,
                    ELA_SOLO_CAP, INJECTION_GUARD]
       required: [status, explanation, explanation_simple, basis, not_checked, floors_applied]
 

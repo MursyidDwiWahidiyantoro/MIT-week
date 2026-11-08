@@ -106,6 +106,46 @@ func TestVectors(t *testing.T) {
 			wantBasis:  []string{"link"},
 			wantMissed: []string{"ela", "ai", "fact"},
 		},
+		{
+			// W=.20 < .30, S_Link 85 < 90: LINK_STRONG makes the link score the
+			// score instead of INSUFFICIENT (product decision, Nov 2026).
+			name:       "9 strong link alone",
+			in:         Input{Link: sig(85, 1.0)},
+			wantScore:  ptr0(85),
+			wantStatus: models.StatusTampered,
+			wantFloors: []string{FloorLinkStrong},
+			wantBasis:  []string{"link"},
+			wantMissed: []string{"ela", "ai", "fact"},
+		},
+		{
+			// W=.075+.20=.275 < .30: AI on a bare URL is weak, the link decides.
+			name:       "10 strong link with weak ai",
+			in:         Input{AI: sig(20, 0.5), Link: sig(55, 1.0)},
+			wantScore:  ptr0(55),
+			wantStatus: models.StatusSuspicious,
+			wantFloors: []string{FloorLinkStrong},
+			wantBasis:  []string{"ai", "link"},
+			wantMissed: []string{"ela", "fact"},
+		},
+		{
+			// Below LinkStrongMin the honest answer is still INSUFFICIENT.
+			name:       "11 weak link alone",
+			in:         Input{Link: sig(45, 1.0)},
+			wantStatus: models.StatusInsufficient,
+			wantBasis:  []string{"link"},
+			wantMissed: []string{"ela", "ai", "fact"},
+		},
+		{
+			// 89 would otherwise exceed the 85 a link >= 90 gets: cap keeps the
+			// score monotonic in the evidence.
+			name:       "12 link-only score capped at the malicious floor",
+			in:         Input{Link: sig(89, 1.0)},
+			wantScore:  ptr0(85),
+			wantStatus: models.StatusTampered,
+			wantFloors: []string{FloorLinkStrong},
+			wantBasis:  []string{"link"},
+			wantMissed: []string{"ela", "ai", "fact"},
+		},
 	}
 
 	for _, tt := range tests {
@@ -394,6 +434,12 @@ func TestExplanationSimple(t *testing.T) {
 			status: models.StatusTampered,
 			floors: []string{FloorLinkMalicious},
 			want:   "Tautan ini mirip penipuan. Jangan diklik.",
+		},
+		{
+			name:   "link strong",
+			status: models.StatusTampered,
+			floors: []string{FloorLinkStrong},
+			want:   "Tautan ini punya tanda penipuan. Sebaiknya jangan diklik.",
 		},
 		{
 			name:   "ela corroborated",

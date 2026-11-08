@@ -26,6 +26,14 @@ const (
 	// SafeMinWeight is the total effective weight SAFE requires.
 	SafeMinWeight = 0.50
 
+	// LinkStrongMin is the link score from which link evidence alone may
+	// produce a verdict when nothing else is available (product decision,
+	// November 2026: a clear phishing link must not read "belum cukup data").
+	LinkStrongMin = 50
+	// LinkOnlyCap keeps a link-only verdict at or below the LINK_MALICIOUS
+	// floor, so the score never rises as the evidence gets thinner.
+	LinkOnlyCap = 85
+
 	// weightEpsilon absorbs binary floating-point error in the weight sums.
 	// 0.35 + 0.15 is 0.49999999999999994, which must still count as 0.50.
 	weightEpsilon = 1e-9
@@ -36,6 +44,7 @@ const (
 	FloorFactContradicted = "FACT_CONTRADICTED"
 	FloorLinkMalicious    = "LINK_MALICIOUS"
 	FloorELACorroborated  = "ELA_CORROBORATED"
+	FloorLinkStrong       = "LINK_STRONG"
 	FloorELASoloCap       = "ELA_SOLO_CAP"
 	FloorInjectionGuard   = "INJECTION_GUARD"
 )
@@ -135,6 +144,14 @@ func Compute(in Input) models.Verdict {
 		score = atLeast(score, 70)
 		v.FloorsApplied = append(v.FloorsApplied, FloorELACorroborated)
 	}
+	// LINK_STRONG: when the evidence is too thin for a weighted score but the
+	// link alone is clearly risky, the link score (capped) becomes the score.
+	// It only rescues an INSUFFICIENT result and can never produce SAFE.
+	if score == nil && in.Link.Available && in.Link.Score >= LinkStrongMin {
+		s := min(in.Link.Score, LinkOnlyCap)
+		score = &s
+		v.FloorsApplied = append(v.FloorsApplied, FloorLinkStrong)
+	}
 	// The solo cap is recorded only when it actually lowers the score: it is a
 	// numerical ceiling, not evidence, so listing it for a score already below
 	// 60 would make the honest-limits copy claim a cap that never mattered.
@@ -189,6 +206,8 @@ func ExplanationSimple(status models.Status, floors []string) string {
 		return "Kabar ini dibantah sumber terpercaya. Jangan disebarkan."
 	case slices.Contains(floors, FloorLinkMalicious):
 		return "Tautan ini mirip penipuan. Jangan diklik."
+	case slices.Contains(floors, FloorLinkStrong):
+		return "Tautan ini punya tanda penipuan. Sebaiknya jangan diklik."
 	case slices.Contains(floors, FloorELACorroborated):
 		return "Gambar ini terindikasi diedit. Jangan langsung percaya."
 	}
