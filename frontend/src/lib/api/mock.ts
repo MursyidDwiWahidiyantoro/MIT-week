@@ -251,6 +251,7 @@ function baseDossier(
     floors: string[];
     pillars: DossierParsed['pillars'];
     tactics: Tactic[];
+    sourceMetadata?: DossierParsed['source_metadata'];
   }
 ): DossierParsed {
   const withoutToken: Omit<DossierParsed, 'share_token'> = {
@@ -272,7 +273,9 @@ function baseDossier(
       floors_applied: overrides.floors
     },
     pillars: overrides.pillars,
-    tactics: overrides.tactics
+    tactics: overrides.tactics,
+    source_metadata: overrides.sourceMetadata ?? null,
+    ocr_text: ''
   };
 
   return parseDossier({ ...withoutToken, share_token: makeToken(withoutToken) });
@@ -335,7 +338,7 @@ function textDossier(payload: MockPayload): DossierParsed {
   const available = { ela: false, ai: true, fact: factAvailable, link: !!link };
   const floors: string[] = [];
   if (fact === 'CONTRADICTS') floors.push('FACT_CONTRADICTED');
-  if (link && link.score >= 85) floors.push('LINK_MALICIOUS');
+  if (link && link.score >= 90) floors.push('LINK_MALICIOUS');
 
   return baseDossier('TEXT', text, {
     status,
@@ -404,7 +407,20 @@ function urlDossier(payload: MockPayload): DossierParsed {
     explanationSimple: simpleSentence(status, 'UNVERIFIED'),
     basis: basisFor(available),
     notChecked: notCheckedFor(available),
-    floors: link.score >= 85 ? ['LINK_MALICIOUS'] : [],
+    // Mirrors the Go scorer: >= 90 is LINK_MALICIOUS, otherwise a link-only
+    // verdict of >= 50 is LINK_STRONG.
+    floors: link.score >= 90 ? ['LINK_MALICIOUS'] : link.score >= 50 ? ['LINK_STRONG'] : [],
+    // The browser preview cannot fetch other sites, which is exactly the
+    // "could not read" case the result page explains.
+    sourceMetadata: {
+      status: 'UNAVAILABLE',
+      platform: 'web',
+      via: '',
+      title: '',
+      author: '',
+      description: '',
+      site_name: ''
+    },
     pillars: {
       ela: unavailablePillar(),
       ai: {
