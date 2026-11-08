@@ -25,10 +25,22 @@ type Config struct {
 	LLMMock       bool
 	SigningKey    string
 	SafeBrowsing  string
+	FactCheckKey  string
 	MaxUploadMB   int64
 	HardTimeout   time.Duration
 	CacheTTL      time.Duration
 	MetricsAddr   string
+	// ClientIPHeader names the header a trusted proxy puts the client address
+	// in (Fly-Client-IP on Fly.io, X-Forwarded-For on Railway).
+	ClientIPHeader string
+	// ExtraOrigins are additional exact CORS origins (e.g. a custom domain
+	// next to the vercel.app one).
+	ExtraOrigins []string
+	// Telegram bot (PRD P2). Empty token disables it.
+	TelegramToken      string
+	TelegramSecret     string
+	TelegramMode       string
+	TelegramWebhookURL string
 }
 
 // IsProduction reports whether the server is running in production mode.
@@ -49,13 +61,23 @@ func Load() (*Config, error) {
 		RouterAPIKey:  os.Getenv("NINEROUTER_API_KEY"),
 		RouterModel:   os.Getenv("NINEROUTER_MODEL"),
 		SigningKey:    os.Getenv("REPORT_SIGNING_KEY"),
-		SafeBrowsing:  os.Getenv("GOOGLE_SAFE_BROWSING_KEY"),
-		MetricsAddr:   os.Getenv("METRICS_ADDR"),
+		// One Google Cloud key may serve both APIs; the specific variable wins.
+		SafeBrowsing:   env("GOOGLE_SAFE_BROWSING_KEY", os.Getenv("GOOGLE_API_KEY")),
+		FactCheckKey:   env("GOOGLE_FACTCHECK_KEY", os.Getenv("GOOGLE_API_KEY")),
+		MetricsAddr:    os.Getenv("METRICS_ADDR"),
+		ClientIPHeader: os.Getenv("CLIENT_IP_HEADER"),
+		TelegramToken:  os.Getenv("TELEGRAM_BOT_TOKEN"),
+		TelegramSecret: os.Getenv("TELEGRAM_WEBHOOK_SECRET"),
+		TelegramMode:   env("TELEGRAM_MODE", "webhook"),
+		// The public URL Telegram should push updates to, e.g.
+		// https://amba-api.fly.dev/telegram/webhook. Empty: register it by hand.
+		TelegramWebhookURL: os.Getenv("TELEGRAM_WEBHOOK_URL"),
 	}
 
 	var errs []error
 
-	port, err := strconv.Atoi(env("SERVER_PORT", "8080"))
+	// Railway and most PaaS hosts inject PORT; SERVER_PORT still wins.
+	port, err := strconv.Atoi(env("SERVER_PORT", env("PORT", "8080")))
 	if err != nil || port < 1 || port > 65535 {
 		errs = append(errs, errors.New("SERVER_PORT: must be an integer between 1 and 65535"))
 	}
@@ -91,6 +113,33 @@ func Load() (*Config, error) {
 			}
 		}
 	}
+	for _, o := range strings.Split(os.Getenv("CORS_EXTRA_ORIGINS"), ",") {
+		if o = strings.TrimRight(strings.TrimSpace(o), "/"); o != "" {
+			if !strings.HasPrefix(o, "https://") && !strings.HasPrefix(o, "http://") {
+				errs = append(errs, errors.New("CORS_EXTRA_ORIGINS: every origin must start with http:// or https://"))
+				continue
+			}
+			c.ExtraOrigins = append(c.ExtraOrigins, o)
+		}
+	}
+	c.PublicAppURL = strings.TrimRight(c.PublicAppURL, "/")
+	if c.ClientIPHeader != "" && len(c.TrustedProxy) == 0 {
+		errs = append(errs, errors.New("CLIENT_IP_HEADER: requires TRUSTED_PROXY_CIDRS (use * when the host is only reachable through its proxy)"))
+	}
+	switch c.TelegramMode {
+	case "webhook", "polling", "off":
+	default:
+		errs = append(errs, errors.New("TELEGRAM_MODE: must be webhook, polling or off"))
+	}
+	if c.TelegramToken != "" && c.TelegramMode == "webhook" && len(c.TelegramSecret) < 16 {
+		errs = append(errs, errors.New("TELEGRAM_WEBHOOK_SECRET: required (>= 16 chars) for webhook mode"))
+	}
+	if c.TelegramSecret != "" && !validSecretToken(c.TelegramSecret) {
+		errs = append(errs, errors.New("TELEGRAM_WEBHOOK_SECRET: only A-Z, a-z, 0-9, _ and - are allowed (Telegram rule), max 256"))
+	}
+	if c.TelegramWebhookURL != "" && !strings.HasPrefix(c.TelegramWebhookURL, "https://") {
+		errs = append(errs, errors.New("TELEGRAM_WEBHOOK_URL: must start with https://"))
+	}
 
 	if !c.LLMMock {
 		if c.RouterAPIKey == "" {
@@ -106,11 +155,27 @@ func Load() (*Config, error) {
 	if c.IsProduction() && len(c.SigningKey) < 32 {
 		errs = append(errs, errors.New("REPORT_SIGNING_KEY: required (>= 32 bytes) in production"))
 	}
+	if c.IsProduction() && !strings.HasPrefix(c.PublicAppURL, "https://") {
+		errs = append(errs, errors.New("PUBLIC_APP_URL: must be an https:// origin in production"))
+	}
 
 	if len(errs) > 0 {
 		return nil, errors.Join(errs...)
 	}
 	return c, nil
+}
+
+// validSecretToken applies Telegram's secret_token alphabet.
+func validSecretToken(s string) bool {
+	if len(s) > 256 {
+		return false
+	}
+	for _, r := range s {
+		if !(r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '_' || r == '-') {
+			return false
+		}
+	}
+	return true
 }
 
 func env(key, def string) string {
