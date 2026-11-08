@@ -41,6 +41,58 @@ func TestLoadRejectsBadPort(t *testing.T) {
 	}
 }
 
+func TestPortFallsBackToPaaSPort(t *testing.T) {
+	setEnv(t, map[string]string{"SERVER_PORT": "", "PORT": "9123"})
+	cfg, err := Load()
+	if err != nil || cfg.Port != 9123 {
+		t.Fatalf("port = %v, err = %v", cfg, err)
+	}
+	setEnv(t, map[string]string{"SERVER_PORT": "8081", "PORT": "9123"})
+	if cfg, _ := Load(); cfg.Port != 8081 {
+		t.Fatalf("SERVER_PORT must win, got %d", cfg.Port)
+	}
+}
+
+func TestGoogleKeyFallback(t *testing.T) {
+	setEnv(t, map[string]string{"GOOGLE_API_KEY": "shared", "GOOGLE_SAFE_BROWSING_KEY": "", "GOOGLE_FACTCHECK_KEY": "own"})
+	cfg, err := Load()
+	if err != nil || cfg.SafeBrowsing != "shared" || cfg.FactCheckKey != "own" {
+		t.Fatalf("cfg = %+v err = %v", cfg, err)
+	}
+}
+
+func TestClientIPHeaderNeedsTrustedProxies(t *testing.T) {
+	setEnv(t, map[string]string{"CLIENT_IP_HEADER": "Fly-Client-IP", "TRUSTED_PROXY_CIDRS": ""})
+	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "CLIENT_IP_HEADER") {
+		t.Fatalf("want CLIENT_IP_HEADER error, got %v", err)
+	}
+	setEnv(t, map[string]string{"CLIENT_IP_HEADER": "Fly-Client-IP", "TRUSTED_PROXY_CIDRS": "*"})
+	if _, err := Load(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestTelegramWebhookNeedsSecret(t *testing.T) {
+	setEnv(t, map[string]string{"TELEGRAM_BOT_TOKEN": "123:abc", "TELEGRAM_MODE": "webhook", "TELEGRAM_WEBHOOK_SECRET": "short"})
+	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "TELEGRAM_WEBHOOK_SECRET") {
+		t.Fatalf("want secret error, got %v", err)
+	}
+	setEnv(t, map[string]string{"TELEGRAM_MODE": "sideways"})
+	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "TELEGRAM_MODE") {
+		t.Fatalf("want mode error, got %v", err)
+	}
+}
+
+func TestProductionRequiresHTTPSAppURL(t *testing.T) {
+	setEnv(t, map[string]string{
+		"ENVIRONMENT": "production", "REPORT_SIGNING_KEY": strings.Repeat("k", 32),
+		"PUBLIC_APP_URL": "http://amba.example",
+	})
+	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "PUBLIC_APP_URL") {
+		t.Fatalf("want PUBLIC_APP_URL error, got %v", err)
+	}
+}
+
 func TestProductionRequiresSigningKey(t *testing.T) {
 	setEnv(t, map[string]string{
 		"ENVIRONMENT": "production", "REPORT_SIGNING_KEY": "short",
@@ -55,6 +107,7 @@ func TestProductionAcceptsLongKey(t *testing.T) {
 	setEnv(t, map[string]string{
 		"ENVIRONMENT":        "production",
 		"REPORT_SIGNING_KEY": strings.Repeat("k", 32),
+		"PUBLIC_APP_URL":     "https://amba.example",
 	})
 	if _, err := Load(); err != nil {
 		t.Fatalf("unexpected error: %v", err)
