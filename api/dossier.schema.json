@@ -363,6 +363,22 @@
         },
         "share_token": {
           "type": "string"
+        },
+        "source_metadata": {
+          "description": "Public description of the submitted link (PRD F1). null for TEXT and FILE input.",
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/SourceMetadata"
+            }
+          ]
+        },
+        "ocr_text": {
+          "type": "string",
+          "maxLength": 2000,
+          "description": "Text the model read in an uploaded image (FILE only, empty otherwise)."
         }
       },
       "required": [
@@ -377,6 +393,64 @@
         "pillars",
         "tactics",
         "share_token"
+      ]
+    },
+    "SourceMetadata": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "OK",
+            "BLOCKED",
+            "UNAVAILABLE"
+          ]
+        },
+        "platform": {
+          "type": "string",
+          "enum": [
+            "youtube",
+            "tiktok",
+            "x",
+            "instagram",
+            "facebook",
+            "threads",
+            "web"
+          ]
+        },
+        "via": {
+          "type": "string",
+          "enum": [
+            "oembed",
+            "opengraph",
+            ""
+          ]
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 300
+        },
+        "author": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "site_name": {
+          "type": "string",
+          "maxLength": 80
+        }
+      },
+      "required": [
+        "status",
+        "platform",
+        "via",
+        "title",
+        "author",
+        "description",
+        "site_name"
       ]
     },
     "ErrorEnvelope": {

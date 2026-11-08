@@ -35,6 +35,33 @@ type Dossier struct {
 	Pillars         Pillars   `json:"pillars"`
 	Tactics         []Tactic  `json:"tactics"`
 	ShareToken      string    `json:"share_token"`
+	// SourceMetadata is the link's public description (PRD F1). It is null
+	// for TEXT and FILE input.
+	SourceMetadata *SourceMetadata `json:"source_metadata"`
+	// OCRText is the text the model read in an uploaded image ("" unless
+	// FILE). Tactics with source "ocr" are highlighted in it.
+	OCRText string `json:"ocr_text"`
+}
+
+// MetadataStatus says whether a link's public description could be read.
+type MetadataStatus string
+
+const (
+	MetadataOK          MetadataStatus = "OK"
+	MetadataBlocked     MetadataStatus = "BLOCKED"
+	MetadataUnavailable MetadataStatus = "UNAVAILABLE"
+)
+
+// SourceMetadata is what oEmbed/OpenGraph said about a link. BLOCKED means
+// the platform refused automated reading and the UI asks for a screenshot.
+type SourceMetadata struct {
+	Status      MetadataStatus `json:"status"`
+	Platform    string         `json:"platform"`
+	Via         string         `json:"via"`
+	Title       string         `json:"title"`
+	Author      string         `json:"author"`
+	Description string         `json:"description"`
+	SiteName    string         `json:"site_name"`
 }
 
 // Verdict holds the computed risk assessment. Score is nil when the evidence

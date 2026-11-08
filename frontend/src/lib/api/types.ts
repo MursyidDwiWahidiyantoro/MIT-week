@@ -33,6 +33,18 @@ export interface Tactic {
   source: 'text' | 'ocr';
 }
 
+export type MetadataStatus = 'OK' | 'BLOCKED' | 'UNAVAILABLE';
+
+export interface SourceMetadata {
+  status: MetadataStatus;
+  platform: string;
+  via: string;
+  title: string;
+  author: string;
+  description: string;
+  site_name: string;
+}
+
 export interface Verdict {
   score: number | null;
   status: Status;
@@ -61,6 +73,8 @@ export interface Dossier {
   };
   tactics: Tactic[];
   share_token: string;
+  source_metadata?: SourceMetadata | null;
+  ocr_text?: string;
 }
 
 export interface ErrorEnvelope {

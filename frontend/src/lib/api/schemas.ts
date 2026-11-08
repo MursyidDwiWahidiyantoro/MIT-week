@@ -39,6 +39,19 @@ export const tacticSchema = z.object({
   source: z.enum(['text', 'ocr'])
 });
 
+export const metadataStatusSchema = z.enum(['OK', 'BLOCKED', 'UNAVAILABLE']);
+
+/** Public description of a submitted link (PRD F1). null for TEXT/FILE. */
+export const sourceMetadataSchema = z.object({
+  status: metadataStatusSchema,
+  platform: z.string(),
+  via: z.string(),
+  title: z.string(),
+  author: z.string(),
+  description: z.string(),
+  site_name: z.string()
+});
+
 export const verdictSchema = z.object({
   score: z.number().int().min(0).max(100).nullable(),
   status: statusSchema,
@@ -97,7 +110,11 @@ export const dossierSchema = z.object({
     })
   }),
   tactics: z.array(tacticSchema),
-  share_token: z.string()
+  share_token: z.string(),
+  // Added in the same schema_version: older payloads (and bundled demos built
+  // before the field existed) simply omit them.
+  source_metadata: sourceMetadataSchema.nullish().transform((v) => v ?? null),
+  ocr_text: z.string().max(2000).nullish().transform((v) => v ?? '')
 });
 
 export const errorEnvelopeSchema = z.object({
