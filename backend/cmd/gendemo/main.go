@@ -1,0 +1,263 @@
+// Command gendemo regenerates the bundled demo cases (TECH_SPEC §9).
+//
+// Every demo verdict is computed by the real scoring package and every ELA
+// number comes from the real forensics package run on a synthetic
+// screenshot, so a judge clicking a demo sees exactly what the algorithm
+// does. Output is deterministic; run it from the backend directory:
+//
+//	go run ./cmd/gendemo
+//
+// It writes internal/demo/demo-cases.json (canonical), the byte-identical
+// frontend copy, and the demo screenshot under frontend/static/demo/.
+package main
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"image"
+	"image/color"
+	"image/jpeg"
+	"log"
+	"os"
+	"path/filepath"
+
+	"github.com/amba/amba/backend/internal/forensics"
+	"github.com/amba/amba/backend/internal/linkcheck"
+	"github.com/amba/amba/backend/internal/models"
+	"github.com/amba/amba/backend/internal/pipeline"
+	"github.com/amba/amba/backend/internal/scoring"
+)
+
+type demoCase struct {
+	ID      string         `json:"id"`
+	Caption string         `json:"caption"`
+	Image   string         `json:"image,omitempty"`
+	Dossier models.Dossier `json:"dossier"`
+}
+
+const (
+	canonical    = "internal/demo/demo-cases.json"
+	frontendCopy = "../frontend/src/lib/data/demo-cases.json"
+	imageFile    = "../frontend/static/demo/berita-ig.jpg"
+	imagePath    = "/demo/berita-ig.jpg"
+	placeholder  = "https://example.org/contoh-cek-fakta"
+)
+
+func main() {
+	img, box, err := screenshot()
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Dir(imageFile), 0o755); err != nil {
+		log.Fatal(err)
+	}
+	if err := os.WriteFile(imageFile, img, 0o644); err != nil {
+		log.Fatal(err)
+	}
+
+	cases := []demoCase{tiktok(), beritaIG(img, box), tautan(), resmi()}
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(map[string]any{"cases": cases}); err != nil {
+		log.Fatal(err)
+	}
+	for _, path := range []string{canonical, frontendCopy} {
+		if err := os.WriteFile(path, buf.Bytes(), 0o644); err != nil {
+			log.Fatal(err)
+		}
+	}
+	fmt.Printf("wrote %d cases, screenshot %d bytes\n", len(cases), len(img))
+}
+
+// base is the shared skeleton of every demo dossier.
+func base(id, ts string, input models.InputType, ref string) models.Dossier {
+	return models.Dossier{
+		SchemaVersion:   2,
+		ID:              id,
+		Timestamp:       ts,
+		InputType:       input,
+		SourceReference: ref,
+		IsDemo:          true,
+		Tactics:         []models.Tactic{},
+		Pillars: models.Pillars{
+			ELA:  models.ELAPillar{Anomalies: []models.Anomaly{}},
+			AI:   models.AIPillar{Indicators: []string{}},
+			Fact: models.FactPillar{Status: models.FactUnverified, Sources: []models.Source{}},
+			Link: models.LinkPillar{RedirectChain: []string{}, Reasons: []models.LinkReason{}},
+		},
+	}
+}
+
+// finish computes the verdict exactly as a live audit would.
+func finish(d models.Dossier, res pipeline.Result, title, explanation string) models.Dossier {
+	res.Pillars = d.Pillars
+	v := pipeline.Verdict(res, false)
+	v.ShortTitle = title
+	v.Explanation = explanation
+	d.Verdict = v
+	return d
+}
+
+func ai(score int, indicators ...string) models.AIPillar {
+	return models.AIPillar{Available: true, Score: score, Indicators: indicators, Caveat: "Indikatif, bukan bukti pasti"}
+}
+
+func exampleSource(title string, match models.FactStatus) []models.Source {
+	return []models.Source{{Title: title, Publisher: "Sumber Contoh", URL: placeholder, Match: match}}
+}
+
+func tiktok() demoCase {
+	caption := "Bantuan Rp 500.000 dibagikan hari ini saja. Sebarkan ke 10 grup, jangan sampai ketinggalan!"
+	d := base("AMBA-20261030-DMO1", "2026-10-30T07:22:15Z", models.InputText, "Contoh caption video TikTok (simulasi)")
+	d.Pillars.AI = ai(82, "Tekanan waktu", "Iming-iming hadiah", "Ajakan menyebarkan")
+	d.Pillars.Fact = models.FactPillar{Available: true, Claim: "Bantuan Rp 500.000 dibagikan hari ini",
+		Status: models.FactContradicts, Sources: exampleSource("Contoh artikel pemeriksaan fakta", models.FactContradicts)}
+	d.Tactics = []models.Tactic{
+		{Code: "URGENCY", Phrase: "hari ini saja", Source: "text"},
+		{Code: "REWARD_BAIT", Phrase: "Bantuan Rp 500.000", Source: "text"},
+	}
+	d = finish(d, pipeline.Result{}, "Contoh: caption bansos di TikTok",
+		"Caption ini memakai tekanan waktu dan iming-iming bantuan, lalu meminta disebarkan. Sumber contoh membantah klaimnya. Ini data simulasi untuk memperlihatkan cara kerja AMBA.")
+	return demoCase{ID: "demo-tiktok", Caption: caption, Dossier: d}
+}
+
+func beritaIG(img []byte, box [4]int) demoCase {
+	res, err := forensics.Analyze(img)
+	if err != nil {
+		log.Fatal(err)
+	}
+	var hotspots []scoring.Box
+	for _, h := range res.Hotspots(1.5) {
+		hotspots = append(hotspots, scoring.Box(h))
+	}
+	ocr := "BERITA.CONTOH HARGA BERAS TURUN JADI RP 2.000/KG SEBARKAN SEBELUM DIHAPUS! CONTOH / SIMULASI"
+
+	d := base("AMBA-20261030-DMO2", "2026-10-30T07:23:40Z", models.InputFile, "Gambar yang diunggah")
+	d.Pillars.ELA = models.ELAPillar{
+		Available: true, Score: res.Score, Reliability: res.Reliability,
+		Anomalies: []models.Anomaly{{BoundingBox: box, ExtractedText: "RP 2.000/KG",
+			Reason: "Angka harga punya tepi dan kompresi berbeda dari teks di sekitarnya"}},
+	}
+	if res.Note != "" {
+		note := res.Note
+		d.Pillars.ELA.ReliabilityNote = &note
+	}
+	d.Pillars.AI = ai(58, "Angka harga tampak ditempel", "Warna teks harga sedikit berbeda")
+	d.Pillars.Fact = models.FactPillar{Available: true, Claim: "Harga beras turun menjadi Rp 2.000 per kilogram",
+		Status: models.FactContradicts, Sources: exampleSource("Contoh: harga beras tidak turun ke Rp 2.000", models.FactContradicts)}
+	d.Tactics = []models.Tactic{{Code: "URGENCY", Phrase: "SEBARKAN SEBELUM DIHAPUS", Source: "ocr"}}
+	d.OCRText = ocr
+	d = finish(d, pipeline.Result{ELAHotspots: hotspots, AIAnomalies: []scoring.Box{scoring.Box(box)}},
+		"Contoh: tangkapan layar berita diedit",
+		"Angka harga pada gambar ini tampak ditempel: kompresinya berbeda dari bagian lain. Sumber contoh juga membantah klaimnya. Geser penanda untuk membandingkan gambar asli dan hasil ELA. Ini data simulasi.")
+	return demoCase{ID: "demo-berita-ig", Caption: "Tangkapan layar berita: harga beras turun jadi Rp 2.000/kg", Image: imagePath, Dossier: d}
+}
+
+func tautan() demoCase {
+	link := "https://bri-verifikasi.example/login"
+	analysis := linkcheck.Analyze(link)
+	reasons := make([]models.LinkReason, 0, len(analysis.Findings))
+	for _, f := range analysis.Findings {
+		reasons = append(reasons, models.LinkReason{Code: f.Code, Text: pipeline.LinkReasonText(f.Code)})
+	}
+	d := base("AMBA-20261030-DMO3", "2026-10-30T07:24:00Z", models.InputURL, link)
+	d.Pillars.AI = ai(74, "Ancaman pemblokiran", "Permintaan verifikasi mendesak")
+	d.Pillars.Link = models.LinkPillar{Available: true, Score: analysis.Score, FinalURL: link,
+		RedirectChain: []string{link}, Reasons: reasons}
+	d.SourceMetadata = &models.SourceMetadata{Status: models.MetadataOK, Platform: "web", Via: "opengraph",
+		Title: "Akun Anda akan diblokir", Description: "Verifikasi sekarang di tautan berikut.", SiteName: "Contoh Simulasi"}
+	d.Tactics = []models.Tactic{
+		{Code: "FEAR", Phrase: "Akun Anda akan diblokir", Source: "text"},
+		{Code: "URGENCY", Phrase: "Verifikasi sekarang", Source: "text"},
+	}
+	d = finish(d, pipeline.Result{}, "Contoh: tautan meniru halaman masuk bank",
+		"Alamat tautan memakai nama bank dengan kata umpan dan mengarah ke halaman masuk. Bukti dari tautan saja sudah cukup kuat untuk memberi peringatan. Domain .example tidak bisa didaftarkan siapa pun. Ini data simulasi.")
+	return demoCase{ID: "demo-tautan", Caption: "Akun Anda akan diblokir. Verifikasi sekarang di tautan berikut.", Dossier: d}
+}
+
+func resmi() demoCase {
+	caption := "Jadwal posyandu bulan ini: Sabtu, 8 pagi di balai warga. Info kesehatan: https://www.kemkes.go.id"
+	d := base("AMBA-20261030-DMO4", "2026-10-30T07:26:00Z", models.InputText, "Contoh pengumuman warga")
+	d.Pillars.AI = ai(6)
+	d.Pillars.Fact = models.FactPillar{Available: true, Claim: "Posyandu diadakan Sabtu pukul 8 pagi",
+		Status: models.FactSupports, Sources: exampleSource("Contoh pengumuman kelurahan", models.FactSupports)}
+	analysis := linkcheck.Analyze("https://www.kemkes.go.id")
+	d.Pillars.Link = models.LinkPillar{Available: true, Score: analysis.Score, FinalURL: "https://www.kemkes.go.id",
+		RedirectChain: []string{"https://www.kemkes.go.id"}, Reasons: []models.LinkReason{}}
+	d = finish(d, pipeline.Result{}, "Contoh: pengumuman resmi",
+		"Pesan ini berisi jadwal tanpa tekanan waktu atau permintaan data pribadi, dan tautannya mengarah ke situs pemerintah. Tetap periksa ke pengurus setempat. Ini data simulasi.")
+	return demoCase{ID: "demo-resmi", Caption: caption, Dossier: d}
+}
+
+// screenshot draws a synthetic news post, saves it as JPEG, then pastes an
+// edited price over it the way a real hoax edit is made, and saves again.
+// The pasted region has a different compression history, which is what ELA
+// detects. It returns the final JPEG and the edit box (0-1000, ymin xmin
+// ymax xmax).
+func screenshot() ([]byte, [4]int, error) {
+	const w, h = 360, 480
+	navy := color.RGBA{29, 53, 87, 255}
+	draw := func(price string) *image.RGBA {
+		img := image.NewRGBA(image.Rect(0, 0, w, h))
+		fill(img, img.Bounds(), color.RGBA{250, 250, 250, 255})
+		// Header: avatar and account name.
+		fill(img, image.Rect(12, 12, 40, 40), color.RGBA{200, 200, 210, 255})
+		drawText(img, "berita.contoh", 50, 19, 2, color.RGBA{38, 38, 38, 255})
+		// Card with a gentle deterministic texture, like a photo background.
+		for y := 52; y < 412; y++ {
+			for x := 0; x < w; x++ {
+				n := uint8((x*7 + y*13 + (x*y)%11) % 9)
+				img.SetRGBA(x, y, color.RGBA{navy.R + n, navy.G + n, navy.B + n, 255})
+			}
+		}
+		drawText(img, "HARGA BERAS", 24, 100, 4, color.RGBA{241, 241, 241, 255})
+		drawText(img, "TURUN JADI", 24, 150, 4, color.RGBA{241, 241, 241, 255})
+		drawText(img, price, 24, 200, 4, color.RGBA{241, 241, 241, 255})
+		drawText(img, "SEBARKAN SEBELUM DIHAPUS!", 24, 290, 2, color.RGBA{255, 214, 10, 255})
+		// Watermark band (TECH_SPEC §9).
+		fill(img, image.Rect(0, 372, w, 404), color.RGBA{214, 40, 40, 255})
+		drawText(img, "CONTOH / SIMULASI", (w-textWidth("CONTOH / SIMULASI", 2))/2, 381, 2, color.RGBA{255, 255, 255, 255})
+		drawText(img, "mulai besok harga turun!", 12, 430, 2, color.RGBA{38, 38, 38, 255})
+		return img
+	}
+
+	// 1. The "original" post, as it circulated after a few re-shares: JPEG
+	// quality 55, so its fine texture is already quantised away.
+	var first bytes.Buffer
+	if err := jpeg.Encode(&first, draw("RP 12.000/KG"), &jpeg.Options{Quality: 55}); err != nil {
+		return nil, [4]int{}, err
+	}
+	decoded, err := jpeg.Decode(&first)
+	if err != nil {
+		return nil, [4]int{}, err
+	}
+	edited := image.NewRGBA(decoded.Bounds())
+	for y := 0; y < h; y++ {
+		for x := 0; x < w; x++ {
+			edited.Set(x, y, decoded.At(x, y))
+		}
+	}
+
+	// 2. The edit: a fresh, never-compressed patch with the new price, in a
+	// slightly brighter white, pasted over the old line. Its background is a
+	// newly drawn texture, so it carries detail the re-shared original lost.
+	patch := image.Rect(16, 192, 340, 236)
+	for y := patch.Min.Y; y < patch.Max.Y; y++ {
+		for x := patch.Min.X; x < patch.Max.X; x++ {
+			n := uint8((x*5 + y*17 + (x*y)%13) % 13)
+			edited.SetRGBA(x, y, color.RGBA{navy.R + n, navy.G + n, navy.B + n, 255})
+		}
+	}
+	drawText(edited, "RP 2.000/KG", 24, 200, 4, color.RGBA{255, 255, 255, 255})
+
+	// 3. Re-saved once at high quality, as an editing app would.
+	var out bytes.Buffer
+	if err := jpeg.Encode(&out, edited, &jpeg.Options{Quality: 96}); err != nil {
+		return nil, [4]int{}, err
+	}
+	box := [4]int{patch.Min.Y * 1000 / h, patch.Min.X * 1000 / w, patch.Max.Y * 1000 / h, patch.Max.X * 1000 / w}
+	return out.Bytes(), box, nil
+}
