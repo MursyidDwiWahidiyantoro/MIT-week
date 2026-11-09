@@ -18,6 +18,7 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 	"unicode/utf8"
 )
@@ -94,6 +95,13 @@ type Client struct {
 	// They are merged into every completion request; the contract fields
 	// (model, messages, response_format, temperature) always win.
 	Extra map[string]any
+	// Fallback is a second gateway, tried when this one fails (transport
+	// error, timeout, non-200 or an unreadable answer): e.g. OpenRouter behind
+	// a 9router that runs on someone's PC. Nil: no fallback.
+	Fallback *Client
+
+	mu        sync.Mutex
+	downUntil time.Time // after a failure, go straight to the fallback until then
 }
 
 // New builds a client with a separate http.Client: the gateway may live on
@@ -371,9 +379,69 @@ func (c *Client) Reply(ctx context.Context, in ReplyInput) (string, error) {
 	return strings.TrimSpace(parsed.Text), nil
 }
 
+// Fallback timing: the first gateway leaves the fallback at least this much of
+// the model budget, and after a failure it is skipped for a while so requests
+// do not each wait for it to fail again.
+const (
+	fallbackReserve = 9 * time.Second
+	breakerCooldown = 60 * time.Second
+)
+
 // complete performs one chat completion with a JSON-schema response format
-// and returns the message content.
+// and returns the message content. With a Fallback, a failed or skipped first
+// gateway hands the same request to the fallback within the same budget.
 func (c *Client) complete(ctx context.Context, messages []message, name, schema string, temperature float64) (string, error) {
+	if c.Fallback == nil {
+		return c.call(ctx, messages, name, schema, temperature)
+	}
+	if !c.skipping() {
+		pctx, cancel := context.WithTimeout(ctx, primaryShare(ctx))
+		out, err := c.call(pctx, messages, name, schema, temperature)
+		cancel()
+		if err == nil {
+			c.setDown(time.Time{})
+			return out, nil
+		}
+		if ctx.Err() != nil { // the request itself ended: not the gateway's fault
+			return "", ErrUnavailable
+		}
+		c.setDown(time.Now().Add(breakerCooldown))
+	}
+	out, err := c.Fallback.call(ctx, messages, name, schema, temperature)
+	if err == nil {
+		slog.Info("llm fallback answered", "model", c.Fallback.Model)
+	}
+	return out, err
+}
+
+// primaryShare is the first gateway's part of the remaining budget: all of it
+// but fallbackReserve, and never less than half.
+func primaryShare(ctx context.Context) time.Duration {
+	dl, ok := ctx.Deadline()
+	if !ok {
+		return 20 * time.Second
+	}
+	rem := time.Until(dl)
+	if d := rem - fallbackReserve; d > rem/2 {
+		return d
+	}
+	return rem / 2
+}
+
+func (c *Client) skipping() bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return time.Now().Before(c.downUntil)
+}
+
+func (c *Client) setDown(until time.Time) {
+	c.mu.Lock()
+	c.downUntil = until
+	c.mu.Unlock()
+}
+
+// call performs one completion against this gateway only.
+func (c *Client) call(ctx context.Context, messages []message, name, schema string, temperature float64) (string, error) {
 	if c.APIKey == "" || c.Model == "" {
 		return "", ErrUnavailable
 	}

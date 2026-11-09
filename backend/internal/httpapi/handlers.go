@@ -55,6 +55,11 @@ func NewDeps(cfg *config.Config) Deps {
 
 	client := llm.New(cfg.RouterBaseURL, cfg.RouterAPIKey, cfg.RouterModel, cfg.LLMMock)
 	client.Extra = cfg.LLMExtraBody
+	if cfg.FallbackBaseURL != "" && !cfg.LLMMock {
+		fb := llm.New(cfg.FallbackBaseURL, cfg.FallbackAPIKey, cfg.FallbackModel, false)
+		fb.Extra = cfg.FallbackExtra
+		client.Fallback = fb
+	}
 	grounder := grounding.New(grounding.DefaultAllowlist)
 	p := pipeline.New(client, grounder, cfg.CacheTTL)
 	p.LLMDeadline = cfg.LLMBudget()
@@ -75,11 +80,19 @@ func NewDeps(cfg *config.Config) Deps {
 // and whether the model gateway answers (TECH_SPEC §6: check /models at boot).
 func LogReadiness(ctx context.Context, cfg *config.Config, d Deps) {
 	reachable, listed := d.Pipeline.LLM.HealthCheck(ctx)
+	fallback, fbReachable, fbListed := "none", false, false
+	if fb := d.Pipeline.LLM.Fallback; fb != nil {
+		fallback = fb.Describe()
+		fbReachable, fbListed = fb.HealthCheck(ctx)
+	}
 	slog.Info("readiness",
 		"llm", d.Pipeline.LLM.Describe(),
 		"llm_reachable", reachable,
 		"llm_model_listed", listed,
 		"llm_extra_fields", extraKeys(cfg.LLMExtraBody),
+		"llm_fallback", fallback,
+		"llm_fallback_reachable", fbReachable,
+		"llm_fallback_model_listed", fbListed,
 		"fact_search", d.Pipeline.Searcher != nil && d.Pipeline.Searcher.Enabled(),
 		"safe_browsing", d.Pipeline.SafeBrowsing.Enabled(),
 		"ai_detector", d.Pipeline.Detector != nil && d.Pipeline.Detector.Enabled(),
