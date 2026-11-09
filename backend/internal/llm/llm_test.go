@@ -284,7 +284,8 @@ func TestFallbackAnswersAndTheFailedGatewayIsSkipped(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	for i := 0; i < 2; i++ {
-		out, err := c.complete(ctx, nil, "x", `{}`, 0)
+		var out string
+		err := c.complete(ctx, nil, "x", `{}`, 0, func(s string) error { out = s; return nil })
 		if err != nil || out != "from fallback" {
 			t.Fatalf("call %d: got %q, %v", i, out, err)
 		}
@@ -310,7 +311,8 @@ func TestSlowGatewayLeavesTimeForTheFallback(t *testing.T) {
 	c.Fallback = New(fb.URL, "k", "m2", false)
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	if out, err := c.complete(ctx, nil, "x", `{}`, 0); err != nil || out != "from fallback" {
+	var out string
+	if err := c.complete(ctx, nil, "x", `{}`, 0, func(s string) error { out = s; return nil }); err != nil || out != "from fallback" {
 		t.Fatalf("got %q, %v", out, err)
 	}
 }
@@ -324,9 +326,24 @@ func TestHealthyGatewayNeverCallsTheFallback(t *testing.T) {
 
 	c := New(primary.URL, "k", "m", false)
 	c.Fallback = New(fb.URL, "k", "m2", false)
-	out, err := c.complete(context.Background(), nil, "x", `{}`, 0)
+	var out string
+	err := c.complete(context.Background(), nil, "x", `{}`, 0, func(s string) error { out = s; return nil })
 	if err != nil || out != "from primary" || atomic.LoadInt32(&fbHits) != 0 {
 		t.Fatalf("got %q, %v, fallback calls %d", out, err, atomic.LoadInt32(&fbHits))
+	}
+}
+
+func TestFallbackAnswersWhenTheFirstAnswerDoesNotDecode(t *testing.T) {
+	primary := gateway(t, "Galaxy bottle on car roof. No JSON here.", nil)
+	defer primary.Close()
+	fb := gateway(t, `{"claim":"x","search_query":"x","ai_score":91,"ai_indicators":[],"text_anomalies":[],"ocr_text":"","tactics":[],"injection_suspected":false}`, nil)
+	defer fb.Close()
+
+	c := New(primary.URL, "k", "m", false)
+	c.Fallback = New(fb.URL, "k", "m2", false)
+	f, err := c.Analyze(context.Background(), textInput("hello"))
+	if err != nil || f.AIScore != 91 {
+		t.Fatalf("got %+v, %v", f, err)
 	}
 }
 
