@@ -277,17 +277,17 @@ func (c *Client) Analyze(ctx context.Context, in Input) (Findings, error) {
 		}
 	}
 
-	content, err := c.complete(ctx, []message{
+	// An answer that does not decode counts as that gateway failing: the
+	// fallback, when there is one, gets the call; otherwise the pillar fails.
+	var f Findings
+	if err := c.complete(ctx, []message{
 		{Role: "system", Content: system},
 		{Role: "user", Content: user},
-	}, "LLMFindings", findingsSchema, 0.2)
-	if err != nil {
+	}, "LLMFindings", findingsSchema, 0.2, func(s string) error {
+		f = Findings{}
+		return json.Unmarshal([]byte(s), &f)
+	}); err != nil {
 		return Findings{}, err
-	}
-	var f Findings
-	if err := json.Unmarshal([]byte(content), &f); err != nil {
-		// A schema violation means the pillar failed; do not retry.
-		return Findings{}, ErrUnavailable
 	}
 	f = sanitize(f)
 	if DetectInjection(in.Content) {
@@ -317,21 +317,20 @@ func (c *Client) Classify(ctx context.Context, claim string, results []Evidence)
 		fmt.Fprintf(&b, "[%d] Judul: %s | Penerbit: %s | Rating penerbit: %s | Ringkasan klaim yang diperiksa: %s\n",
 			i, r.Title, r.Publisher, r.Rating, r.Snippet)
 	}
-	content, err := c.complete(ctx, []message{
-		{Role: "system", Content: classifyPrompt},
-		{Role: "user", Content: wrap(b.String())},
-	}, "ClaimMatches", classifySchema, 0)
-	if err != nil {
-		return out, err
-	}
 	var parsed struct {
 		Matches []struct {
 			Index int    `json:"index"`
 			Match string `json:"match"`
 		} `json:"matches"`
 	}
-	if err := json.Unmarshal([]byte(content), &parsed); err != nil {
-		return out, ErrUnavailable
+	if err := c.complete(ctx, []message{
+		{Role: "system", Content: classifyPrompt},
+		{Role: "user", Content: wrap(b.String())},
+	}, "ClaimMatches", classifySchema, 0, func(s string) error {
+		parsed.Matches = nil
+		return json.Unmarshal([]byte(s), &parsed)
+	}); err != nil {
+		return out, err
 	}
 	for _, m := range parsed.Matches {
 		if m.Index < 0 || m.Index >= len(out) {
@@ -363,18 +362,17 @@ func (c *Client) Reply(ctx context.Context, in ReplyInput) (string, error) {
 	}
 	fmt.Fprintf(&b, "Nada: %s\n", in.Tone)
 
-	content, err := c.complete(ctx, []message{
-		{Role: "system", Content: replyPrompt},
-		{Role: "user", Content: wrap(b.String())},
-	}, "PoliteReply", replySchema, 0.5)
-	if err != nil {
-		return "", err
-	}
 	var parsed struct {
 		Text string `json:"text"`
 	}
-	if err := json.Unmarshal([]byte(content), &parsed); err != nil {
-		return "", ErrUnavailable
+	if err := c.complete(ctx, []message{
+		{Role: "system", Content: replyPrompt},
+		{Role: "user", Content: wrap(b.String())},
+	}, "PoliteReply", replySchema, 0.5, func(s string) error {
+		parsed.Text = ""
+		return json.Unmarshal([]byte(s), &parsed)
+	}); err != nil {
+		return "", err
 	}
 	return strings.TrimSpace(parsed.Text), nil
 }
@@ -388,30 +386,42 @@ const (
 )
 
 // complete performs one chat completion with a JSON-schema response format
-// and returns the message content. With a Fallback, a failed or skipped first
-// gateway hands the same request to the fallback within the same budget.
-func (c *Client) complete(ctx context.Context, messages []message, name, schema string, temperature float64) (string, error) {
+// and hands the message content to decode. A gateway fails when the call
+// fails or its answer does not decode. With a Fallback, a failed or skipped
+// first gateway hands the same request to the fallback within the same budget.
+func (c *Client) complete(ctx context.Context, messages []message, name, schema string, temperature float64, decode func(string) error) error {
+	try := func(g *Client, ctx context.Context) error {
+		content, err := g.call(ctx, messages, name, schema, temperature)
+		if err != nil {
+			return err
+		}
+		if err := decode(content); err != nil {
+			slog.Warn("llm gateway call failed", "reason", "invalid_answer", "status", 0)
+			return ErrUnavailable
+		}
+		return nil
+	}
 	if c.Fallback == nil {
-		return c.call(ctx, messages, name, schema, temperature)
+		return try(c, ctx)
 	}
 	if !c.skipping() {
 		pctx, cancel := context.WithTimeout(ctx, primaryShare(ctx))
-		out, err := c.call(pctx, messages, name, schema, temperature)
+		err := try(c, pctx)
 		cancel()
 		if err == nil {
 			c.setDown(time.Time{})
-			return out, nil
+			return nil
 		}
 		if ctx.Err() != nil { // the request itself ended: not the gateway's fault
-			return "", ErrUnavailable
+			return ErrUnavailable
 		}
 		c.setDown(time.Now().Add(breakerCooldown))
 	}
-	out, err := c.Fallback.call(ctx, messages, name, schema, temperature)
-	if err == nil {
-		slog.Info("llm fallback answered", "model", c.Fallback.Model)
+	if err := try(c.Fallback, ctx); err != nil {
+		return err
 	}
-	return out, err
+	slog.Info("llm fallback answered", "model", c.Fallback.Model)
+	return nil
 }
 
 // primaryShare is the first gateway's part of the remaining budget: all of it
