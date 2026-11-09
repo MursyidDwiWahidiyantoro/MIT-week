@@ -60,6 +60,18 @@ func (c *Config) IsProduction() bool { return c.Environment == "production" }
 // Addr returns the listen address.
 func (c *Config) Addr() string { return fmt.Sprintf("%s:%d", c.Host, c.Port) }
 
+// LLMBudget is how long the model may take inside one request. The default
+// 12 s request keeps the 9 s budget; a slower gateway (a 9router combo needs
+// 12-17 s per image) gets HARD_TIMEOUT_MS minus the 3 s that the text check
+// and scoring need after the model answers.
+func (c *Config) LLMBudget() time.Duration {
+	const floor, after = 9 * time.Second, 3 * time.Second
+	if d := c.HardTimeout - after; d > floor {
+		return d
+	}
+	return floor
+}
+
 // Load reads configuration from the environment and validates it.
 // Every error returned here is safe to print at boot: it names the variable,
 // never its value.

@@ -3,6 +3,7 @@ package config
 import (
 	"strings"
 	"testing"
+	"time"
 )
 
 func setEnv(t *testing.T, kv map[string]string) {
@@ -163,6 +164,19 @@ func TestTrustedProxyParsing(t *testing.T) {
 	}
 	if len(cfg.TrustedProxy) != 2 {
 		t.Fatalf("want 2 proxies, got %v", cfg.TrustedProxy)
+	}
+}
+
+func TestLLMBudgetFollowsHardTimeout(t *testing.T) {
+	for _, tc := range []struct{ hard, want time.Duration }{
+		{12 * time.Second, 9 * time.Second},
+		{30 * time.Second, 27 * time.Second},
+		{5 * time.Second, 9 * time.Second},
+	} {
+		c := &Config{HardTimeout: tc.hard}
+		if got := c.LLMBudget(); got != tc.want {
+			t.Errorf("HardTimeout %v: LLMBudget() = %v, want %v", tc.hard, got, tc.want)
+		}
 	}
 }
 
