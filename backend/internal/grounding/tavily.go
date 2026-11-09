@@ -35,7 +35,7 @@ func NewTavilySearcher(key string, g *Grounder, domains []string) *TavilySearche
 	return &TavilySearcher{
 		Key:        key,
 		Endpoint:   DefaultTavilyEndpoint,
-		HTTP:       &http.Client{Timeout: 6 * time.Second},
+		HTTP:       &http.Client{Timeout: 8 * time.Second},
 		Grounder:   g,
 		Domains:    domains,
 		MaxResults: 5,
