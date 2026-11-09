@@ -722,6 +722,15 @@ func (p *Pipeline) checkClaim(ctx context.Context, claim, query string) (models.
 		if i < len(matches) && p.Grounder.Verified(r.URL, toolURLs) {
 			match = models.FactStatus(matches[i])
 		}
+		// The classifier's answer only stands for a source on the claim's own
+		// subject, and only a fact-check article may contradict (9 Nov: news and
+		// unrelated fact-checks "contradicted" real Kompas videos).
+		if match != models.FactUnverified && !grounding.SameTopic(claim, r.Title+" "+r.Snippet) {
+			match = models.FactUnverified
+		}
+		if match == models.FactContradicts && !grounding.IsFactCheck(r.Title, r.URL) {
+			match = models.FactUnverified
+		}
 		fact.Sources = append(fact.Sources, models.Source{
 			Title: r.Title, Publisher: r.Publisher, URL: r.URL, Match: match,
 		})
