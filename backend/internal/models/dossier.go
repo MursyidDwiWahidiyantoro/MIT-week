@@ -94,11 +94,15 @@ type ELAPillar struct {
 	Anomalies       []Anomaly `json:"anomalies"`
 }
 
-// Anomaly is a normalized 0-1000 box in [ymin, xmin, ymax, xmax] order.
+// Anomaly is a normalized 0-1000 box in [ymin, xmin, ymax, xmax] order:
+// text the model says looks pasted. Evidence (0-100) is how differently that
+// text reacts to re-compression compared with the image's other text
+// (internal/forensics TextEvidence); nil when it could not be measured.
 type Anomaly struct {
 	BoundingBox   [4]int `json:"bounding_box"`
 	ExtractedText string `json:"extracted_text"`
 	Reason        string `json:"reason"`
+	Evidence      *int   `json:"evidence"`
 }
 
 // AIPillar ("Jejak AI") answers whether the image was made with AI: the

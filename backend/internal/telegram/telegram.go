@@ -374,11 +374,14 @@ func (b *Bot) Format(d models.Dossier) string {
 			if i == 3 {
 				break
 			}
+			line := a.Reason
 			if a.ExtractedText != "" {
-				fmt.Fprintf(&s, "- \"%s\": %s\n", a.ExtractedText, a.Reason)
-			} else {
-				s.WriteString("- " + a.Reason + "\n")
+				line = fmt.Sprintf("\"%s\": %s", a.ExtractedText, a.Reason)
 			}
+			if a.Evidence != nil && *a.Evidence >= 50 {
+				line += " (kompresinya berbeda dari teks lain di gambar)"
+			}
+			s.WriteString("- " + line + "\n")
 		}
 	}
 	if d.Pillars.Fact.Available && len(d.Pillars.Fact.Sources) > 0 {

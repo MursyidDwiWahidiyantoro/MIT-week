@@ -9,6 +9,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"image"
 	"net/http"
 	"regexp"
 	"strings"
@@ -101,9 +102,11 @@ type Pipeline struct {
 	SearchDeadline   time.Duration
 	ClassifyDeadline time.Duration
 	// DetectDeadline bounds the AI detector; PreviewDeadline bounds the
-	// download of a link's preview image.
+	// download of a link's preview image; TextDeadline bounds the pasted-text
+	// check after the model answers.
 	DetectDeadline  time.Duration
 	PreviewDeadline time.Duration
+	TextDeadline    time.Duration
 
 	mu    sync.Mutex
 	cache map[string]*list.Element
@@ -135,6 +138,7 @@ func New(client *llm.Client, g *grounding.Grounder, cacheTTL time.Duration) *Pip
 		ClassifyDeadline: 3 * time.Second,
 		DetectDeadline:   4 * time.Second,
 		PreviewDeadline:  1500 * time.Millisecond,
+		TextDeadline:     1500 * time.Millisecond,
 		cache:            make(map[string]*list.Element),
 		order:            list.New(),
 	}
@@ -183,7 +187,13 @@ func (p *Pipeline) RunStream(ctx context.Context, req Request, emit func(Event))
 		elaFailed, llmFailed, linkFailed, searchFailed bool
 		linkRan                                        bool
 		modelBoxes                                     []llm.Anomaly
+		// textEvidence is TextEvidence for each model box (-1: unmeasured).
+		textEvidence []int
 	)
+	// The ELA step hands its decoded image to the text check, which needs
+	// the model's boxes and so runs after the model answers.
+	decoded := make(chan image.Image, 1)
+	elaRan := false
 
 	res.InputType = req.InputType
 	g, gctx := errgroup.WithContext(ctx)
@@ -191,9 +201,11 @@ func (p *Pipeline) RunStream(ctx context.Context, req Request, emit func(Event))
 	// ELA: JPEG and PNG uploads. Error level analysis re-compresses the image
 	// as JPEG, which says nothing about a WebP file's history.
 	if req.InputType == models.InputFile && len(req.Image) > 0 && req.ImageFormat != "webp" {
+		elaRan = true
 		tracker.start(PillarELA)
 		g.Go(func() error {
-			pillar, hotspots, ok := p.runELA(gctx, req.Image)
+			pillar, hotspots, src, ok := p.runELA(gctx, req.Image)
+			decoded <- src
 			mu.Lock()
 			res.Pillars.ELA = pillar
 			res.ELAHotspots = hotspots
@@ -317,6 +329,16 @@ func (p *Pipeline) RunStream(ctx context.Context, req Request, emit func(Event))
 		for _, a := range f.TextAnomalies {
 			anomalies = append(anomalies, scoring.Box(a.BoundingBox))
 		}
+		// Timpa Teks: does the text the model marked react to compression
+		// unlike the image's other text?
+		if elaRan && len(f.TextAnomalies) > 0 {
+			if src := awaitImage(gctx, decoded); src != nil {
+				ev := p.measureText(gctx, src, f.TextAnomalies)
+				mu.Lock()
+				textEvidence = ev
+				mu.Unlock()
+			}
+		}
 
 		// Tactics are verified against the text the user can see: the link's
 		// caption, or the model's own OCR of the image.
@@ -376,12 +398,22 @@ func (p *Pipeline) RunStream(ctx context.Context, req Request, emit func(Event))
 	defer mu.Unlock()
 	// The model's region boxes are shown on the ELA viewer. They are attached
 	// only after every goroutine finished, so no two writers share a struct.
+	// A box whose text reacts to compression unlike the other text raises the
+	// ELA score to its evidence and, from 70, is a hotspot ELA_CORROBORATED
+	// can match: the model and the measurement point at the same text.
 	if res.Pillars.ELA.Available {
 		res.Pillars.ELA.Anomalies = make([]models.Anomaly, 0, len(modelBoxes))
-		for _, a := range modelBoxes {
-			res.Pillars.ELA.Anomalies = append(res.Pillars.ELA.Anomalies, models.Anomaly{
-				BoundingBox: a.BoundingBox, ExtractedText: a.ExtractedText, Reason: a.Reason,
-			})
+		for i, a := range modelBoxes {
+			anomaly := models.Anomaly{BoundingBox: a.BoundingBox, ExtractedText: a.ExtractedText, Reason: a.Reason}
+			if i < len(textEvidence) && textEvidence[i] >= 0 {
+				ev := textEvidence[i]
+				anomaly.Evidence = &ev
+				res.Pillars.ELA.Score = max(res.Pillars.ELA.Score, ev)
+				if ev >= TextHotspotMin {
+					res.ELAHotspots = append(res.ELAHotspots, scoring.Box(a.BoundingBox))
+				}
+			}
+			res.Pillars.ELA.Anomalies = append(res.Pillars.ELA.Anomalies, anomaly)
 		}
 	}
 	res.Degraded = elaFailed || llmFailed || linkFailed || searchFailed
@@ -389,20 +421,29 @@ func (p *Pipeline) RunStream(ctx context.Context, req Request, emit func(Event))
 	return res
 }
 
-func (p *Pipeline) runELA(ctx context.Context, image []byte) (models.ELAPillar, []scoring.Box, bool) {
+// runELA returns the pillar, its grid hotspots and the decoded image (nil
+// when decoding failed or ran out of time).
+func (p *Pipeline) runELA(ctx context.Context, encoded []byte) (models.ELAPillar, []scoring.Box, image.Image, bool) {
 	ectx, cancel := withBudget(ctx, p.ELADeadline)
 	defer cancel()
 	done := make(chan struct{})
 	var res forensics.Result
+	var src image.Image
 	var err error
-	go func() { res, err = forensics.Analyze(image); close(done) }()
+	go func() {
+		var format string
+		if src, format, err = forensics.Decode(encoded); err == nil {
+			res, err = forensics.AnalyzeImage(src, format)
+		}
+		close(done)
+	}()
 	select {
 	case <-done:
 	case <-ectx.Done():
-		return models.ELAPillar{Anomalies: []models.Anomaly{}}, nil, false
+		return models.ELAPillar{Anomalies: []models.Anomaly{}}, nil, nil, false
 	}
 	if err != nil {
-		return models.ELAPillar{Anomalies: []models.Anomaly{}}, nil, false
+		return models.ELAPillar{Anomalies: []models.Anomaly{}}, nil, nil, false
 	}
 	// The 16x16 grid cells above the mean are the physical hotspots the
 	// ELA_CORROBORATED floor needs; without them the floor can never fire.
@@ -420,7 +461,53 @@ func (p *Pipeline) runELA(ctx context.Context, image []byte) (models.ELAPillar, 
 		note := res.Note
 		pillar.ReliabilityNote = &note
 	}
-	return pillar, boxes, true
+	return pillar, boxes, src, true
+}
+
+// TextHotspotMin is the text evidence from which a model box counts as an
+// ELA hotspot for ELA_CORROBORATED. No original line reached it on the
+// benchmark (internal/forensics/text.go).
+const TextHotspotMin = 70
+
+// maxMeasuredBoxes bounds the text check: each box costs two JPEG
+// re-encodes of a band of the image.
+const maxMeasuredBoxes = 4
+
+// measureText runs TextEvidence on the model's boxes within the text
+// budget; late or skipped boxes are -1 (unmeasured).
+func (p *Pipeline) measureText(ctx context.Context, src image.Image, boxes []llm.Anomaly) []int {
+	out := make([]int, len(boxes))
+	for i := range out {
+		out[i] = -1
+	}
+	n := min(len(boxes), maxMeasuredBoxes)
+	norm := make([][4]int, n)
+	for i := 0; i < n; i++ {
+		norm[i] = boxes[i].BoundingBox
+	}
+	budget := p.TextDeadline
+	if budget <= 0 {
+		budget = 1500 * time.Millisecond
+	}
+	tctx, cancel := withBudget(ctx, budget)
+	defer cancel()
+	done := make(chan []int, 1)
+	go func() { done <- forensics.TextEvidence(src, norm) }()
+	select {
+	case ev := <-done:
+		copy(out, ev)
+	case <-tctx.Done():
+	}
+	return out
+}
+
+func awaitImage(ctx context.Context, ch <-chan image.Image) image.Image {
+	select {
+	case src := <-ch:
+		return src
+	case <-ctx.Done():
+		return nil
+	}
 }
 
 // runLink scores a URL, follows where it really leads, and asks Safe

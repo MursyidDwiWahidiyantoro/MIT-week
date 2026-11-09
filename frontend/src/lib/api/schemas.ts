@@ -24,7 +24,10 @@ export const tacticCodeSchema = z.enum([
 export const anomalySchema = z.object({
   bounding_box: z.tuple([z.number(), z.number(), z.number(), z.number()]),
   extracted_text: z.string().optional(),
-  reason: z.string().optional()
+  reason: z.string().optional(),
+  // Timpa Teks: 0-100, null when it could not be measured; older payloads
+  // omit it.
+  evidence: z.number().int().min(0).max(100).nullish().transform((v) => v ?? null)
 });
 
 export const sourceSchema = z.object({

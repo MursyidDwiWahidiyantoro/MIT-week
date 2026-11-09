@@ -113,10 +113,10 @@
         "degraded": false,
         "is_demo": true,
         "verdict": {
-          "score": 85,
+          "score": 91,
           "status": "TAMPERED",
           "short_title": "Contoh: tangkapan layar berita diedit",
-          "explanation": "Angka harga pada gambar ini tampak ditempel: kompresinya berbeda dari bagian lain. Sumber contoh juga membantah klaimnya. Geser penanda untuk membandingkan gambar asli dan hasil ELA. Ini data simulasi.",
+          "explanation": "Angka harga pada gambar ini tampak ditempel: kompresinya berbeda dari teks lain di gambar. Sumber contoh juga membantah klaimnya. Geser penanda untuk membandingkan gambar asli dan hasil ELA. Ini data simulasi.",
           "explanation_simple": "Kabar ini dibantah sumber terpercaya. Jangan disebarkan.",
           "basis": [
             "ela",
@@ -127,13 +127,14 @@
             "link"
           ],
           "floors_applied": [
-            "FACT_CONTRADICTED"
+            "FACT_CONTRADICTED",
+            "ELA_CORROBORATED"
           ]
         },
         "pillars": {
           "ela": {
             "available": true,
-            "score": 3,
+            "score": 100,
             "reliability": 1,
             "reliability_note": null,
             "anomalies": [
@@ -145,7 +146,8 @@
                   944
                 ],
                 "extracted_text": "RP 2.000/KG",
-                "reason": "Angka harga punya tepi dan kompresi berbeda dari teks di sekitarnya"
+                "reason": "Angka harga punya tepi dan kompresi berbeda dari teks di sekitarnya",
+                "evidence": 100
               }
             ]
           },

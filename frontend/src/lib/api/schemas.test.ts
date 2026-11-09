@@ -87,6 +87,25 @@ describe('parseDossier', () => {
     expect(() => parseDossier(bad)).toThrow();
   });
 
+  it('reads the text-check evidence of a marked area, null when absent', () => {
+    const base = minimalDossier();
+    const ela = {
+      available: true,
+      score: 91,
+      reliability: 1,
+      reliability_note: null,
+      anomalies: [
+        { bounding_box: [400, 40, 470, 600], extracted_text: 'Rp 2.000', reason: 'x', evidence: 91 },
+        { bounding_box: [10, 10, 20, 20], evidence: null },
+        { bounding_box: [10, 10, 20, 20] }
+      ]
+    };
+    const d = parseDossier({ ...base, pillars: { ...base.pillars, ela } });
+    expect(d.pillars.ela.anomalies.map((a) => a.evidence)).toEqual([91, null, null]);
+    const bad = { ...base, pillars: { ...base.pillars, ela: { ...ela, anomalies: [{ bounding_box: [0, 0, 1, 1], evidence: 150 }] } } };
+    expect(() => parseDossier(bad)).toThrow();
+  });
+
   it('raises SchemaVersionError for a newer contract', () => {
     expect(() => parseDossier(minimalDossier({ schema_version: 3 }))).toThrow(SchemaVersionError);
   });

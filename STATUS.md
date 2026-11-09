@@ -98,7 +98,7 @@ Hasil terakhir (8 Nov 2026):
 | `internal/aidetect` | ADA (opsional) | detektor gambar AI Sightengine `genai`; mati tanpa kunci |
 | `internal/security` | ADA | SSRF `Dialer.Control` + penolakan target internal, upload JPEG/PNG/WebP (ukuran WebP dibaca dari header), rate limit dengan identitas dari edge host, header, CORS |
 | `internal/token` | ADA | HMAC share token, tamper, rotasi |
-| `internal/forensics` | ADA | ELA q90, grid 16×16, reliabilitas per format, `Hotspots`, gambar untuk model (JPEG ≤ 1600 px) |
+| `internal/forensics` | ADA | ELA q90, grid 16×16, reliabilitas per format, `Hotspots`, gambar untuk model (JPEG ≤ 1600 px); **Timpa Teks** `TextEvidence`: teks yang ditandai model dibandingkan dengan teks lain di gambar (benchmark 68 pasang foto nyata: 0 baris asli lolos, 41–65 % baris yang diketik ulang tertangkap) |
 | `internal/linkcheck` | ADA | brand lookalike berbasis token, domain resmi, unroll redirect, `SHORTENER_HIDES`, Safe Browsing, cek halaman tujuan (form sandi/PIN/OTP, nama bank di judul); diuji pada data phishing nyata (83,6 % tautan phishing bertema Indonesia diberi peringatan, 4 dari 10.060 situs sah salah ditandai) |
 | `internal/metadata` | ADA | oEmbed (YouTube, TikTok, X) dan OpenGraph lewat klien aman; BLOCKED/UNAVAILABLE jujur |
 | `internal/llm` | ADA | analisis + klasifikasi dengan `json_schema` strict, input gambar, deteksi injeksi, mock deterministik; bawaan deploy: OpenRouter `nvidia/nemotron-3.5-super-vl:free` + cadangan `openrouter/free` |
@@ -141,12 +141,18 @@ SSE: `stage → partial → verdict → done`, dengan heartbeat `: ping`.
 2. **Kuota model gratis kecil.** OpenRouter gratis: 20 permintaan per menit
    dan 50 per hari (1.000 per hari setelah top-up $10). Satu audit memakai
    sampai dua panggilan model.
-3. **Skor ELA adalah rata-rata global** (TECH_SPEC §3.4). Suntingan kecil
-   terlihat jelas di tampilan panas, tetapi skornya rendah, jadi
-   `ELA_CORROBORATED` jarang terpicu. Sejak 2026-11-09 ELA hanya dihitung
-   sebagai bukti suntingan (skor ≥ 50), jadi skor rendah tidak lagi menurunkan
-   vonis atau membuat gambar "aman". Skor lokal yang lebih tajam masih
-   menunggu kumpulan gambar berlabel (`docs/DECISIONS.md`).
+3. **Timpa Teks belum diuji pada hoaks sungguhan.** Rata-rata ELA global
+   tidak membedakan gambar asli dan suntingan, jadi sejak 2026-11-09 teks yang
+   ditandai model dibandingkan dengan teks lain di gambar yang sama
+   (`forensics.TextEvidence`). Pada benchmark dari foto nyata tidak ada baris
+   asli yang lolos, dan 41–65 % baris yang diketik ulang tertangkap; teruskan
+   ulang atau perkecil gambar setelah diedit melemahkan sinyal. Pengukuran
+   hanya berjalan pada kotak yang ditandai model. Uji ulang dengan hoaks nyata
+   dari situs cek fakta begitu ada kumpulan berlabel (`tools/textbench`).
+3b. **Ambang `AI_LIKELY` (80) belum dikalibrasi dengan model sungguhan.**
+   Kunci model tidak tersedia saat Jejak AI dibangun; ambang diambil dari
+   rubrik prompt. Data asal-usul file (C2PA, IPTC, ComfyUI, dll.) diuji pada
+   file nyata dan tidak bergantung pada model.
 4. **Share target Android** belum dicek manual di ponsel (Playwright tidak bisa
    membuka menu Share OS).
 5. **`$lib` masih lewat `alias` di `vite.config.ts`**, yang sudah deprecated di
@@ -267,8 +273,9 @@ tools/               check-demo-diff.sh
 
 1. Deploy dengan kunci asli mengikuti `docs/DEPLOY.md`, lalu jalankan uji §6.
 2. Cek share target di Android Chrome (PWA terpasang) dan bot Telegram.
-3. Skor ELA lokal (risiko 3) baru bisa diputuskan dengan kumpulan gambar berlabel;
-   sampai itu ELA hanya dihitung sebagai bukti suntingan (≥ 50).
+3. Kalibrasi Jejak AI dan Timpa Teks dengan kunci model asli: unggah sekumpulan
+   gambar AI dan foto asli (tanpa metadata), lalu baca skor `ai` dan `evidence`
+   di Dossier; ulangi `tools/textbench` dengan hoaks nyata bila tersedia.
 4. Setelah seminggu di produksi, baca `amba_floors_total` dan
    `amba_link_reasons_total` bersama laporan pengguna: aturan yang memicu alarm
    palsu diperbaiki dengan menambah kasusnya ke test lebih dulu.

@@ -645,3 +645,40 @@ Found on the way: WebP uploads were rejected because the standard library has
 no WebP decoder, although the UI accepts them. The size now comes from the
 VP8/VP8L/VP8X header; WebP is passed to the model and detector as is, and ELA
 is skipped for it (re-compressing as JPEG says nothing about a WebP file).
+
+## 2026-11-09 · Timpa Teks: compare the marked text with the image's other text
+
+The global ELA mean does not separate edited from authentic images (see the
+one-sided ELA entry above), and a localised hot-cell contrast measured
+texture, not edits. What gives a pasted line away is that it was compressed
+fewer times than the text around it: a news graphic's lines are all drawn at
+once, a retyped price is added after the graphic circulated.
+
+`forensics.TextEvidence` therefore compares, for each box the model marks as
+looking pasted, the text's reaction to one more JPEG compression (q75 and
+q90, normalised by edge strength) with the reaction of the other text-like
+blocks of the same image. Benchmark: `tools/textbench/gen.py` builds, from 34
+real camera photos (ianare/exif-samples), a caption-bar graphic saved by a
+publisher and recompressed by a messenger, and the same graphic with its price
+covered and retyped in an editor, forwarded again about half the time. Two
+sets with different seeds: the thresholds were set on the first and checked on
+the second.
+
+| | set 1 | set 2 |
+|---|---|---|
+| original lines with evidence ≥ 50 | 0 / 34 | 0 / 34 |
+| retyped lines ≥ 50 (≥ 70) | 22 / 34 (21) | 14 / 34 (11) |
+| ... not forwarded after the edit | 15 / 21 | 9 / 18 |
+| ... forwarded once more | 7 / 13 | 5 / 16 |
+
+Ratios over the median of the other text: originals 0.87-1.34, retyped lines
+0.89-7.0. Boxes 30 % too large or shifted by a tenth gave the same picture. A
+box without lettering (photo texture) is not measured, since it would always
+stand out against text.
+
+So evidence 70 is a strong sign and becomes a hotspot for `ELA_CORROBORATED`
+(the model and the measurement point at the same text); evidence 50 counts in
+the ELA weight; low evidence says little, because a forward or a resize after
+the edit can erase the difference. The demo screenshot's pasted price now
+measures 100, and its verdict carries `ELA_CORROBORATED`. Revisit with real
+hoax images from fact-checkers once there is a labelled set.

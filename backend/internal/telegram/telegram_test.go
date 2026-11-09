@@ -258,7 +258,7 @@ func TestFormatHandlesInsufficientAndBlocked(t *testing.T) {
 
 func TestFormatExplainsTheImageChecks(t *testing.T) {
 	b := New("T", "s", "", nil)
-	score := 85
+	score, evidence := 85, 92
 	out := b.Format(models.Dossier{
 		InputType: models.InputFile,
 		Verdict:   models.Verdict{Status: models.StatusTampered, Score: &score, ShortTitle: "Terindikasi Hoax/Manipulasi", ExplanationSimple: "Ada tanda jelas gambar ini dibuat dengan AI. Jangan anggap sebagai foto asli."},
@@ -266,13 +266,13 @@ func TestFormatExplainsTheImageChecks(t *testing.T) {
 			AI: models.AIPillar{Available: true, Score: 95, Indicators: []string{"Tulisan di spanduk berupa huruf acak"},
 				Provenance: models.Provenance{Kind: models.ProvenanceAIGenerated, Source: "c2pa", Generator: "OpenAI", C2PA: true},
 				Detector:   &models.AIDetector{Name: "sightengine", Score: 98}},
-			ELA: models.ELAPillar{Available: true, Anomalies: []models.Anomaly{{ExtractedText: "Rp 5.000", Reason: "huruf berbeda"}}},
+			ELA: models.ELAPillar{Available: true, Anomalies: []models.Anomaly{{ExtractedText: "Rp 5.000", Reason: "huruf berbeda", Evidence: &evidence}}},
 		},
 	})
 	for _, want := range []string{
 		"Jejak AI: Content Credentials (C2PA) di file menyatakan gambar ini dibuat dengan AI (OpenAI). Pemeriksa khusus AI: 98/100.",
 		"- Tulisan di spanduk berupa huruf acak",
-		"Teks yang tampak ditempel:\n- \"Rp 5.000\": huruf berbeda",
+		"Teks yang tampak ditempel:\n- \"Rp 5.000\": huruf berbeda (kompresinya berbeda dari teks lain di gambar)",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("missing %q in %s", want, out)

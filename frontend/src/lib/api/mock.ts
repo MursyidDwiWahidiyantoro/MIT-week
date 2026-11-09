@@ -355,7 +355,9 @@ function fileDossier(payload: MockPayload): DossierParsed {
         anomalies: [
           {
             bounding_box: [280, 300, 520, 720],
-            reason: 'Area ini memiliki perbedaan kompresi yang menonjol (contoh).'
+            reason: 'Area ini memiliki perbedaan kompresi yang menonjol (contoh).',
+            // Preview mode does not read the image, so nothing was measured.
+            evidence: null
           }
         ]
       },

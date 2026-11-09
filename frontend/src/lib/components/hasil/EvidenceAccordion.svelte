@@ -32,6 +32,10 @@
 
   const available = (k: Key) => pillars[k].available;
 
+  // Marked text whose compression differs from the image's other text
+  // (forensics TextEvidence >= scoring.ELAEvidenceMin).
+  const pastedCount = $derived(pillars.ela.anomalies.filter((a) => (a.evidence ?? -1) >= 50).length);
+
   // scoring.ELAEvidenceMin: below it image analysis is reported as checked
   // but is not evidence either way, so the card says so.
   const ELA_EVIDENCE_MIN = 50;
@@ -81,6 +85,7 @@
           {#if pillars.ela.score < ELA_EVIDENCE_MIN}<p>{t('ev.elaInconclusive')}</p>{/if}
           {#if pillars.ela.anomalies.length}
             <p>{t('ev.areas', { n: pillars.ela.anomalies.length })}</p>
+            {#if pastedCount > 0}<p>{t('ev.textEvidence', { n: pastedCount })}</p>{/if}
           {:else}
             <p>{t('ev.noAreas')}</p>
           {/if}

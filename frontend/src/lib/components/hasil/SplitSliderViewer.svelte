@@ -33,6 +33,9 @@
     }
   }
 
+  // scoring.ELAEvidenceMin: from here the text check counts as evidence.
+  const TEXT_EVIDENCE_MIN = 50;
+
   // Boxes are normalized 0-1000 as [ymin, xmin, ymax, xmax] against the image's
   // own dimensions, so percentages hold at any aspect ratio.
   const boxes = $derived(
@@ -44,7 +47,8 @@
         width: (xmax - xmin) / 10,
         height: (ymax - ymin) / 10,
         reason: a.reason ?? '',
-        text: a.extracted_text ?? ''
+        text: a.extracted_text ?? '',
+        evidence: a.evidence ?? null
       };
     })
   );
@@ -111,6 +115,11 @@
           <strong>{t('slider.area', { n: i + 1 })}</strong>
           {#if box.text}<span class="quote">“{box.text}”</span>{/if}
           {#if box.reason}<span class="reason">{box.reason}</span>{/if}
+          {#if box.evidence !== null}
+            <span class="evidence" class:strong={box.evidence >= TEXT_EVIDENCE_MIN}>
+              {t(box.evidence >= TEXT_EVIDENCE_MIN ? 'slider.evidenceHigh' : 'slider.evidenceLow')}
+            </span>
+          {/if}
         </span>
       </li>
     {/each}
@@ -205,4 +214,6 @@
   }
   .quote { display: block; color: var(--body-2); }
   .reason { display: block; color: var(--muted); font-size: var(--text-sm); }
+  .evidence { display: block; color: var(--muted); font-size: var(--text-sm); }
+  .evidence.strong { color: var(--ink); font-weight: 700; }
 </style>
