@@ -57,6 +57,14 @@ func (p *Pipeline) fetchVideo(ctx context.Context, rawURL string) (clip *video.C
 	fctx, cancel := withBudget(ctx, p.VideoFetchDeadline)
 	defer cancel()
 	c, err := p.Video.Fetch(fctx, rawURL)
+	// TikTok sometimes stalls one socket read (yt-dlp gives up after 10 s);
+	// the same video went through on the next try. Retry once while at
+	// least 10 s of the download budget is left.
+	if errors.Is(err, video.ErrTimeout) && fctx.Err() == nil {
+		if dl, ok := fctx.Deadline(); !ok || time.Until(dl) >= 10*time.Second {
+			c, err = p.Video.Fetch(fctx, rawURL)
+		}
+	}
 	if err != nil || c == nil || len(c.Frames) == 0 {
 		va.Reason, transient = videoReason(err)
 		return nil, va, transient
