@@ -434,3 +434,22 @@ detections (AI-generated vs authentic image, pasted-over text, genuine vs
 fake or hoax link). The text audit, the SMS/phone scam rules and Cek Cepat
 were removed; the scam-rule measurements above describe code that is no
 longer in the product.
+
+## The three detections, upgraded (2026-11-09)
+
+- **Jejak AI** (is the image AI-made?): the file's own provenance first
+  (Content Credentials/C2PA, IPTC/XMP, Stable Diffusion, ComfyUI, NovelAI,
+  Midjourney settings, EXIF camera data), an optional Sightengine detector,
+  then the model's visible clues under a new AI-generation rubric. Floors
+  `AI_PROVENANCE` (85), `AI_EDITED` (70), `AI_LIKELY` (45, from score 80) for
+  uploads. A link's preview image is judged too, without floors. Replaces the
+  "Penilaian AI" rubric above.
+- **Timpa Teks** (was text pasted over?): the text the model marks is compared
+  with the image's other text under re-compression. On 68 benchmark pairs from
+  real photos no original line reached evidence 50; 22/34 and 14/34 retyped
+  lines did. Evidence 70 corroborates the model (`ELA_CORROBORATED`).
+- **Keamanan Tautan**: domain age over RDAP (`NEW_DOMAIN`, `YOUNG_DOMAIN`).
+- WebP uploads, rejected before for lack of a decoder, are accepted.
+- New demo `demo-gambar-ai`; the news-screenshot demo now reaches
+  `ELA_CORROBORATED` (score 91).
+- `cmd/evalimages` lets the team calibrate with their own model key.

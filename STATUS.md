@@ -11,7 +11,7 @@
 
 | Hal | Kondisi |
 |---|---|
-| Backend Go | **Selesai & hijau**: 419 test lulus di 17 paket, `-race` |
+| Backend Go | **Selesai & hijau**: 517 test (termasuk subtest) lulus di 18 paket, `-race` |
 | Scope (9 Nov 2026) | Input hanya **tautan** dan **unggah gambar**. Tiga deteksi: gambar buatan AI vs asli, gambar dengan teks ditimpa, tautan asli vs jebakan/hoaks |
 | Frontend (5 halaman + alur hasil) | **Selesai**: audit nyata dengan SSE progresif, demo offline, EN/ID, mode, ukuran teks |
 | PRD | **P0, P1, P2 terpasang** (rincian di bagian 4) |
@@ -68,21 +68,22 @@ cd frontend && npm run lighthouse      # dari folder frontend, setelah build
 bash tools/check-demo-diff.sh
 ```
 
-Hasil terakhir (8 Nov 2026):
+Hasil terakhir (9 Nov 2026):
 
 | Pemeriksaan | Hasil |
 |---|---|
-| `gofmt` + `go vet` + `go test -race` | bersih; 419 test lulus, 17 paket |
+| `gofmt` + `go vet` + `go test -race` | bersih; 517 test (termasuk subtest) lulus, 18 paket |
 | `gendemo` | deterministik, nol diff |
 | `svelte-check` | 0 error, 0 warning |
 | `eslint` | bersih |
-| `vitest` | 61 test lulus di 10 file |
+| `vitest` | 58 test lulus di 9 file |
 | `vite build` | sukses, adapter-static |
-| bundle | 142,0 KB gz / batas 250 KB |
+| bundle | 136,5 KB gz / batas 250 KB |
 | contrast | 82 pasang, dua tema |
 | headers | `vercel.json` = `security-headers.json` |
-| Playwright e2e | 32/32 (axe ID dan EN, paritas mode, i18n, tautan, demo) |
-| Lighthouse (mobile, median 5) | performa 93–100, a11y 100, best practices 96–100, SEO 100, CLS 0 |
+| Playwright e2e | 34/34 (axe ID dan EN, paritas mode, i18n, tautan, demo, Jejak AI lewat API asli, Timpa Teks) |
+| Lighthouse (mobile, median 5) | performa 92–99, a11y 100, best practices 96–100, SEO 100, CLS 0 |
+| Server asli (mock model) | tautan phishing → TAMPERED 85; gambar C2PA dan ComfyUI → `AI_PROVENANCE` 85; foto Pixel → data kamera; WebP diterima; log tanpa URL atau nama file |
 | demo diff | sinkron |
 
 ---
