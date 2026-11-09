@@ -551,3 +551,30 @@ Unrolling the link already requested it, so a scammer could already see a
 visit; the page is never rendered or stored. Not measured on live phishing
 pages: this environment cannot reach them. Revisit: after the first
 production week, with the reason counts from the metrics endpoint.
+
+## 2026-11-09 · Scam rules measured on real SMS
+
+The synthetic sets above are mine. To measure on real messages, the rules
+ran on a public corpus of Indonesian SMS from 2013-2016
+(`dataset_sms_spam_v1.csv` in the GitHub repository
+Andikazidanef15/Sentiment-Analysis-on-Indonesian-SMS-Dataset; 569 personal
+messages, 239 operator promos, 335 fraud and spam). The corpus is not copied
+into the repository.
+
+- First sight: 0 of the 808 personal and promo messages flagged, 79 of the
+  335 fraud/spam messages.
+- The corpus was split by row (even rows to tune, odd rows held out). Tuning
+  added SMS shorthand for prizes ("M-dptkan hadiah", "PIN pemenang",
+  "hadiah ke-2", "cek Rp 27 jt"), top-ups for a "new number", payments
+  "sudah saya kuasakan" to someone else, and a new pattern `CALL_FORWARD`
+  for dial codes that carry a phone number (`*886*…*08…#`, `**21*…#`), which
+  divert calls and SMS, OTP codes included. A dot followed by a letter or
+  digit ("No.anda", "Rp.1.500.000") no longer ends a sentence.
+- After tuning: still 0 of 808 flagged; the held-out half went from 40 to 80
+  of 168 fraud/spam messages (172 of 335 overall).
+
+The fraud/spam class also holds plain ads (loans, gadgets, gambling), the
+account numbers scammers send after a call (indistinguishable from an
+ordinary transfer request), fake buyers for a house, and summonses to call
+an "official". Those stay with the model. SMS-style regression tests use
+placeholder numbers, not the corpus text.

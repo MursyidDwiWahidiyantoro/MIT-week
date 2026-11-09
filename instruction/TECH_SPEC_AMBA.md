@@ -264,20 +264,21 @@ The most common Indonesian phone scams are recognisable from their wording, with
 | Code | What the message does |
 |---|---|
 | `CREDENTIAL_REQUEST` | asks for an OTP, PIN, password or card data (not a location pin, a Wi-Fi or meeting password, or a warning that names them) |
+| `CALL_FORWARD` | asks to dial a code that carries a phone number or a call-forwarding code (`**21*`, `*21*`, `**61*`, `**62*`, `**67*`), which diverts calls and SMS, OTP codes included |
 | `APK_LURE` | sends an `.apk` or asks to install an "undangan / resi / tilang" app |
 | `WRONG_TRANSFER` | claims a wrong transfer and asks for the money back |
 | `JOB_SCAM` | paid like/follow/rating tasks, pay per day for remote work, or a fee to get a job |
 | `INVESTMENT_SCAM` | any return per day or week, ≥ 10 % a month, or profit "dijamin / tanpa risiko" |
-| `PRIZE_FEE` | a prize, aid, released balance or conditional refund, plus a fee, a money request, secrecy, a threat or an unofficial link/number |
+| `PRIZE_FEE` | a prize, aid, released balance or conditional refund (also in SMS shorthand: "M-dptkan hadiah", "PIN pemenang", "hadiah ke-2"), plus a fee, a money request, secrecy, a threat or an unofficial link/number |
 | `LOAN_FEE` | an easy loan with a fee paid before the money arrives |
-| `MONEY_PRESSURE` | asks for money while posing as family or an officer, reporting a relative's emergency, threatening (with an unofficial destination), or with a scam-typical fee |
+| `MONEY_PRESSURE` | asks for money while posing as family or an officer, reporting a relative's emergency, threatening (with an unofficial destination), or with a scam-typical fee; a top-up for a "new number" (or for a mobile number with "penting / sekarang"); a payment redirected to someone else ("sudah saya kuasakan") |
 | `ACCOUNT_THREAT` | an account, card, number or service "will be blocked" or a new fee is coming, plus an unofficial link, mobile number or account number |
 | `UNOFFICIAL_CONTACT` | a bank's service line (Halo BCA, CS BRI, call center Mandiri) on a mobile number that is not the bank's own WhatsApp number (verified list) |
 
 - Single persuasion cues only become tactics (`URGENCY`, `SECRECY`, `FEAR`, `IMPERSONATION`, `REWARD_BAIT`, §6.1); only the combinations above set the floor.
 - Guards: a denial just before a cue in the same sentence ("jangan berikan…", "tidak pernah meminta…", "kalau ada yang minta…") cancels it; awareness wording (waspada, modus, penipuan, imbau, cek fakta, pelaku, korban…) means the text is a warning or a report, so no pattern is claimed; a link or number on an official domain or the verified bank list is not an "unofficial destination"; an amount such as `Rp 1.500.000` does not end a sentence.
 - Every pattern has one plain Indonesian sentence in the server's `explanation`; the English interface rebuilds it from the code.
-- Measured on messages written before the rules that they led to (November 2026): the first sight of each new set caught about half of the scams (35 of 65 over three sets) with 1 false alarm in 65 ordinary messages. All sets are kept as regression tests; what the rules miss is left to the model and the link check.
+- Measured on messages written before the rules that they led to (November 2026): the first sight of each new set caught about half of the scams (35 of 65 over three sets) with 1 false alarm in 65 ordinary messages. On a public corpus of real Indonesian SMS (1,143 messages: 569 personal, 239 operator promos, 335 fraud and spam, the latter including plain ads) the rules flagged 0 of the 808 personal and promo messages before and after tuning; the fraud/spam class went from 79 of 335 to 172 of 335, tuned on half of the corpus and 80 of 168 on the other, held-out half (40 before). All sets are kept as regression tests; what the rules miss is left to the model and the link check.
 
 ---
 

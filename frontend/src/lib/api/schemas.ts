@@ -73,7 +73,8 @@ export const verdictSchema = z.object({
       'LOAN_FEE',
       'MONEY_PRESSURE',
       'ACCOUNT_THREAT',
-      'UNOFFICIAL_CONTACT'
+      'UNOFFICIAL_CONTACT',
+      'CALL_FORWARD'
     ])
     .nullable()
     .optional()

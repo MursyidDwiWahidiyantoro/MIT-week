@@ -393,6 +393,7 @@ export const en: Record<MessageKey, string> = {
   "res.verifyEyebrow": "Verification",
   "scam.ACCOUNT_THREAT": "The message warns that an account, card or number will be blocked or charged, then points to a link or number not known as an official channel.",
   "scam.APK_LURE": "The message sends or asks you to install an app file (APK), a common way to steal data.",
+  "scam.CALL_FORWARD": "The message asks you to dial a code that contains a phone number (such as *21*…#). Such codes can divert your calls and texts, including OTP codes, to another number.",
   "scam.CREDENTIAL_REQUEST": "The message asks for an OTP, PIN or card details. Banks and official services never ask for them.",
   "scam.INVESTMENT_SCAM": "The message promises returns that are too high or free of risk.",
   "scam.JOB_SCAM": "The message offers easy paid work or asks for a fee to get a job.",

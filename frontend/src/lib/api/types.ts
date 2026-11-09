@@ -65,6 +65,7 @@ export interface Verdict {
     | 'MONEY_PRESSURE'
     | 'ACCOUNT_THREAT'
     | 'UNOFFICIAL_CONTACT'
+    | 'CALL_FORWARD'
     | null;
 }
 

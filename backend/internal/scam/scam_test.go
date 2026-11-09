@@ -504,3 +504,47 @@ func TestUnofficialBankContact(t *testing.T) {
 		}
 	}
 }
+
+// SMS-style messages written for these tests (placeholder numbers) in the
+// wording of the public Indonesian SMS spam corpus (dataset_sms_spam_v1.csv,
+// 2013-2016 messages; the corpus itself is not copied here):
+// abbreviations ("M-dptkan", "Slmt", "No.anda"), winner PINs, top-ups for a
+// "new number", payments redirected to someone else and dial codes.
+var smsStyleScams = []struct{ text, want string }{
+	{"Selamat No.SIM Card Anda M-dptkan HADIAH 1 UNIT MOBIL PIN:8XX1234 U/INFO Hub: 0812-0000-0001 klik www.info-hadiah-contoh.blogspot.com", PrizeFee},
+	{"Slmt!! No anda Mendpt hadiah Rp. 75 juta dr undian poin. Info Hub : 0812 0000 0002 IR. CONTOH", PrizeFee},
+	{"PESAN RESMI: PIN_PEMENANG ANDA HH25H77 Mendapatkan Hadiah 1 Unit Mobil, U/Info Klik: www.contoh-undian.webnode.com", PrizeFee},
+	{"Nasabah Yth. Anda dapat cek. 27.juta dari undian bank. Kode cek anda (0259) info klik www.contoh-pusat2016.blogspot.com", PrizeFee},
+	{"Plg yth no. Anda resmi meraih hadiah ke-2 pin M248K81 cek di www.contoh-hadiah29.blogspot.com", PrizeFee},
+	{"Belikan dulu mama pulsa 20 ribu ini nomor barunya mama. kalau bisa kirim sekarang penting", MoneyPressure},
+	{"ma, isi dl pulsa 20 rb di nmr ini 0812-0000-0003", MoneyPressure},
+	{"ayah isikan pulsa 50rb di no 0812-0000-0004 sekarang penting", MoneyPressure},
+	{"Yank tlong isi’in aku pulsa 10rb, di no ini, 0812-0000-0005 nanti aq yg tlpn", MoneyPressure},
+	{"Mengenai uang kontrakan harap ke Bpk Contoh, Nomor Hp: 0812-0000-0006, soalnya sdh saya kuasakan penuh ke dia.", MoneyPressure},
+	{"Anda mempunyai 3 pesan suara dari 0812-0000-0007; untuk mendengarkan silahkan tekan *886*10000*081200000007# tekan OK/YA.", CallForward},
+	{"Paket kakak tertahan, untuk konfirmasi kurir silakan tekan **21*081200000008# lalu panggil.", CallForward},
+}
+
+// Operator promos and ordinary SMS in the same corpus style.
+var smsStyleLegit = []string{
+	"[PROMO] Beli paket Flash mulai 1GB di aplikasi dpt EXTRA kuota 2GB. Buruan, cek di tsel.me/mytsel S&K",
+	"Plg Yth, sisa kuota Anda 478KB. Download aplikasi di http://tsel.me/tsel utk cek kuota atau hub *363#",
+	"2.5 GB/30 hari hanya Rp 35 Ribu Spesial buat Anda yang terpilih. Aktifkan sekarang juga di *550*905#. S&K",
+	"Isi ulang Pulsa Rp.5000 Regular pada 11/02 19:57. Ref:78330280. Info cek *888#",
+	"Ma, nanti aku isi pulsa sendiri aja di konter dekat kampus.",
+	"Pemenang lomba 17-an diumumkan nanti malam di balai RW, hadiahnya dibagikan Pak RT.",
+	"Cek kuota tekan *363# lalu pilih menu 1.",
+}
+
+func TestSMSStyle(t *testing.T) {
+	for _, c := range smsStyleScams {
+		if got := Analyze(c.text).Pattern; got != c.want {
+			t.Errorf("%q: pattern %q, want %q", c.text, got, c.want)
+		}
+	}
+	for _, text := range smsStyleLegit {
+		if r := Analyze(text); r.Strong() {
+			t.Errorf("false alarm %s on %q (hits %+v)", r.Pattern, text, r.Hits)
+		}
+	}
+}

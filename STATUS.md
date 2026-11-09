@@ -102,7 +102,7 @@ Hasil terakhir (8 Nov 2026):
 | `internal/grounding` | ADA | Google Fact Check Tools + allowlist; hanya URL hasil pencarian AMBA yang bisa terverifikasi |
 | `internal/pipeline` | ADA | SSE progresif, anggaran per langkah, cache LRU 500, satu event akhir per pilar; aturan penipuan jalan sebelum model; tautan tanpa `https://` di teks atau OCR ikut diperiksa |
 | `internal/tactics` | ADA | NFKC + verifikasi substring (teks, caption, atau OCR) |
-| `internal/scam` | ADA | 10 pola penipuan tanpa model (OTP/PIN, APK, salah transfer, kerja, investasi, hadiah, pinjaman, minta uang, ancaman blokir akun, nomor CS bank palsu); pada pesan yang belum pernah dilihat menangkap sekitar separuh penipuan dengan 1 alarm palsu dari 65 pesan biasa |
+| `internal/scam` | ADA | 11 pola penipuan tanpa model (OTP/PIN, kode pengalihan panggilan, APK, salah transfer, kerja, investasi, hadiah, pinjaman, minta uang/pulsa, ancaman blokir akun, nomor CS bank palsu); pada 1.143 SMS nyata: 0 alarm palsu dari 808 SMS pribadi dan promo, separuh SMS penipuan/spam tertandai |
 | `internal/reply` | ADA | draf model tervalidasi (≤ 280, URL sumber saja, kata terlarang) + template status × nada |
 | `internal/telegram` | ADA | webhook ber-secret atau polling, `/cek`, foto, batas per chat |
 | `internal/metrics` | ADA | penghitung anonim Prometheus di listener internal |

@@ -410,6 +410,14 @@ All sets pass now and stay as regression tests; 3 messages are still left
 to the model (a fake OJK officer, a "finance department" transfer request,
 an English account notice).
 
+Real SMS (public Indonesian corpus, 1,143 messages, not copied into the repo):
+
+| Class | First sight | After tuning on even rows | Held-out odd rows |
+|---|---|---|---|
+| Personal messages (569) | 0 flagged | 0 flagged | 0 / 284 |
+| Operator promos (239) | 0 flagged | 0 flagged | 0 / 119 |
+| Fraud and spam, ads included (335) | 79 | 172 | 80 / 168 (40 before) |
+
 ## One-sided ELA and the AI rubric (2026-11-09)
 
 - ELA counts only from 50 up; a low ELA no longer lowers a score or helps an

@@ -394,6 +394,7 @@ export const id = {
   "res.verifyEyebrow": "Verifikasi",
   "scam.ACCOUNT_THREAT": "Pesan mengancam akun, kartu, atau nomor akan diblokir atau kena biaya, lalu mengarahkan ke tautan atau nomor yang tidak dikenal sebagai saluran resmi.",
   "scam.APK_LURE": "Pesan mengirim atau menyuruh memasang file aplikasi (APK), cara yang sering dipakai untuk mencuri data.",
+  "scam.CALL_FORWARD": "Pesan menyuruh menekan kode yang memuat nomor HP (misalnya *21*…#). Kode seperti itu bisa mengalihkan telepon dan SMS, termasuk kode OTP, ke nomor lain.",
   "scam.CREDENTIAL_REQUEST": "Pesan meminta kode OTP, PIN, atau data kartu. Bank dan layanan resmi tidak pernah memintanya.",
   "scam.INVESTMENT_SCAM": "Pesan menjanjikan keuntungan yang terlalu tinggi atau tanpa risiko.",
   "scam.JOB_SCAM": "Pesan menawarkan kerja mudah berbayar atau meminta biaya untuk mendapat pekerjaan.",

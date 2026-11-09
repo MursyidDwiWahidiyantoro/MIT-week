@@ -355,6 +355,7 @@ var scamText = map[string]string{
 	"LOAN_FEE":           "Pesan menawarkan pinjaman mudah yang meminta biaya di depan.",
 	"MONEY_PRESSURE":     "Pesan meminta uang sambil mengaku keluarga atau petugas, atau sambil mengancam.",
 	"ACCOUNT_THREAT":     "Pesan mengancam akun, kartu, atau nomor akan diblokir atau kena biaya, lalu mengarahkan ke tautan atau nomor yang tidak dikenal sebagai saluran resmi.",
+	"CALL_FORWARD":       "Pesan menyuruh menekan kode yang memuat nomor HP (misalnya *21*…#). Kode seperti itu bisa mengalihkan telepon dan SMS, termasuk kode OTP, ke nomor lain.",
 	"UNOFFICIAL_CONTACT": "Pesan memberi nomor yang bukan nomor resmi bank sebagai kontak bank. Hubungi bank hanya lewat nomor di kartu atau situs resminya.",
 }
 
