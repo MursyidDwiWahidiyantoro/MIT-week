@@ -75,6 +75,9 @@ type Verdict struct {
 	Basis             []string `json:"basis"`
 	NotChecked        []string `json:"not_checked"`
 	FloorsApplied     []string `json:"floors_applied"`
+	// ScamPattern names the deterministic scam pattern behind SCAM_PATTERN
+	// (internal/scam); nil when none was found.
+	ScamPattern *string `json:"scam_pattern"`
 }
 
 // Pillars holds the four independent evidence sources.

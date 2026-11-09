@@ -92,7 +92,7 @@ Hasil terakhir (8 Nov 2026):
 
 | Bagian | Status | Bukti |
 |---|---|---|
-| `internal/scoring` | ADA | bobot ELA .30 / AI .15 / Fact .35 / Link .20; 6 floor termasuk `LINK_STRONG`; vektor 1–12 + 11b |
+| `internal/scoring` | ADA | bobot ELA .30 / AI .15 / Fact .35 / Link .20; 7 floor termasuk `LINK_STRONG` dan `SCAM_PATTERN`; vektor 1–14 + 11b |
 | `internal/security` | ADA | SSRF `Dialer.Control` + penolakan target internal, upload, rate limit dengan identitas dari edge host, header, CORS |
 | `internal/token` | ADA | HMAC share token, tamper, rotasi |
 | `internal/forensics` | ADA | ELA q90, grid 16×16, reliabilitas per format, `Hotspots`, gambar untuk model (JPEG ≤ 1600 px) |
@@ -100,8 +100,9 @@ Hasil terakhir (8 Nov 2026):
 | `internal/metadata` | ADA | oEmbed (YouTube, TikTok, X) dan OpenGraph lewat klien aman; BLOCKED/UNAVAILABLE jujur |
 | `internal/llm` | ADA | analisis + klasifikasi dengan `json_schema` strict, input gambar, deteksi injeksi, mock deterministik; bawaan deploy: OpenRouter `nvidia/nemotron-3.5-super-vl:free` + cadangan `openrouter/free` |
 | `internal/grounding` | ADA | Google Fact Check Tools + allowlist; hanya URL hasil pencarian AMBA yang bisa terverifikasi |
-| `internal/pipeline` | ADA | SSE progresif, anggaran per langkah, cache LRU 500, satu event akhir per pilar |
+| `internal/pipeline` | ADA | SSE progresif, anggaran per langkah, cache LRU 500, satu event akhir per pilar; aturan penipuan jalan sebelum model; tautan tanpa `https://` di teks atau OCR ikut diperiksa |
 | `internal/tactics` | ADA | NFKC + verifikasi substring (teks, caption, atau OCR) |
+| `internal/scam` | ADA | 10 pola penipuan tanpa model (OTP/PIN, APK, salah transfer, kerja, investasi, hadiah, pinjaman, minta uang, ancaman blokir akun, nomor CS bank palsu); pada pesan yang belum pernah dilihat menangkap sekitar separuh penipuan dengan 1 alarm palsu dari 65 pesan biasa |
 | `internal/reply` | ADA | draf model tervalidasi (≤ 280, URL sumber saja, kata terlarang) + template status × nada |
 | `internal/telegram` | ADA | webhook ber-secret atau polling, `/cek`, foto, batas per chat |
 | `internal/metrics` | ADA | penghitung anonim Prometheus di listener internal |

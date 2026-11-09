@@ -185,12 +185,33 @@
             "enum": [
               "FACT_CONTRADICTED",
               "LINK_MALICIOUS",
+              "SCAM_PATTERN",
               "LINK_STRONG",
               "ELA_CORROBORATED",
               "ELA_SOLO_CAP",
               "INJECTION_GUARD"
             ]
           }
+        },
+        "scam_pattern": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "CREDENTIAL_REQUEST",
+            "APK_LURE",
+            "WRONG_TRANSFER",
+            "JOB_SCAM",
+            "INVESTMENT_SCAM",
+            "PRIZE_FEE",
+            "LOAN_FEE",
+            "MONEY_PRESSURE",
+            "ACCOUNT_THREAT",
+            "UNOFFICIAL_CONTACT",
+            null
+          ],
+          "description": "The scam pattern behind SCAM_PATTERN, found by deterministic rules in the message, the link's caption or the text read from an image. Null when no pattern was found."
         }
       },
       "required": [

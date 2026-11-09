@@ -332,6 +332,21 @@ var pillarNames = map[string]string{
 	"llm_untrusted": "catatan: jawaban AI tidak dipakai sebagai bukti",
 }
 
+// scamText explains each SCAM_PATTERN in plain Indonesian (TECH_SPEC §6.3);
+// the English interface rebuilds the same sentence from the code.
+var scamText = map[string]string{
+	"CREDENTIAL_REQUEST": "Pesan meminta kode OTP, PIN, atau data kartu. Bank dan layanan resmi tidak pernah memintanya.",
+	"APK_LURE":           "Pesan mengirim atau menyuruh memasang file aplikasi (APK), cara yang sering dipakai untuk mencuri data.",
+	"WRONG_TRANSFER":     "Pesan mengaku salah transfer dan meminta uang dikembalikan, modus yang sering dipakai menipu.",
+	"JOB_SCAM":           "Pesan menawarkan kerja mudah berbayar atau meminta biaya untuk mendapat pekerjaan.",
+	"INVESTMENT_SCAM":    "Pesan menjanjikan keuntungan yang terlalu tinggi atau tanpa risiko.",
+	"PRIZE_FEE":          "Pesan menjanjikan hadiah, bantuan, atau pengembalian dana lalu meminta biaya, data, atau membuka tautan.",
+	"LOAN_FEE":           "Pesan menawarkan pinjaman mudah yang meminta biaya di depan.",
+	"MONEY_PRESSURE":     "Pesan meminta uang sambil mengaku keluarga atau petugas, atau sambil mengancam.",
+	"ACCOUNT_THREAT":     "Pesan mengancam akun, kartu, atau nomor akan diblokir atau kena biaya, lalu mengarahkan ke tautan atau nomor yang tidak dikenal sebagai saluran resmi.",
+	"UNOFFICIAL_CONTACT": "Pesan memberi nomor yang bukan nomor resmi bank sebagai kontak bank. Hubungi bank hanya lewat nomor di kartu atau situs resminya.",
+}
+
 func names(codes []string) string {
 	out := make([]string, 0, len(codes))
 	for _, c := range codes {
@@ -352,6 +367,11 @@ func explanation(v models.Verdict, md *models.SourceMetadata) string {
 			parts = append(parts, "Platform tidak mengizinkan pembacaan otomatis, jadi isi unggahannya belum diperiksa. Unggah tangkapan layarnya untuk pemeriksaan lengkap.")
 		case models.MetadataUnavailable:
 			parts = append(parts, "Isi halaman tautan tidak dapat dibaca.")
+		}
+	}
+	if v.ScamPattern != nil {
+		if text, ok := scamText[*v.ScamPattern]; ok {
+			parts = append(parts, text)
 		}
 	}
 	basis := make([]string, 0, len(v.Basis))

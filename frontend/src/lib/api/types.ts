@@ -54,6 +54,18 @@ export interface Verdict {
   basis: Array<'ela' | 'ai' | 'fact' | 'link' | 'llm_untrusted'>;
   not_checked: Array<'ela' | 'ai' | 'fact' | 'link'>;
   floors_applied: string[];
+  scam_pattern?:
+    | 'CREDENTIAL_REQUEST'
+    | 'APK_LURE'
+    | 'WRONG_TRANSFER'
+    | 'JOB_SCAM'
+    | 'INVESTMENT_SCAM'
+    | 'PRIZE_FEE'
+    | 'LOAN_FEE'
+    | 'MONEY_PRESSURE'
+    | 'ACCOUNT_THREAT'
+    | 'UNOFFICIAL_CONTACT'
+    | null;
 }
 
 export interface Dossier {

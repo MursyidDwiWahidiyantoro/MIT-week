@@ -389,3 +389,23 @@ URLs").
 
 Still to run with real keys: the model pillar, fact checking and Safe
 Browsing (`docs/DEPLOY.md` §6).
+
+## Scam rules (2026-11-09)
+
+`internal/scam` adds a deterministic `SCAM_PATTERN` floor (TECH_SPEC §6.3,
+`docs/DECISIONS.md`). Each set below was written before the rules it led to
+and measured once on first sight:
+
+| Set | Scams caught | False alarms in ordinary messages |
+|---|---|---|
+| Documented scams and quoted warnings (built with the rules) | 29 / 29 | 0 / 35 |
+| Holdout 1 | 13 / 20 | not recorded |
+| Holdout 2 | 13 / 15 | 0 / 15 |
+| Set 3: account threats, new fees, customs | 0 / 15 | 5 / 25 |
+| Set 4 | 11 / 20 | 0 / 20 |
+| Set 5 | 10 / 20 | 0 / 20 |
+| Set 6 | 14 / 25 | 1 / 25 |
+
+All sets pass now and stay as regression tests; 3 messages are still left
+to the model (a fake OJK officer, a "finance department" transfer request,
+an English account notice).

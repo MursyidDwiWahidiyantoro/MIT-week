@@ -27,7 +27,8 @@
           ],
           "floors_applied": [
             "FACT_CONTRADICTED"
-          ]
+          ],
+          "scam_pattern": null
         },
         "pillars": {
           "ela": {
@@ -113,7 +114,8 @@
           ],
           "floors_applied": [
             "FACT_CONTRADICTED"
-          ]
+          ],
+          "scam_pattern": null
         },
         "pillars": {
           "ela": {
@@ -203,7 +205,8 @@
           ],
           "floors_applied": [
             "LINK_STRONG"
-          ]
+          ],
+          "scam_pattern": null
         },
         "pillars": {
           "ela": {
@@ -301,7 +304,8 @@
           "not_checked": [
             "ela"
           ],
-          "floors_applied": []
+          "floors_applied": [],
+          "scam_pattern": null
         },
         "pillars": {
           "ela": {

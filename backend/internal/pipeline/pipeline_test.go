@@ -170,3 +170,76 @@ func TestUnverifiedSourceCannotReachTampered(t *testing.T) {
 		}
 	}
 }
+
+// The scam rules need no model: an OTP request still gets a verdict, with
+// the phrases highlighted, when the gateway is down or out of quota.
+func TestScamPatternWithoutTheModel(t *testing.T) {
+	p := newTestPipeline(false) // unreachable gateway, no key
+	text := "Halo kak, tadi ada kode OTP masuk ke nomor kakak, salah kirim. Tolong kirimkan kode OTP itu ke saya ya kak, segera."
+	res := p.Run(context.Background(), Request{InputType: models.InputText, Text: text})
+	if res.ScamPattern != "CREDENTIAL_REQUEST" {
+		t.Fatalf("scam pattern = %q", res.ScamPattern)
+	}
+	v := Verdict(res, false)
+	if v.Status != models.StatusTampered || v.Score == nil || *v.Score != 80 {
+		t.Fatalf("verdict = %+v", v)
+	}
+	if v.ScamPattern == nil || *v.ScamPattern != "CREDENTIAL_REQUEST" {
+		t.Fatalf("verdict scam pattern = %v", v.ScamPattern)
+	}
+	if !res.Degraded {
+		t.Fatal("a missing model must still mark the result degraded")
+	}
+	found := false
+	for _, tc := range res.Tactics {
+		if tc.Code == "URGENCY" && tc.Phrase == "segera" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("rule tactics missing: %+v", res.Tactics)
+	}
+}
+
+// A genuine warning about the same scam is not scored as the scam.
+func TestScamWarningIsNotAScam(t *testing.T) {
+	p := newTestPipeline(true)
+	text := "Jangan Pernah Berikan Kode OTP dan Data Rahasia Anda kepada Siapa Pun."
+	res := p.Run(context.Background(), Request{InputType: models.InputText, Text: text})
+	if res.ScamPattern != "" {
+		t.Fatalf("warning scored as %q", res.ScamPattern)
+	}
+}
+
+// Scam SMS write links without a scheme. They still get the link pillar; an
+// e-mail address does not.
+func TestFirstURLReadsLinksWithoutAScheme(t *testing.T) {
+	cases := map[string]string{
+		"Segera verifikasi di bri-verifikasi.my.id/login sebelum diblokir.": "https://bri-verifikasi.my.id/login",
+		"Klaim di bit.ly/hadiah-dana sekarang":                              "https://bit.ly/hadiah-dana",
+		"Info lengkap: www.kemkes.go.id.":                                   "https://www.kemkes.go.id",
+		"Lihat http://contoh.example/a dan bit.ly/b":                        "http://contoh.example/a",
+		"Kirim CV ke hrd@perusahaan.co.id paling lambat Jumat.":             "",
+		"Harga Rp 1.500.000, total 3 buah.":                                 "",
+		"Ma, nanti aku pulang jam 5 ya.":                                    "",
+	}
+	for text, want := range cases {
+		if got := firstURL(text); got != want {
+			t.Errorf("firstURL(%q) = %q, want %q", text, got, want)
+		}
+	}
+}
+
+func TestBareLinkGetsTheLinkPillar(t *testing.T) {
+	p := newTestPipeline(true)
+	res := p.Run(context.Background(), Request{
+		InputType: models.InputText,
+		Text:      "Akun BRImo Anda akan diblokir. Verifikasi di brimo-verifikasi.my.id",
+	})
+	if !res.Pillars.Link.Available {
+		t.Fatal("a link without https:// must still be checked")
+	}
+	if res.ScamPattern != "ACCOUNT_THREAT" {
+		t.Fatalf("scam pattern = %q", res.ScamPattern)
+	}
+}

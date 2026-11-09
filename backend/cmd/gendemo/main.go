@@ -27,6 +27,7 @@ import (
 	"github.com/amba/amba/backend/internal/linkcheck"
 	"github.com/amba/amba/backend/internal/models"
 	"github.com/amba/amba/backend/internal/pipeline"
+	"github.com/amba/amba/backend/internal/scam"
 	"github.com/amba/amba/backend/internal/scoring"
 )
 
@@ -221,9 +222,11 @@ func base(id, ts string, input models.InputType, ref string) models.Dossier {
 	}
 }
 
-// finish computes the verdict exactly as a live audit would.
-func finish(d models.Dossier, res pipeline.Result, title, explanation string) models.Dossier {
+// finish computes the verdict exactly as a live audit would, including the
+// scam rules on the text a live audit would read.
+func finish(d models.Dossier, res pipeline.Result, text, title, explanation string) models.Dossier {
 	res.Pillars = d.Pillars
+	res.ScamPattern = scam.Analyze(text).Pattern
 	v := pipeline.Verdict(res, false)
 	v.ShortTitle = title
 	v.Explanation = explanation
@@ -249,7 +252,7 @@ func tiktok() demoCase {
 		{Code: "URGENCY", Phrase: "hari ini saja", Source: "text"},
 		{Code: "REWARD_BAIT", Phrase: "Bantuan Rp 500.000", Source: "text"},
 	}
-	d = finish(d, pipeline.Result{}, "Contoh: caption bansos di TikTok",
+	d = finish(d, pipeline.Result{}, caption, "Contoh: caption bansos di TikTok",
 		"Caption ini memakai tekanan waktu dan iming-iming bantuan, lalu meminta disebarkan. Sumber contoh membantah klaimnya. Ini data simulasi untuk memperlihatkan cara kerja AMBA.")
 	return demoCase{ID: "demo-tiktok", Caption: caption, Dossier: d}
 }
@@ -280,7 +283,7 @@ func beritaIG(img []byte, box [4]int) demoCase {
 		Status: models.FactContradicts, Sources: exampleSource("Contoh: harga beras tidak turun ke Rp 2.000", models.FactContradicts)}
 	d.Tactics = []models.Tactic{{Code: "URGENCY", Phrase: "SEBARKAN SEBELUM DIHAPUS", Source: "ocr"}}
 	d.OCRText = ocr
-	d = finish(d, pipeline.Result{ELAHotspots: hotspots, AIAnomalies: []scoring.Box{scoring.Box(box)}},
+	d = finish(d, pipeline.Result{ELAHotspots: hotspots, AIAnomalies: []scoring.Box{scoring.Box(box)}}, ocr,
 		"Contoh: tangkapan layar berita diedit",
 		"Angka harga pada gambar ini tampak ditempel: kompresinya berbeda dari bagian lain. Sumber contoh juga membantah klaimnya. Geser penanda untuk membandingkan gambar asli dan hasil ELA. Ini data simulasi.")
 	return demoCase{ID: "demo-berita-ig", Caption: "Tangkapan layar berita: harga beras turun jadi Rp 2.000/kg", Image: imagePath, Dossier: d}
@@ -303,7 +306,7 @@ func tautan() demoCase {
 		{Code: "FEAR", Phrase: "Akun Anda akan diblokir", Source: "text"},
 		{Code: "URGENCY", Phrase: "Verifikasi sekarang", Source: "text"},
 	}
-	d = finish(d, pipeline.Result{}, "Contoh: tautan meniru halaman masuk bank",
+	d = finish(d, pipeline.Result{}, d.SourceMetadata.Title+"\n"+d.SourceMetadata.Description, "Contoh: tautan meniru halaman masuk bank",
 		"Alamat tautan memakai nama bank dengan kata umpan dan mengarah ke halaman masuk. Bukti dari tautan saja sudah cukup kuat untuk memberi peringatan. Domain .example tidak bisa didaftarkan siapa pun. Ini data simulasi.")
 	return demoCase{ID: "demo-tautan", Caption: "Akun Anda akan diblokir. Verifikasi sekarang di tautan berikut.", Dossier: d}
 }
@@ -317,7 +320,7 @@ func resmi() demoCase {
 	analysis := linkcheck.Analyze("https://www.kemkes.go.id")
 	d.Pillars.Link = models.LinkPillar{Available: true, Score: analysis.Score, FinalURL: "https://www.kemkes.go.id",
 		RedirectChain: []string{"https://www.kemkes.go.id"}, Reasons: []models.LinkReason{}}
-	d = finish(d, pipeline.Result{}, "Contoh: pengumuman resmi",
+	d = finish(d, pipeline.Result{}, caption, "Contoh: pengumuman resmi",
 		"Pesan ini berisi jadwal tanpa tekanan waktu atau permintaan data pribadi, dan tautannya mengarah ke situs pemerintah. Tetap periksa ke pengurus setempat. Ini data simulasi.")
 	return demoCase{ID: "demo-resmi", Caption: caption, Dossier: d}
 }
