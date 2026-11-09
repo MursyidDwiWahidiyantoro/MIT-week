@@ -157,8 +157,17 @@ Cara mengisi setiap kolom:
 - claim: satu klaim faktual utama yang bisa dicek kebenarannya, ditulis ulang secara netral (maksimal 200 karakter).
   Isi "" jika tidak ada klaim yang bisa dicek (sapaan, opini, promosi tanpa klaim fakta).
 - search_query: 3 sampai 8 kata kunci bahasa Indonesia untuk mencari artikel cek fakta tentang klaim itu. "" jika claim kosong.
-- ai_score: 0 sampai 100, seberapa mungkin konten ini dibuat atau diubah dengan AI. Ini hanya indikasi.
-- ai_indicators: paling banyak 4 alasan singkat untuk ai_score.
+- ai_score: 0 sampai 100, seberapa kuat tanda bahwa konten ini menipu atau memanipulasi pembaca. Ini hanya indikasi.
+  Patokan: 0-20 pesan atau gambar biasa tanpa tanda manipulasi (obrolan sehari-hari, pengumuman yang mengarah ke
+  saluran resmi, berita dengan sumber jelas). 21-50 satu atau dua tanda lemah (bahasa promosi atau emosional, klaim
+  yang belum jelas sumbernya). 51-80 beberapa tanda bersama: desakan waktu dengan iming-iming atau ancaman, permintaan
+  uang atau data pribadi, tautan atau nomor yang bukan saluran resmi, klaim heboh tanpa sumber, ajakan menyebarkan,
+  atau gambar yang tampak diedit atau dibuat AI. 81-100 pola penipuan yang dikenal (meminta kode OTP, PIN, atau
+  password; file APK; hadiah atau bantuan yang meminta biaya; salah transfer; kerja like dan subscribe berbayar;
+  investasi untung pasti; ancaman blokir akun dengan tautan) atau gambar hasil edit atau buatan AI yang disajikan
+  sebagai kejadian nyata. Konten yang hanya membahas atau memperingatkan tentang penipuan bukan penipuan.
+- ai_indicators: paling banyak 4 alasan singkat untuk ai_score, misalnya "Meminta kode OTP" atau
+  "Angka harga tampak ditempel".
 - text_anomalies: HANYA untuk gambar. Area teks yang tampak ditempel atau diedit (huruf, perataan, warna latar,
   atau tepi yang berbeda dari sekitarnya). bounding_box = [ymin, xmin, ymax, xmax] dalam skala 0 sampai 1000
   terhadap tinggi dan lebar gambar. extracted_text = teks di dalam kotak. reason = alasan singkat. [] jika tidak ada.

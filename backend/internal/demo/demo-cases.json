@@ -99,7 +99,7 @@
         "degraded": false,
         "is_demo": true,
         "verdict": {
-          "score": 85,
+          "score": 90,
           "status": "TAMPERED",
           "short_title": "Contoh: tangkapan layar berita diedit",
           "explanation": "Angka harga pada gambar ini tampak ditempel: kompresinya berbeda dari bagian lain. Sumber contoh juga membantah klaimnya. Geser penanda untuk membandingkan gambar asli dan hasil ELA. Ini data simulasi.",

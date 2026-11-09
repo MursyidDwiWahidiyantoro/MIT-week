@@ -59,7 +59,8 @@ func TestVectors(t *testing.T) {
 			wantMissed: []string{"link"},
 		},
 		{
-			// W=.755 raw=(3+1.05+35)/.755=51.72 -> 52 -> floor 85
+			// ELA 10 is inconclusive (one-sided ELA): W=.455
+			// raw=(1.05+35)/.455=79.23 -> 79 -> floor 85
 			name: "4 contradicted rescues low average",
 			in: Input{
 				ELA: sig(10, 1.0), AI: sig(10, 0.7), Fact: sig(100, 1.0),
@@ -178,6 +179,36 @@ func TestVectors(t *testing.T) {
 			wantFloors: []string{FloorLinkStrong},
 			wantBasis:  []string{"link"},
 			wantMissed: []string{"ela", "ai", "fact"},
+		},
+		{
+			// One-sided ELA: W=.2+.105=.305 raw=(2+3.15)/.305=16.9 -> 17,
+			// but without a fact check it is not SAFE (the old ELA+Link
+			// route made this SAFE).
+			name:       "15 low ela and a clean link are not safe",
+			in:         Input{ELA: sig(5, 1.0), AI: sig(30, 0.7), Link: sig(10, 1.0)},
+			wantStatus: models.StatusInsufficient,
+			wantBasis:  []string{"ela", "ai", "link"},
+			wantMissed: []string{"fact"},
+		},
+		{
+			// W=.455 raw=(8.4+14)/.455=49.2 -> 49; the old two-sided mean
+			// pulled it down to 32.
+			name:       "16 low ela does not lower the score",
+			in:         Input{ELA: sig(5, 1.0), AI: sig(80, 0.7), Fact: sig(40, 1.0)},
+			wantScore:  ptr0(49),
+			wantStatus: models.StatusSuspicious,
+			wantBasis:  []string{"ela", "ai", "fact"},
+			wantMissed: []string{"link"},
+		},
+		{
+			// W=.455 raw 0; the inconclusive ELA still counts as coverage
+			// (.755 >= .50) and a fact check ran, so SAFE is reachable.
+			name:       "17 low ela counts as coverage for safe",
+			in:         Input{ELA: sig(3, 1.0), AI: sig(0, 0.7), Fact: sig(0, 1.0)},
+			wantScore:  ptr0(0),
+			wantStatus: models.StatusSafe,
+			wantBasis:  []string{"ela", "ai", "fact"},
+			wantMissed: []string{"link"},
 		},
 	}
 
@@ -346,8 +377,13 @@ func TestWeightsAndStatusThresholds(t *testing.T) {
 			wantStatus: models.StatusInsufficient,
 		},
 		{
-			name:       "safe without fact or ela+link downgrades",
+			name:       "safe without a fact check downgrades",
 			in:         Input{AI: sig(0, 1.0), Link: sig(0, 1.0), ELA: off},
+			wantStatus: models.StatusInsufficient,
+		},
+		{
+			name:       "ela alone below the evidence line is insufficient",
+			in:         Input{ELA: sig(49, 1.0)},
 			wantStatus: models.StatusInsufficient,
 		},
 		{
@@ -364,8 +400,8 @@ func TestWeightsAndStatusThresholds(t *testing.T) {
 		},
 		{
 			name:       "solo cap not recorded when it did not bind",
-			in:         Input{ELA: sig(40, 1.0)},
-			wantScore:  ptr0(40),
+			in:         Input{ELA: sig(55, 1.0)},
+			wantScore:  ptr0(55),
 			wantStatus: models.StatusSuspicious,
 		},
 		{

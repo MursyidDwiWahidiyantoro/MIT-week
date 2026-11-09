@@ -36,6 +36,12 @@ const (
 	// LinkOnlyCap keeps a link-only verdict at or below the LINK_MALICIOUS
 	// floor, so the score never rises as the evidence gets thinner.
 	LinkOnlyCap = 85
+	// ELAEvidenceMin is the ELA score from which image analysis counts as
+	// evidence. ELA only ever counts as evidence of editing: on real images
+	// (November 2026) untouched photos scored 0 and edited ones 0-14, so a
+	// low score says nothing about authenticity. Below this it neither lowers
+	// the score nor helps a verdict reach SAFE; it only counts as coverage.
+	ELAEvidenceMin = 50
 	// ScamFloor is the score a message carrying a known scam pattern starts
 	// from (internal/scam): an OTP request, an APK lure, a prize that needs a
 	// fee. Below the 85 of a fact checker's verdict, inside TAMPERED.
@@ -104,7 +110,12 @@ func Compute(in Input) models.Verdict {
 		FloorsApplied: []string{},
 	}
 
-	wELA := effWeight(in.ELA, WeightELA)
+	// One-sided ELA: an inconclusive image analysis is reported as checked
+	// but carries no weight in the score.
+	wELA, elaCoverage := effWeight(in.ELA, WeightELA), 0.0
+	if in.ELA.Score < ELAEvidenceMin {
+		wELA, elaCoverage = 0, wELA
+	}
 	wAI := effWeight(in.AI, WeightAI)
 	wFact := effWeight(in.Fact, WeightFact)
 	wLink := effWeight(in.Link, WeightLink)
@@ -203,7 +214,7 @@ func Compute(in Input) models.Verdict {
 		v.Status = models.StatusInsufficient
 	case *score <= 20:
 		v.Status = models.StatusSafe
-		if totalW+weightEpsilon < SafeMinWeight || !safePillarSet(in) {
+		if totalW+elaCoverage+weightEpsilon < SafeMinWeight || !safePillarSet(in) {
 			v.Status = models.StatusInsufficient
 			score = nil
 		}
@@ -306,8 +317,11 @@ func otherPillarAtLeast50(in Input) bool {
 		(in.Link.Available && in.Link.Score >= 50)
 }
 
+// safePillarSet: "no evidence of risk" is only SAFE when a fact check ran.
+// Image analysis cannot vouch for an image (ELAEvidenceMin), and a clean link
+// says nothing about the claim around it.
 func safePillarSet(in Input) bool {
-	return in.Fact.Available || (in.ELA.Available && in.Link.Available)
+	return in.Fact.Available
 }
 
 func boxesOverlap(hotspots, anomalies []Box) bool {

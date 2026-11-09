@@ -141,8 +141,11 @@ SSE: `stage → partial → verdict → done`, dengan heartbeat `: ping`.
    dan 50 per hari (1.000 per hari setelah top-up $10). Satu audit memakai
    sampai dua panggilan model.
 3. **Skor ELA adalah rata-rata global** (TECH_SPEC §3.4). Suntingan kecil
-   terlihat jelas di peta panas, tetapi skornya rendah, jadi `ELA_CORROBORATED`
-   jarang terpicu. Opsi perbaikan di `docs/DECISIONS.md`.
+   terlihat jelas di tampilan panas, tetapi skornya rendah, jadi
+   `ELA_CORROBORATED` jarang terpicu. Sejak 2026-11-09 ELA hanya dihitung
+   sebagai bukti suntingan (skor ≥ 50), jadi skor rendah tidak lagi menurunkan
+   vonis atau membuat gambar "aman". Skor lokal yang lebih tajam masih
+   menunggu kumpulan gambar berlabel (`docs/DECISIONS.md`).
 4. **Share target Android** belum dicek manual di ponsel (Playwright tidak bisa
    membuka menu Share OS).
 5. **`$lib` masih lewat `alias` di `vite.config.ts`**, yang sudah deprecated di

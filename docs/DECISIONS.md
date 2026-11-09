@@ -384,7 +384,7 @@ the report link. Nothing is stored and chat IDs are never logged. Safe
 Browsing is free for non-commercial use only; commercial use would need Web
 Risk.
 
-## 2026-11-08 · OPEN — the ELA score is a global mean
+## 2026-11-08 · PARTLY RESOLVED 2026-11-09 — the ELA score is a global mean
 
 TECH_SPEC §3.4 defines the ELA score as the image-wide mean difference x 3.5.
 A small pasted region lights up clearly in the heat map but barely moves the
@@ -503,3 +503,31 @@ So the rules catch about half of the scams they have not seen, with about 1
 false alarm in 65 ordinary messages; the model and the link check have to do
 the rest. Revisit: when real user reports show a pattern the rules miss or a
 false alarm, add the message to the tests first.
+
+## 2026-11-09 · One-sided image analysis; the AI score measures manipulation risk
+
+Two pillars pulled verdicts the wrong way on real inputs.
+
+ELA: on real images the global mean was 0 for untouched photos and 0-14 for
+edited ones (the demo's pasted price line scores 3), yet it carried weight
+0.30 in the mean. A low ELA therefore dragged scores down and, with a clean
+link, could make an image SAFE with no fact check at all. Now ELA only
+counts as evidence of editing, from 50 up (`scoring.ELAEvidenceMin`). Below
+that it is reported as checked, carries no weight, and only counts as
+coverage for SAFE; SAFE also needs an available fact check (the ELA+Link
+route is gone). The evidence card says that a low average is not proof of an
+original and that small edits often show only in the heat view. A localised
+score was tried on the same images: the hottest-cell-to-mean ratio was 64
+and 9.8 for the two untouched photos and 2.7 for an edited one, so contrast
+alone measures texture, not edits. A texture-normalised score stays open
+until there is a labelled set large enough to test it on.
+
+AI: the model scored how likely content was made or changed by AI, which is
+near 0 for a hand-typed scam, so the pillar pulled scam messages towards
+SAFE. `ai_score` now follows a written rubric of manipulation risk (scam,
+hoax and edit signs, with AI generation as one of them; warnings about scams
+are not scams), and the UI calls the pillar "Penilaian AI". Its weight and
+reliabilities are unchanged, and it never produces a verdict on its own.
+
+Vectors 15-17 (TECH_SPEC §3.5) pin the new behaviour. Revisit: with a
+labelled image set, or if the rubric scores drift on real traffic.

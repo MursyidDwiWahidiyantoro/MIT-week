@@ -326,7 +326,7 @@ func shortTitle(s models.Status) string {
 // pillarNames is the plain-language name of each pillar code.
 var pillarNames = map[string]string{
 	"ela":           "analisis gambar",
-	"ai":            "jejak AI",
+	"ai":            "penilaian AI",
 	"fact":          "cek fakta",
 	"link":          "keamanan tautan",
 	"llm_untrusted": "catatan: jawaban AI tidak dipakai sebagai bukti",

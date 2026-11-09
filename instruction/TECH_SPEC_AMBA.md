@@ -124,14 +124,15 @@ Each pillar → `Signal{Available bool, Score int(0-100), Reliability float64(0-
 
 | Pillar | Base weight | Score definition | Reliability |
 |---|---|---|---|
-| ELA | 0.30 | server ELA variance normalized 0–100 (see §3.4) | 1.0 JPEG-origin; 0.5 PNG/WebP-lossless or screenshot-like; 0.0 if image < 64 px |
-| AI | 0.15 | LLM 0–100 likelihood | 0.7 image, 0.5 text (LLM self-report is weak) |
+| ELA | 0.30 | server ELA variance normalized 0–100 (see §3.4); **one-sided**: counts only from 50 (below that it is reported as checked but carries no weight) | 1.0 JPEG-origin; 0.5 PNG/WebP-lossless or screenshot-like; 0.0 if image < 64 px |
+| AI | 0.15 | LLM 0–100 manipulation-risk rubric (§6: scam, hoax and edit signs; "AI-generated" is one of them) | 0.7 image, 0.5 text (LLM self-report is weak) |
 | Fact | 0.35 | CONTRADICTS=100, UNVERIFIED=40, SUPPORTS=0; **unavailable if no checkable claim** | 1.0 |
 | Link | 0.20 | `linkcheck` capped sum | 1.0 |
 
 ### 3.2 Formula
 ```
 eff_w_i  = base_w_i * reliability_i      (only for Available pillars)
+eff_w_ELA = 0 when S_ELA < 50            (one-sided ELA, 2026-11-09; its weight only counts as SAFE coverage)
 W        = Σ eff_w_i
 if W < 0.30  → status INSUFFICIENT, score = null
 raw      = Σ(eff_w_i * score_i) / W
@@ -148,7 +149,7 @@ Apply in this order, then clamp 0–100:
 4. `ELA_SOLO_CAP`: if **no** other pillar has score ≥ 50 and no floor 1–3 applied → `score = min(score, 60)`.
 5. `INJECTION_GUARD`: if LLM output was flagged by the injection detector → `score = max(score, 40)` and `basis` adds `"llm_untrusted"`.
 
-Status: 0–20 `SAFE`, 21–60 `SUSPICIOUS`, 61–100 `TAMPERED`. `SAFE` additionally requires `W ≥ 0.50` (else downgrade to `INSUFFICIENT`) and at least one pillar with `Fact` or `ELA`+`Link` available — "no evidence of risk" ≠ "verified safe" (UI text: "Tidak ditemukan tanda bahaya", never "pasti asli").
+Status: 0–20 `SAFE`, 21–60 `SUSPICIOUS`, 61–100 `TAMPERED`. `SAFE` additionally requires coverage `W + eff_w` of an inconclusive ELA `≥ 0.50` (else downgrade to `INSUFFICIENT`) and an available `Fact` pillar — "no evidence of risk" ≠ "verified safe" (UI text: "Tidak ditemukan tanda bahaya", never "pasti asli"). Until 2026-11-09 `ELA`+`Link` could also reach `SAFE`; on real images the ELA mean was 0 for untouched and 0–14 for edited photos, so a low ELA cannot vouch for an image.
 
 ### 3.4 Server-side ELA (`internal/forensics`)
 Decode (limit dimensions via `image.DecodeConfig` first; reject > 4096 px side or > 16 MP) → re-encode JPEG q=90 → mean absolute RGB difference → `variance = mean * 3.5` → clamp 0–100. Also compute a coarse 16×16 grid of cell means for hotspot overlap. Mark `reliability` by source decoder format. Add a unit test with a synthetic image (flat gray + pasted noisy patch) asserting score ordering.
@@ -159,7 +160,7 @@ Decode (limit dimensions via `image.DecodeConfig` first; reject > 4096 px side o
 | 1 | 88, 1.0 | 95, 0.7 | CONTRADICTS (allowlisted) | n/a | raw = (26.4+9.975+35)/0.755 ≈ 94.5 → 95 → TAMPERED |
 | 2 | n/a | 20, 0.5 | UNVERIFIED | n/a | (0.075·20 + 0.35·40)/0.425 ≈ 36.5 → 36 → SUSPICIOUS |
 | 3 | 80, 0.5 | 10, 0.7 | SUPPORTS | n/a | (12+1.05+0)/0.605 ≈ 21.6 → 22 → SUSPICIOUS |
-| 4 | 10, 1.0 | 10, 0.7 | CONTRADICTS (allowlisted) | n/a | raw ≈ 51.7 → 52 → floor 85 → TAMPERED |
+| 4 | 10, 1.0 | 10, 0.7 | CONTRADICTS (allowlisted) | n/a | ELA 10 carries no weight: W=0.455, raw ≈ 79.2 → 79 → floor 85 → TAMPERED |
 | 5 | 95, 1.0 | n/a | n/a | n/a | W=0.30 → raw 95 → ELA_SOLO_CAP → 60 → SUSPICIOUS |
 | 6 | n/a | n/a | n/a | n/a | W=0 → INSUFFICIENT |
 | 7 | n/a | n/a | SUPPORTS | 5 | (0+1.0)/0.55 ≈ 1.8 → 2 → W=0.55 → SAFE |
@@ -171,6 +172,9 @@ Decode (limit dimensions via `image.DecodeConfig` first; reject > 4096 px side o
 | 12 | n/a | n/a | n/a | 89 | LINK_STRONG → min(89, 85) = 85 → TAMPERED |
 | 13 | n/a | 20, 0.5 | n/a | n/a | W=0.075 → no weighted score; scam pattern → SCAM_PATTERN → 80 → TAMPERED |
 | 14 | n/a | n/a | n/a | 45 | scam pattern `PRIZE_FEE` → 80; LINK_STRONG does not apply once a score exists → floors `[SCAM_PATTERN]` |
+| 15 | 5, 1.0 | 30, 0.7 | n/a | 10 | ELA no weight: W=0.305, raw ≈ 16.9 → 17, but no fact check → INSUFFICIENT (was SAFE) |
+| 16 | 5, 1.0 | 80, 0.7 | UNVERIFIED | n/a | W=0.455, raw=(8.4+14)/0.455 ≈ 49.2 → 49 → SUSPICIOUS (the two-sided mean gave 32) |
+| 17 | 3, 1.0 | 0, 0.7 | SUPPORTS | n/a | W=0.455, raw 0; coverage 0.755 ≥ 0.50 and fact available → SAFE |
 
 Row 8 note: floors may rescue an otherwise-`INSUFFICIENT` input to `SUSPICIOUS/TAMPERED` (never to `SAFE`).
 **Agent must recompute vectors 1–7 in tests and fix the table here if arithmetic differs.**
@@ -233,7 +237,7 @@ Implementation notes (2026-11-08; the weights in `internal/linkcheck` and its ta
 
 - Client speaks OpenAI-compatible API to `NINEROUTER_BASE_URL` using a **separate** `http.Client` (it must reach localhost/tunnel, so it is NOT the SSRF client). Model from `NINEROUTER_MODEL`; at startup call `GET /models` and log (without secrets) whether the model exists. Deployments default to OpenRouter's free vision model `nvidia/nemotron-3.5-super-vl:free`; `LLM_EXTRA_BODY` (a JSON object) adds gateway-specific fields to every request, such as OpenRouter's `models` fallback list and `reasoning: {enabled: false}`, and can never replace `model`, `messages`, `response_format` or `temperature`.
 - **Analyze** call per audit, `response_format` = strict JSON schema `LLMFindings`:
-  `{claim, search_query, ai_score, ai_indicators[], text_anomalies[{bounding_box, extracted_text, reason}], ocr_text, tactics[{code, phrase}], injection_suspected}`. Images are sent as an `image_url` data URI: a small JPEG as is, anything larger or PNG re-encoded as JPEG q85 with the longest side ≤ 1600 px (normalised 0–1000 boxes are unaffected), WebP passed through. The model never returns a fact status or sources.
+  `{claim, search_query, ai_score, ai_indicators[], text_anomalies[{bounding_box, extracted_text, reason}], ocr_text, tactics[{code, phrase}], injection_suspected}`. `ai_score` follows a written rubric of manipulation risk (0–20 ordinary, 21–50 weak signs, 51–80 several signs such as pressure plus a request for money or data or an unofficial link, 81–100 a known scam pattern or an edited or AI-made image presented as real; warnings about scams are not scams). The UI calls this pillar "Penilaian AI". Images are sent as an `image_url` data URI: a small JPEG as is, anything larger or PNG re-encoded as JPEG q85 with the longest side ≤ 1600 px (normalised 0–1000 boxes are unaffected), WebP passed through. The model never returns a fact status or sources.
 - Go runs the "tools" itself, before and after the model, instead of model-driven tool rounds: the link's public metadata (oEmbed/OG via the SSRF client, ≤ 2 KB) is fetched first and passed inside `<untrusted_content>`; the model's `search_query` goes to the search provider (Google Fact Check Tools `claims:search`, `languageCode=id`, max 5 allowlisted results); a second **Classify** call labels each returned result `CONTRADICTS | SUPPORTS | UNVERIFIED` against the claim. In mock mode Classify maps the fact-checker's own rating.
 - **Prompt-injection containment:** all external text wrapped in `<untrusted_content>…</untrusted_content>`; system prompt states content inside is data; model never emits a verdict/score (those fields do not exist in the schema); on schema violation → treat LLM pillars as failed (`available=false`), not retry loops; `injection_suspected` or regex hits on ("ignore previous", "system prompt", "set verdict") → flag `INJECTION_GUARD`.
 - **Source verification (`internal/grounding`):** accept a source only if (a) URL appears in the search provider's own result set (no result set → nothing verifies: fail closed), (b) host (eTLD+1) is in `configs/trusted_sources.yaml`, (c) scheme https. Else downgrade that source to `UNVERIFIED`. Starter allowlist: turnbackhoax.id, cekfakta.com, komdigi.go.id, kominfo.go.id, antaranews.com, kompas.com, detik.com, tempo.co, cnnindonesia.com, liputan6.com, tirto.id (reviewed by team).
