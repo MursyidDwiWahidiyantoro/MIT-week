@@ -536,6 +536,69 @@ func TestRounding(t *testing.T) {
 	}
 }
 
+func TestVideoFloors(t *testing.T) {
+	tests := []struct {
+		name       string
+		in         Input
+		wantStatus models.Status
+		wantFloors []string
+		wantMin    int
+		wantSimple string
+	}{
+		{
+			name:       "AI-looking video",
+			in:         Input{Video: true, AI: sig(86, 0.5)},
+			wantStatus: models.StatusSuspicious, wantFloors: []string{FloorAILikely}, wantMin: 45,
+			wantSimple: "Video ini tampak buatan AI. Cek dulu sebelum menyebarkan.",
+		},
+		{
+			name:       "platform AI label",
+			in:         Input{Video: true, AI: sig(90, 0.5), AIDeclared: DeclaredAIGenerated},
+			wantStatus: models.StatusTampered, wantFloors: []string{FloorAIProvenance}, wantMin: 85,
+			wantSimple: "Ada tanda jelas video ini dibuat dengan AI. Jangan anggap sebagai rekaman asli.",
+		},
+		{
+			name:       "caption does not match the footage",
+			in:         Input{Video: true, AI: sig(5, 0.5), VideoContext: 75},
+			wantStatus: models.StatusSuspicious, wantFloors: []string{FloorVideoContextMismatch}, wantMin: 45,
+			wantSimple: "Keterangan video ini tidak cocok dengan isi rekamannya. Cek dulu sebelum menyebarkan.",
+		},
+		{
+			name:       "edited to mislead",
+			in:         Input{Video: true, AI: sig(5, 0.5), VideoManipulation: 80},
+			wantStatus: models.StatusSuspicious, wantFloors: []string{FloorVideoManipulated}, wantMin: 45,
+			wantSimple: "Video ini tampak disunting untuk menyesatkan. Cek dulu sebelum menyebarkan.",
+		},
+		{
+			name:       "signals below the minimum add nothing",
+			in:         Input{Video: true, AI: sig(79, 0.5), VideoContext: 69, VideoManipulation: 69},
+			wantFloors: nil,
+		},
+		{
+			name:       "a link preview image is not judged like a video",
+			in:         Input{AI: sig(95, 0.5), VideoContext: 90},
+			wantFloors: nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			v := Compute(tt.in)
+			if !slices.Equal(v.FloorsApplied, tt.wantFloors) {
+				t.Fatalf("floors = %v, want %v", v.FloorsApplied, tt.wantFloors)
+			}
+			if tt.wantStatus != "" && v.Status != tt.wantStatus {
+				t.Fatalf("status = %s, want %s", v.Status, tt.wantStatus)
+			}
+			if tt.wantMin > 0 && (v.Score == nil || *v.Score < tt.wantMin) {
+				t.Fatalf("score = %v, want >= %d", v.Score, tt.wantMin)
+			}
+			if tt.wantSimple != "" && v.ExplanationSimple != tt.wantSimple {
+				t.Fatalf("simple = %q, want %q", v.ExplanationSimple, tt.wantSimple)
+			}
+		})
+	}
+}
+
 func TestExplanationSimple(t *testing.T) {
 	tests := []struct {
 		name   string
