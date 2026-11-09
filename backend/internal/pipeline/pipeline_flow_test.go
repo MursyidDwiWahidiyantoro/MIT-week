@@ -46,15 +46,22 @@ func claimRequest(t *testing.T) Request {
 	return Request{}
 }
 
+// mockClaim is the claim the deterministic mock reads in req.
+func mockClaim(t *testing.T, req Request) string {
+	t.Helper()
+	return newTestPipeline(true).Run(context.Background(), req).Pillars.Fact.Claim
+}
+
 func TestFactCheckUsesOnlySearchedSources(t *testing.T) {
+	req := claimRequest(t)
 	p := newTestPipeline(true)
 	s := &fakeSearcher{results: []grounding.Result{
-		{Title: "[HOAKS] Bantuan", Publisher: "Kompas.com", URL: "https://www.kompas.com/cekfakta/read/1", Rating: "Hoaks"},
+		{Title: "[HOAKS] " + mockClaim(t, req), Publisher: "Kompas.com", URL: "https://www.kompas.com/cekfakta/read/1", Rating: "Hoaks"},
 		{Title: "Lain", Publisher: "Tempo", URL: "https://cekfakta.tempo.co/2", Rating: "Perlu konteks"},
 	}}
 	p.Searcher = s
 
-	res := p.Run(context.Background(), claimRequest(t))
+	res := p.Run(context.Background(), req)
 	fact := res.Pillars.Fact
 	if !fact.Available || fact.Status != models.FactContradicts || len(fact.Sources) != 2 {
 		t.Fatalf("fact pillar = %+v", fact)
@@ -67,6 +74,31 @@ func TestFactCheckUsesOnlySearchedSources(t *testing.T) {
 	}
 	v := Verdict(res, false)
 	if v.Status != models.StatusTampered || len(v.FloorsApplied) == 0 || v.FloorsApplied[0] != "FACT_CONTRADICTED" {
+		t.Fatalf("verdict = %+v", v)
+	}
+}
+
+// On 9 Nov ordinary news and a fact-check about another subject "contradicted"
+// real Kompas videos. Neither may count.
+func TestOnlyFactChecksOnTheSameSubjectCount(t *testing.T) {
+	req := claimRequest(t)
+	claim := mockClaim(t, req)
+	p := newTestPipeline(true)
+	p.Searcher = &fakeSearcher{results: []grounding.Result{
+		{Title: claim + ", kata pejabat", Publisher: "liputan6.com", URL: "https://www.liputan6.com/bisnis/read/1/x", Rating: "Hoaks"},
+		{Title: "[HOAKS] Pasukan PBB tiba di Aceh", Publisher: "kompas.com", URL: "https://www.kompas.com/cekfakta/read/2", Rating: "Hoaks"},
+	}}
+
+	res := p.Run(context.Background(), req)
+	if res.Pillars.Fact.Status != models.FactUnverified {
+		t.Fatalf("fact = %+v", res.Pillars.Fact)
+	}
+	for _, s := range res.Pillars.Fact.Sources {
+		if s.Match != models.FactUnverified {
+			t.Fatalf("source %q kept match %s", s.Title, s.Match)
+		}
+	}
+	if v := Verdict(res, false); v.Status == models.StatusTampered {
 		t.Fatalf("verdict = %+v", v)
 	}
 }
