@@ -136,7 +136,7 @@ func fillVideo(va *models.VideoAnalysis, c *video.Clip, vf *llm.VideoFindings) {
 		return
 	}
 	va.Status, va.Reason = models.VideoOK, ""
-	va.AudioAnalyzed = len(c.Audio) > 0 && vf.Transcript != ""
+	va.AudioAnalyzed = vf.AudioHeard
 	va.Summary, va.Transcript = vf.Summary, vf.Transcript
 	va.Manipulation = models.VideoSignal{Score: vf.ManipulationScore, Indicators: nonNilStrings(vf.ManipulationIndicators)}
 	va.Context = models.VideoSignal{Score: vf.ContextMismatchScore, Indicators: nonNilStrings(vf.ContextIndicators)}

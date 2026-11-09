@@ -3,6 +3,9 @@ package llm
 import (
 	"context"
 	"errors"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -112,6 +115,54 @@ func TestVideoAnswerWithRenamedKeyGoesToTheFallback(t *testing.T) {
 	f, err := c.AnalyzeVideo(context.Background(), videoInput())
 	if err != nil || f.AIScore != 88 {
 		t.Fatalf("got %+v, %v", f, err)
+	}
+}
+
+func TestVideoHedgeStartsTheFallbackBesideASlowGateway(t *testing.T) {
+	old := videoHedge
+	videoHedge = 100 * time.Millisecond
+	defer func() { videoHedge = old }()
+	slow := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		_, _ = io.Copy(io.Discard, r.Body)
+		select {
+		case <-r.Context().Done():
+		case <-time.After(5 * time.Second):
+		}
+	}))
+	defer slow.Close()
+	fb := gateway(t, validVideoAnswer, nil)
+	defer fb.Close()
+
+	c := New(slow.URL, "k", "m", false)
+	c.AudioInput = true
+	c.Fallback = New(fb.URL, "k", "m2", false)
+	start := time.Now()
+	f, err := c.AnalyzeVideo(context.Background(), videoInput())
+	if err != nil || f.AIScore != 88 {
+		t.Fatalf("got %+v, %v", f, err)
+	}
+	if d := time.Since(start); d > 2*time.Second {
+		t.Fatalf("the hedged answer took %v", d)
+	}
+	if f.AudioHeard {
+		t.Fatal("the fallback never received the audio")
+	}
+	if c.skipping() {
+		t.Fatal("a gateway that only lost the race must not be put in its cooldown")
+	}
+}
+
+func TestVideoAudioHeardOnlyFromAnAudioGateway(t *testing.T) {
+	srv := gateway(t, validVideoAnswer, nil)
+	defer srv.Close()
+	c := New(srv.URL, "k", "m", false)
+	c.AudioInput = true
+	if f, err := c.AnalyzeVideo(context.Background(), videoInput()); err != nil || !f.AudioHeard {
+		t.Fatalf("got %+v, %v", f, err)
+	}
+	c.AudioInput = false
+	if f, _ := c.AnalyzeVideo(context.Background(), videoInput()); f.AudioHeard {
+		t.Fatal("the audio was dropped but AudioHeard is set")
 	}
 }
 

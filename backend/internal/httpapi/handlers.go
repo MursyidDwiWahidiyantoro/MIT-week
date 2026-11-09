@@ -70,7 +70,7 @@ func NewDeps(cfg *config.Config) Deps {
 	// Mock mode never downloads: it is for UI work and tests.
 	if !cfg.LLMMock {
 		if vf := video.NewFromPath(); vf.Enabled() {
-			vf.Frames, vf.FrameMaxSide = 6, 640
+			vf.Frames, vf.FrameMaxSide, vf.AudioMaxSec = 6, 640, 60
 			p.Video = vf
 		}
 	}
