@@ -92,6 +92,19 @@ func TestCacheReturnsTheSameResult(t *testing.T) {
 	}
 }
 
+// A degraded run (here: the model cannot be reached) is not cached, so a
+// retry gets a fresh attempt instead of the same incomplete result.
+func TestDegradedResultIsNotCached(t *testing.T) {
+	p := newTestPipeline(false)
+	res := p.Run(context.Background(), imageRequest(t, 6, ""))
+	if !res.Degraded {
+		t.Fatal("expected a degraded result without a model")
+	}
+	if n := p.CacheLen(); n != 0 {
+		t.Fatalf("cache holds %d degraded results", n)
+	}
+}
+
 func TestCacheKeyDoesNotContainRawContent(t *testing.T) {
 	key := CacheKey(Request{InputType: models.InputURL, URL: "https://rahasia.example/pengguna"})
 	if len(key) != 64 {

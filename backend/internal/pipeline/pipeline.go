@@ -419,7 +419,12 @@ func (p *Pipeline) RunStream(ctx context.Context, req Request, emit func(Event))
 		}
 	}
 	res.Degraded = elaFailed || llmFailed || linkFailed || searchFailed
-	p.toCache(key, res)
+	// A degraded result is not cached: the model or a lookup failing once
+	// (a free model's rate limit, a timeout) must not answer the user's
+	// retry with the same incomplete result for the next ten minutes.
+	if !res.Degraded {
+		p.toCache(key, res)
+	}
 	return res
 }
 
