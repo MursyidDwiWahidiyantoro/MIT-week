@@ -4,6 +4,7 @@
 package config
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -36,6 +37,9 @@ type Config struct {
 	// ExtraOrigins are additional exact CORS origins (e.g. a custom domain
 	// next to the vercel.app one).
 	ExtraOrigins []string
+	// LLMExtraBody holds gateway-specific fields merged into every model
+	// request (LLM_EXTRA_BODY, a JSON object), e.g. OpenRouter fallbacks.
+	LLMExtraBody map[string]any
 	// Telegram bot (PRD P2). Empty token disables it.
 	TelegramToken      string
 	TelegramSecret     string
@@ -139,6 +143,12 @@ func Load() (*Config, error) {
 	}
 	if c.TelegramWebhookURL != "" && !strings.HasPrefix(c.TelegramWebhookURL, "https://") {
 		errs = append(errs, errors.New("TELEGRAM_WEBHOOK_URL: must start with https://"))
+	}
+
+	if raw := strings.TrimSpace(os.Getenv("LLM_EXTRA_BODY")); raw != "" {
+		if err := json.Unmarshal([]byte(raw), &c.LLMExtraBody); err != nil || c.LLMExtraBody == nil {
+			errs = append(errs, errors.New("LLM_EXTRA_BODY: must be a JSON object, e.g. {\"reasoning\":{\"enabled\":false}}"))
+		}
 	}
 
 	if !c.LLMMock {

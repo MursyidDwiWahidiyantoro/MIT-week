@@ -282,3 +282,34 @@ func TestDescribeNeverLeaksKeyOrURL(t *testing.T) {
 		t.Fatalf("Describe leaked sensitive data: %q", d)
 	}
 }
+
+// LLM_EXTRA_BODY adds gateway fields (OpenRouter fallbacks, reasoning off)
+// to every request, but can never replace the contract fields.
+func TestExtraBodyIsMergedButCannotOverrideTheContract(t *testing.T) {
+	var req map[string]any
+	srv := gateway(t, `{"claim":"","search_query":"","ai_score":5,"ai_indicators":[],"text_anomalies":[],"ocr_text":"","tactics":[],"injection_suspected":false}`, &req)
+	defer srv.Close()
+
+	c := New(srv.URL, "k", "nvidia/model:free", false)
+	c.Extra = map[string]any{
+		"models":          []any{"nvidia/model:free", "openrouter/free"},
+		"reasoning":       map[string]any{"enabled": false},
+		"model":           "someone/else",
+		"response_format": "text",
+	}
+	if _, err := c.Analyze(context.Background(), textInput("halo")); err != nil {
+		t.Fatal(err)
+	}
+	if req["model"] != "nvidia/model:free" {
+		t.Fatalf("model = %v, the configured model must win", req["model"])
+	}
+	if rf, ok := req["response_format"].(map[string]any); !ok || rf["type"] != "json_schema" {
+		t.Fatalf("response_format = %v, the schema must win", req["response_format"])
+	}
+	if models, ok := req["models"].([]any); !ok || len(models) != 2 {
+		t.Fatalf("models = %v", req["models"])
+	}
+	if r, ok := req["reasoning"].(map[string]any); !ok || r["enabled"] != false {
+		t.Fatalf("reasoning = %v", req["reasoning"])
+	}
+}

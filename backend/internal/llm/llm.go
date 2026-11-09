@@ -87,6 +87,11 @@ type Client struct {
 	Model   string
 	Mock    bool
 	HTTP    *http.Client
+	// Extra holds gateway-specific request fields from LLM_EXTRA_BODY, e.g.
+	// OpenRouter's {"models": [...fallbacks], "reasoning": {"enabled": false}}.
+	// They are merged into every completion request; the contract fields
+	// (model, messages, response_format, temperature) always win.
+	Extra map[string]any
 }
 
 // New builds a client with a separate http.Client: the gateway may live on
@@ -344,19 +349,21 @@ func (c *Client) complete(ctx context.Context, messages []message, name, schema 
 	if c.APIKey == "" || c.Model == "" {
 		return "", ErrUnavailable
 	}
-	body := map[string]any{
-		"model":    c.Model,
-		"messages": messages,
-		"response_format": map[string]any{
-			"type": "json_schema",
-			"json_schema": map[string]any{
-				"name":   name,
-				"strict": true,
-				"schema": json.RawMessage(schema),
-			},
-		},
-		"temperature": temperature,
+	body := make(map[string]any, len(c.Extra)+4)
+	for k, v := range c.Extra {
+		body[k] = v
 	}
+	body["model"] = c.Model
+	body["messages"] = messages
+	body["response_format"] = map[string]any{
+		"type": "json_schema",
+		"json_schema": map[string]any{
+			"name":   name,
+			"strict": true,
+			"schema": json.RawMessage(schema),
+		},
+	}
+	body["temperature"] = temperature
 	payload, err := json.Marshal(body)
 	if err != nil {
 		return "", ErrUnavailable
@@ -594,7 +601,8 @@ func (c *Client) HealthCheck(ctx context.Context) (reachable, modelListed bool) 
 			ID string `json:"id"`
 		} `json:"data"`
 	}
-	if err := json.NewDecoder(io.LimitReader(resp.Body, 2<<20)).Decode(&body); err != nil {
+	// OpenRouter lists hundreds of models in one response; this runs once at boot.
+	if err := json.NewDecoder(io.LimitReader(resp.Body, 16<<20)).Decode(&body); err != nil {
 		return true, false
 	}
 	for _, m := range body.Data {
