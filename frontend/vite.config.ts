@@ -70,5 +70,8 @@ export default defineConfig({
     include: ['src/**/*.{test,spec}.{js,ts}'],
     environment: 'jsdom',
     setupFiles: ['./vitest-setup.ts']
-  }
+  },
+  // Component tests mount Svelte in jsdom, so Vitest must load Svelte's
+  // browser build; without this `mount` resolves to the server entry and throws.
+  resolve: process.env.VITEST ? { conditions: ['browser'] } : undefined
 });
