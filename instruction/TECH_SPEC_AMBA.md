@@ -142,7 +142,7 @@ Apply in this order, then clamp 0–100:
 1. `FACT_CONTRADICTED`: ≥1 source with `match=CONTRADICTS`, host on allowlist, URL came from search tool → `score = max(score, 85)`.
 2. `LINK_MALICIOUS`: Safe Browsing hit or `S_Link ≥ 90` → `score = max(score, 85)`.
 3. `ELA_CORROBORATED`: `S_ELA ≥ 70` **and** an LLM text anomaly box overlapping an ELA hotspot (IoU ≥ 0.1 or centre inside) → `score = max(score, 70)`.
-3b. `LINK_STRONG` (added 2026-11-08, team decision "strong link evidence is enough"): if there is still **no** score (W < 0.30, e.g. a bare-URL audit) and the link pillar is available with `S_Link ≥ 50` → `score = min(S_Link, 85)`. The cap keeps a link-only verdict at or below the `LINK_MALICIOUS` floor, so a score never rises as evidence gets thinner. It can never produce `SAFE`. Lead sentence: "Tautan ini punya tanda penipuan. Sebaiknya jangan diklik."
+3b. `LINK_STRONG` (added 2026-11-08, team decision "strong link evidence is enough"): if there is still **no** score (W < 0.30, e.g. a bare-URL audit) and the link pillar is available with `S_Link ≥ 45` → `score = min(S_Link, 85)`. 45 is a brand-impersonating host on its own; tuned on a public phishing feed on 2026-11-09 (was 50). The cap keeps a link-only verdict at or below the `LINK_MALICIOUS` floor, so a score never rises as evidence gets thinner. It can never produce `SAFE`. Lead sentence: "Tautan ini punya tanda penipuan. Sebaiknya jangan diklik."
 4. `ELA_SOLO_CAP`: if **no** other pillar has score ≥ 50 and no floor 1–3 applied → `score = min(score, 60)`.
 5. `INJECTION_GUARD`: if LLM output was flagged by the injection detector → `score = max(score, 40)` and `basis` adds `"llm_untrusted"`.
 
@@ -164,7 +164,8 @@ Decode (limit dimensions via `image.DecodeConfig` first; reject > 4096 px side o
 | 8 | n/a | n/a | n/a | 95 | S_Link ≥ 90 → floor 85 → TAMPERED (W=0.20 → floor still applies; status TAMPERED) |
 | 9 | n/a | n/a | n/a | 85 | W=0.20 → no weighted score; S_Link 85 < 90 → LINK_STRONG → 85 → TAMPERED |
 | 10 | n/a | 20, 0.5 | n/a | 55 | W=0.075+0.20=0.275 < 0.30 → LINK_STRONG → 55 → SUSPICIOUS |
-| 11 | n/a | n/a | n/a | 45 | S_Link < 50 → no floor → INSUFFICIENT |
+| 11 | n/a | n/a | n/a | 40 | S_Link < 45 → no floor → INSUFFICIENT |
+| 11b | n/a | n/a | n/a | 45 | LINK_STRONG → 45 → SUSPICIOUS (a brand lookalike alone) |
 | 12 | n/a | n/a | n/a | 89 | LINK_STRONG → min(89, 85) = 85 → TAMPERED |
 
 Row 8 note: floors may rescue an otherwise-`INSUFFICIENT` input to `SUSPICIOUS/TAMPERED` (never to `SAFE`).
@@ -213,6 +214,9 @@ Redirect unrolling: max 3 hops through the SSRF-safe client, `HEAD` then `GET` w
 
 Implementation notes (2026-11-08; the weights in `internal/linkcheck` and its table tests are the reference):
 - `LOOKALIKE_BRAND` matches hostname **tokens** after folding Cyrillic and Greek look-alike letters to Latin (a short reviewed table): an exact brand token, a brand plus affix (`bri-verifikasi`), or Levenshtein ≤ 1 (≤ 2 for brand names of 9+ letters). It never fires on a brand's official registrable domain, nor under suffixes only vetted institutions can register (`.go.id .ac.id .sch.id .mil.id .desa.id`). A folded host never gets the official-domain exemption.
+- Brands include the banks, e-wallets, marketplaces, couriers and agencies impersonated in Indonesian phishing (BRI/BRImo, BCA, BNI, BTN, Mandiri, BSI, DANA, OVO, GoPay, Shopee, Tokopedia, Kemensos, Prakerja, PLN, Telkomsel, J&T, JNE and others). Ordinary words that resemble a brand are deliberately absent.
+- `.my.id` and `.biz.id` are reported as `SUSPICIOUS_TLD`: in the phishing feed they hosted a third of the Indonesian-themed links and none of the popular legitimate sites.
+- `AT_SYMBOL` fires for an `@` outside the authority except a social handle path segment (`/@kompascom`): TikTok, YouTube and Medium links are not tricks; a pre-filled victim email is.
 - `UNPARSEABLE` (100): a URL that does not parse is never treated as safe.
 - `SHORTENER_HIDES` (+15) is added when the unrolled final host is a different site rated ≥ 30; the score is computed on the final URL.
 - A Safe Browsing hit on any URL of the redirect chain sets `S_Link = 100` and the `LINK_MALICIOUS` floor. A failed lookup is not a hit and is not reported as one.

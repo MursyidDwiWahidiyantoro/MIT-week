@@ -421,3 +421,39 @@ cannot reach openrouter.ai, so the first real check is the boot readiness log
 and the smoke tests in `docs/DEPLOY.md` §6. Revisit: when the free model is
 retired, when the quota is too small, or if the free provider's data policy
 conflicts with the privacy copy on `/tentang`.
+
+## 2026-11-09 · Link heuristics tuned on real phishing and legitimate URLs
+
+Tested the static link pillar (no Safe Browsing, no model) on real data: a
+public phishing feed (mitchellkrogza/Phishing.Database, 789,052 active links;
+the 1,053 Indonesian-themed ones, the 10,406 on `.id` domains and a random
+3,000) and on legitimate URLs (the top 10,000 domains plus 60 official
+Indonesian bank, marketplace, government and news URLs).
+
+Findings and changes:
+- 56 % of the Indonesian-themed phishing links scored exactly 45 (a brand in
+  a non-official host, nothing else) and read "belum cukup data". The
+  `LINK_STRONG` threshold moves from 50 to 45; no legitimate URL in either set
+  reached 45 before the change.
+- TikTok and YouTube links showed "Tautan memuat karakter @ yang
+  menyesatkan" because of the `/@handle` segment. A handle segment no longer
+  counts.
+- `.my.id` and `.biz.id` hosted a third of the Indonesian-themed phishing and
+  none of the legitimate sites: now `SUSPICIOUS_TLD`.
+- Brands impersonated in the feed were added (BTN, BRImo, SeaBank, Akulaku,
+  Kredivo, Pegadaian, Kemensos, Prakerja, PLN, Telkomsel, IndiHome, Gojek),
+  with their official domains; Lazada's and Shopee's regional domains and the
+  word "telegraf" stopped being flagged.
+
+Result: a warning verdict for 83.6 % of the Indonesian-themed phishing links
+(was 25.4 %), 13.1 % of the `.id` ones (was 2.2 %) and 4.5 % of the random
+global sample (was 2.4 %); 4 of 10,060 legitimate URLs (dana.ir, bsi.ir,
+instabam.gr, online-instagram.com). Generic phishing on compromised or
+free-hosting domains has no tell-tale in the URL: that is what Safe Browsing
+is for, so `GOOGLE_API_KEY` matters in production.
+
+The same session ran server ELA on 7 real images from public forensics
+repositories (2 authentic, 5 edited, CASIA and TruFor samples). Scores were
+0 and 0 for the authentic images and 0-14 for the edited ones, so the global
+mean does not separate them (see the OPEN ELA entry above); the heat map lit
+the edited region of one CASIA sample fully, the other only at chance level.

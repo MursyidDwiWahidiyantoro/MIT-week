@@ -29,7 +29,10 @@ const (
 	// LinkStrongMin is the link score from which link evidence alone may
 	// produce a verdict when nothing else is available (product decision,
 	// November 2026: a clear phishing link must not read "belum cukup data").
-	LinkStrongMin = 50
+	// 45 is a brand-impersonating host on its own: in a public phishing feed
+	// more than half of the Indonesian-themed links scored exactly that, while
+	// no popular legitimate site reached it.
+	LinkStrongMin = 45
 	// LinkOnlyCap keeps a link-only verdict at or below the LINK_MALICIOUS
 	// floor, so the score never rises as the evidence gets thinner.
 	LinkOnlyCap = 85

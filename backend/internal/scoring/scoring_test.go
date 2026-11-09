@@ -130,8 +130,19 @@ func TestVectors(t *testing.T) {
 		{
 			// Below LinkStrongMin the honest answer is still INSUFFICIENT.
 			name:       "11 weak link alone",
-			in:         Input{Link: sig(45, 1.0)},
+			in:         Input{Link: sig(40, 1.0)},
 			wantStatus: models.StatusInsufficient,
+			wantBasis:  []string{"link"},
+			wantMissed: []string{"ela", "ai", "fact"},
+		},
+		{
+			// A brand-impersonating host on its own (LOOKALIKE_BRAND = 45)
+			// is enough for a cautious verdict.
+			name:       "11b brand lookalike alone",
+			in:         Input{Link: sig(45, 1.0)},
+			wantScore:  ptr0(45),
+			wantStatus: models.StatusSuspicious,
+			wantFloors: []string{FloorLinkStrong},
 			wantBasis:  []string{"link"},
 			wantMissed: []string{"ela", "ai", "fact"},
 		},
