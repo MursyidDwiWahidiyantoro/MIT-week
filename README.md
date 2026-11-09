@@ -310,6 +310,7 @@ Daftar lengkap dengan komentar ada di [`.env.example`](.env.example).
 | `LLM_EXTRA_BODY` | — | JSON object merged into every model request, e.g. OpenRouter fallbacks and `reasoning` off |
 | `REPORT_SIGNING_KEY` | — | ≥ 32 bytes, required in production |
 | `GOOGLE_API_KEY` | — | Fact Check Tools + Safe Browsing (`GOOGLE_FACTCHECK_KEY` / `GOOGLE_SAFE_BROWSING_KEY` override) |
+| `SIGHTENGINE_API_USER` / `SIGHTENGINE_API_SECRET` | — | optional AI-image detector for Jejak AI; both or neither |
 | `TELEGRAM_BOT_TOKEN` | — | enables the bot; `TELEGRAM_MODE` = `webhook` / `polling` / `off` |
 | `METRICS_ADDR` | — | internal Prometheus listener, off when empty |
 | `MAX_UPLOAD_SIZE_MB` | `10` | |

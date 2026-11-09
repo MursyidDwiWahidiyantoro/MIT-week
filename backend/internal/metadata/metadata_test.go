@@ -103,6 +103,71 @@ func TestOpenGraphFallback(t *testing.T) {
 	}
 }
 
+func TestPreviewImageReference(t *testing.T) {
+	cases := map[string]string{
+		`<meta property="og:image" content="/img/cover.jpg">`:                                                                                "/artikel/../img/cover.jpg",
+		`<meta property="og:image" content="https://cdn.example/a.webp">`:                                                                    "https://cdn.example/a.webp",
+		`<meta name="twitter:image" content="//cdn.example/t.png">`:                                                                          "http://cdn.example/t.png",
+		`<meta property="og:image:secure_url" content="https://s.example/1.jpg"><meta property="og:image" content="http://s.example/1.jpg">`: "https://s.example/1.jpg",
+		`<meta property="og:image" content="javascript:alert(1)">`:                                                                           "",
+		`<meta property="og:image" content="data:image/png;base64,AAAA">`:                                                                    "",
+		`<meta name="description" content="no image">`:                                                                                       "",
+	}
+	for tag, want := range cases {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "text/html")
+			_, _ = w.Write([]byte(`<html><head><title>Judul</title>` + tag + `</head></html>`))
+		}))
+		m := testResolver(srv).Resolve(context.Background(), srv.URL+"/artikel/berita")
+		srv.Close()
+		if strings.HasPrefix(want, "/") {
+			want = srv.URL + "/img/cover.jpg"
+		}
+		if m.Image != want {
+			t.Errorf("%s: image = %q, want %q", tag, m.Image, want)
+		}
+	}
+}
+
+func TestOEmbedThumbnailIsThePreviewImage(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"title":"Video","author_name":"a","thumbnail_url":"https://p16.example/cover.jpeg"}`))
+	}))
+	defer srv.Close()
+	m := testResolver(srv).Resolve(context.Background(), "https://www.tiktok.com/@a/video/1")
+	if m.Image != "https://p16.example/cover.jpeg" {
+		t.Fatalf("image = %q", m.Image)
+	}
+}
+
+func TestPreviewImageDownload(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/ok.jpg":
+			w.Header().Set("Content-Type", "image/jpeg")
+			_, _ = w.Write([]byte("\xff\xd8\xffjpeg"))
+		case "/page":
+			w.Header().Set("Content-Type", "text/html")
+			_, _ = w.Write([]byte("<html>"))
+		case "/big.png":
+			w.Header().Set("Content-Type", "image/png")
+			_, _ = w.Write(make([]byte, 2048))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+	r := testResolver(srv)
+	if data, err := r.PreviewImage(context.Background(), srv.URL+"/ok.jpg", 1024); err != nil || string(data) != "\xff\xd8\xffjpeg" {
+		t.Fatalf("ok image: %q %v", data, err)
+	}
+	for _, path := range []string{"/page", "/big.png", "/missing.jpg"} {
+		if _, err := r.PreviewImage(context.Background(), srv.URL+path, 1024); err == nil {
+			t.Errorf("%s: expected an error", path)
+		}
+	}
+}
+
 func TestBlockedPlatforms(t *testing.T) {
 	tests := []struct {
 		name    string

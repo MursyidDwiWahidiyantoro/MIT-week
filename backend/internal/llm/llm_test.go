@@ -44,7 +44,7 @@ func TestMockVariesByInput(t *testing.T) {
 	c := New("http://unused", "", "", true)
 	seen := map[int]bool{}
 	for _, input := range []string{"a", "b", "c", "d", "e", "f", "g", "h"} {
-		f, err := c.Analyze(context.Background(), textInput(input))
+		f, err := c.Analyze(context.Background(), Input{Type: "FILE", Image: []byte(input)})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -52,6 +52,29 @@ func TestMockVariesByInput(t *testing.T) {
 	}
 	if len(seen) < 2 {
 		t.Fatalf("mock returned a single value across inputs: %v", seen)
+	}
+}
+
+// The AI judgement is about an image: a link without a preview image has
+// nothing to judge, in mock mode as in the prompt.
+func TestMockJudgesOnlyImages(t *testing.T) {
+	c := New("http://unused", "", "", true)
+	for _, input := range []string{"a", "b", "c", "d", "e", "f"} {
+		f, _ := c.Analyze(context.Background(), textInput(input))
+		if f.AIScore != 0 || len(f.AIIndicators) != 0 {
+			t.Fatalf("judged a link without an image: %+v", f)
+		}
+	}
+}
+
+func TestPromptAsksWhetherTheImageIsAIGenerated(t *testing.T) {
+	for _, want := range []string{"AI generatif", "ai_watermark", "BUKAN buatan AI", "gambar pratinjau", "text_anomalies"} {
+		if !strings.Contains(analyzePrompt, want) {
+			t.Errorf("prompt is missing %q", want)
+		}
+	}
+	if !strings.Contains(findingsSchema, `"ai_watermark"`) {
+		t.Error("the response schema must carry ai_watermark")
 	}
 }
 
@@ -96,6 +119,9 @@ func TestSanitizeClampsModelControlledValues(t *testing.T) {
 	}
 	if len(got.TextAnomalies) != 1 || got.TextAnomalies[0].BoundingBox != [4]int{0, 10, 1000, 900} {
 		t.Fatalf("anomalies: %+v", got.TextAnomalies)
+	}
+	if got := sanitize(Findings{AIWatermark: "  " + strings.Repeat("w", 200)}); len([]rune(got.AIWatermark)) != 80 {
+		t.Errorf("watermark not trimmed: %d runes", len([]rune(got.AIWatermark)))
 	}
 	if got := sanitize(Findings{AIScore: -50, SearchQuery: "q"}); got.AIScore != 0 || got.SearchQuery != "" {
 		t.Errorf("low score or orphan query: %+v", got)

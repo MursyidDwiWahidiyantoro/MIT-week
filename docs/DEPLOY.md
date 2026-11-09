@@ -24,6 +24,7 @@ uji. Semua perintah di bawah aman diulang.
 | `REPORT_SIGNING_KEY` | ya | `openssl rand -base64 48`. Mengganti kunci membatalkan semua tautan bagikan yang sudah beredar. |
 | `NINEROUTER_API_KEY` | ya | Kunci OpenRouter (`sk-or-...`). Alamat gateway dan nama model sudah diisi di `fly.toml`. Lihat 1.1. |
 | `GOOGLE_API_KEY` | sangat disarankan | Satu kunci Google Cloud untuk Fact Check Tools dan Safe Browsing. Lihat 1.2. |
+| `SIGHTENGINE_API_USER`, `SIGHTENGINE_API_SECRET` | opsional | Pemeriksa khusus gambar AI untuk Jejak AI. Lihat 1.3. |
 | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET` | opsional | Lihat bagian 5. |
 
 Simpan semua nilai ini sebagai *secret* di hosting, jangan di repo.
@@ -106,6 +107,25 @@ API (belum diimplementasikan di AMBA).
 
 Tanpa `GOOGLE_API_KEY`, pilar cek fakta tidak pernah bisa memverifikasi sumber
 (grounding gagal tertutup) dan pemeriksaan tautan hanya memakai heuristik lokal.
+
+### 1.3 Pemeriksa khusus gambar AI (opsional)
+
+Jejak AI selalu membaca data asal-usul di dalam file (Content Credentials/C2PA,
+IPTC/XMP, pengaturan Stable Diffusion/ComfyUI, EXIF) dan ciri yang terlihat
+oleh model. Banyak gambar yang beredar lewat WhatsApp sudah kehilangan data
+itu, jadi penilaian visual model menjadi satu-satunya petunjuk. Untuk penilaian
+yang lebih kuat, aktifkan detektor khusus Sightengine (model `genai`):
+
+1. Daftar di sightengine.com. Paket gratis saat ini 2.000 operasi per bulan,
+   maksimal 500 per hari (halaman harga Sightengine, November 2026).
+2. Isi `SIGHTENGINE_API_USER` dan `SIGHTENGINE_API_SECRET` sebagai *secret*.
+   Isi keduanya atau tidak sama sekali; server menolak boot jika hanya satu.
+3. Log `readiness` menampilkan `ai_detector=true`.
+
+Setiap gambar yang diunggah, dan gambar pratinjau tautan, lalu dikirim juga ke
+Sightengine. Halaman Tentang sudah menyebut ini. Jika kuota habis atau layanan
+gagal, kartu Jejak AI tidak menampilkan baris detektor dan hasil tetap
+dihitung dari bukti lain.
 
 ---
 

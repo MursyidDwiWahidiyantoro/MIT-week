@@ -243,6 +243,20 @@ function unavailablePillar() {
   return { available: false, score: 0, reliability: 0, reliability_note: null, anomalies: [] };
 }
 
+const NO_PROVENANCE = { kind: 'NONE' as const, source: '' as const, generator: '', camera: '', c2pa: false };
+
+function unavailableAI() {
+  return {
+    available: false,
+    score: 0,
+    reliability: 0,
+    indicators: [],
+    caveat: 'Indikatif, bukan bukti pasti',
+    provenance: NO_PROVENANCE,
+    detector: null
+  };
+}
+
 function unavailableFact() {
   return { available: false, claim: '', status: 'UNVERIFIED' as const, sources: [] };
 }
@@ -263,9 +277,10 @@ function urlDossier(payload: MockPayload): DossierParsed {
   const url = (payload.url ?? '').trim();
   const link = analyzeUrl(url);
   const status = link.status;
-  const available = { ela: false, ai: true, fact: false, link: true };
+  // The browser preview cannot fetch the link's preview image, so there is
+  // no image for the AI check, as on the server when a link has none.
+  const available = { ela: false, ai: false, fact: false, link: true };
   const tactics: Tactic[] = [];
-  const indicators = link.reasons.map((reason) => reason.text);
 
   return baseDossier('URL', url, {
     status,
@@ -296,12 +311,7 @@ function urlDossier(payload: MockPayload): DossierParsed {
     },
     pillars: {
       ela: unavailablePillar(),
-      ai: {
-        available: true,
-        score: Math.min(88, 20 + link.reasons.length * 18),
-        indicators,
-        caveat: 'Indikatif, bukan bukti pasti. Mode pratinjau memakai aturan alamat.'
-      },
+      ai: unavailableAI(),
       fact: unavailableFact(),
       link: {
         available: true,
@@ -351,9 +361,12 @@ function fileDossier(payload: MockPayload): DossierParsed {
       },
       ai: {
         available: true,
-        score: 54,
-        indicators: ['Teks dalam gambar memuat ajakan mendesak'],
-        caveat: 'Indikatif, bukan bukti pasti. Mode pratinjau tidak membaca isi gambar.'
+        score: 30,
+        reliability: 0.5,
+        indicators: [],
+        caveat: 'Indikatif, bukan bukti pasti. Mode pratinjau tidak membaca isi gambar.',
+        provenance: NO_PROVENANCE,
+        detector: null
       },
       fact: unavailableFact(),
       link: unavailableLink()

@@ -43,6 +43,10 @@ type Metadata struct {
 	Author      string
 	Description string
 	SiteName    string
+	// Image is the link's preview image (og:image, twitter:image or the
+	// oEmbed thumbnail) as an absolute http(s) URL, or "". It is fetched for
+	// the AI check only and never shown or stored.
+	Image string
 }
 
 // Caption is the user-visible text of the post: title and description. It is
@@ -229,6 +233,7 @@ func (r *Resolver) oembed(ctx context.Context, endpoint string) (Metadata, error
 		AuthorName   string `json:"author_name"`
 		ProviderName string `json:"provider_name"`
 		HTML         string `json:"html"`
+		ThumbnailURL string `json:"thumbnail_url"`
 	}
 	if err := json.NewDecoder(io.LimitReader(resp.Body, maxBody)).Decode(&body); err != nil {
 		return Metadata{}, err
@@ -237,6 +242,7 @@ func (r *Resolver) oembed(ctx context.Context, endpoint string) (Metadata, error
 		Title:    clean(body.Title, maxTitle),
 		Author:   clean(body.AuthorName, maxAuthor),
 		SiteName: clean(body.ProviderName, maxSite),
+		Image:    absoluteImage(resp.Request.URL, body.ThumbnailURL),
 	}
 	// X returns the post as an HTML blockquote; its first paragraph is the
 	// text. Tags are stripped, never rendered.
@@ -267,7 +273,60 @@ func (r *Resolver) opengraph(ctx context.Context, rawURL, platform string) (Meta
 		// "Instagram", "Log in • Instagram": the login page, not the post.
 		return Metadata{}, errBlocked
 	}
+	m.Image = absoluteImage(resp.Request.URL, m.Image)
 	return m, nil
+}
+
+// absoluteImage resolves a preview image reference against the page that
+// named it and keeps only http(s) URLs.
+func absoluteImage(base *url.URL, ref string) string {
+	ref = strings.TrimSpace(ref)
+	if ref == "" || len(ref) > 2048 {
+		return ""
+	}
+	u, err := url.Parse(ref)
+	if err != nil {
+		return ""
+	}
+	if base != nil {
+		u = base.ResolveReference(u)
+	}
+	if (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		return ""
+	}
+	return u.String()
+}
+
+// PreviewImage downloads a link's preview image through the resolver's
+// (SSRF-safe) client: at most maxBytes, and only an image response. The
+// caller validates the bytes like an upload.
+func (r *Resolver) PreviewImage(ctx context.Context, imageURL string, maxBytes int64) ([]byte, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, imageURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("User-Agent", userAgent)
+	req.Header.Set("Accept", "image/jpeg,image/png,image/webp;q=0.9")
+	resp, err := r.Client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		return nil, errors.New("unexpected status")
+	}
+	if ct := strings.ToLower(resp.Header.Get("Content-Type")); ct != "" && !strings.HasPrefix(ct, "image/") &&
+		!strings.HasPrefix(ct, "application/octet-stream") {
+		return nil, errors.New("not an image")
+	}
+	data, err := io.ReadAll(io.LimitReader(resp.Body, maxBytes+1))
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(data)) > maxBytes {
+		return nil, errors.New("image too large")
+	}
+	return data, nil
 }
 
 // head returns the document up to </head>, where the tags live.
@@ -304,6 +363,7 @@ func readHead(doc string) Metadata {
 		Description: clean(first(meta["og:description"], meta["twitter:description"], meta["description"]), maxDescription),
 		SiteName:    clean(meta["og:site_name"], maxSite),
 		Author:      clean(first(meta["author"], meta["article:author"]), maxAuthor),
+		Image:       strings.TrimSpace(first(meta["og:image:secure_url"], meta["og:image"], meta["og:image:url"], meta["twitter:image"], meta["twitter:image:src"])),
 	}
 }
 

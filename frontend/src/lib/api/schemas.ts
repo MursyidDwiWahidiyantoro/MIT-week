@@ -42,6 +42,20 @@ export const tacticSchema = z.object({
 
 export const metadataStatusSchema = z.enum(['OK', 'BLOCKED', 'UNAVAILABLE']);
 
+/** What the image declares about its origin (Jejak AI). */
+export const provenanceSchema = z.object({
+  kind: z.enum(['AI_GENERATED', 'AI_EDITED', 'CAMERA', 'NONE']),
+  source: z.enum(['c2pa', 'xmp', 'png_text', 'exif', 'watermark', '']),
+  generator: z.string(),
+  camera: z.string(),
+  c2pa: z.boolean()
+});
+
+export const aiDetectorSchema = z.object({
+  name: z.string(),
+  score: z.number().int().min(0).max(100)
+});
+
 /** Public description of a submitted link (PRD F1). null for FILE. */
 export const sourceMetadataSchema = z.object({
   status: metadataStatusSchema,
@@ -86,8 +100,13 @@ export const dossierSchema = z.object({
     ai: z.object({
       available: z.boolean(),
       score: z.number(),
+      // Added in the same schema_version for the AI-image check: payloads
+      // and share links made before it omit these fields.
+      reliability: z.number().min(0).max(1).optional(),
       indicators: z.array(z.string()).nullish().transform((v) => v ?? []),
-      caveat: z.string().optional()
+      caveat: z.string().optional(),
+      provenance: provenanceSchema.nullish().transform((v) => v ?? null),
+      detector: aiDetectorSchema.nullish().transform((v) => v ?? null)
     }),
     fact: z.object({
       available: z.boolean(),

@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/amba/amba/backend/internal/provenance"
 )
 
 // schemaPath is the contract generated from api/openapi.yaml.
@@ -142,7 +144,7 @@ func TestTacticPhrasesAppearInTheirSource(t *testing.T) {
 }
 
 func TestPRDIdsAndAliases(t *testing.T) {
-	for _, id := range []string{"demo-tiktok", "demo-berita-ig", "demo-resmi", "demo-tautan"} {
+	for _, id := range []string{"demo-tiktok", "demo-berita-ig", "demo-gambar-ai", "demo-resmi", "demo-tautan"} {
 		if _, err := Get(id); err != nil {
 			t.Errorf("missing PRD F8 demo %s", id)
 		}
@@ -177,6 +179,33 @@ func TestDemoVerdictsMatchTheScorer(t *testing.T) {
 				t.Errorf("%s: %s floor with score %v", id, f, d.Verdict.Score)
 			}
 		}
+	}
+}
+
+// The AI demo's bundled picture must carry the marker its verdict cites, so
+// uploading it to the live app gives the same answer.
+func TestAIDemoPictureDeclaresAI(t *testing.T) {
+	c, err := Get("demo-gambar-ai")
+	if err != nil || !strings.HasPrefix(c.Image, "/demo/") {
+		t.Fatalf("AI demo must point at its bundled image: %+v %v", c.Image, err)
+	}
+	data, err := os.ReadFile(filepath.Join("../../../frontend/static", c.Image))
+	if err != nil {
+		t.Fatalf("image file missing: %v", err)
+	}
+	if got := provenance.Scan(data); got.Kind != provenance.AIGenerated || got.Source != "c2pa" {
+		t.Fatalf("bundled picture declares %+v", got)
+	}
+	var d struct {
+		Verdict struct {
+			Floors []string `json:"floors_applied"`
+		} `json:"verdict"`
+	}
+	if err := json.Unmarshal(c.Dossier, &d); err != nil {
+		t.Fatal(err)
+	}
+	if len(d.Verdict.Floors) == 0 || d.Verdict.Floors[0] != "AI_PROVENANCE" {
+		t.Fatalf("floors = %v", d.Verdict.Floors)
 	}
 }
 

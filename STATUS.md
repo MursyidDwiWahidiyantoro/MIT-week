@@ -93,20 +93,22 @@ Hasil terakhir (8 Nov 2026):
 
 | Bagian | Status | Bukti |
 |---|---|---|
-| `internal/scoring` | ADA | bobot ELA .30 / AI .15 / Fact .35 / Link .20; 7 floor termasuk `LINK_STRONG` dan `SCAM_PATTERN`; vektor 1–14 + 11b |
-| `internal/security` | ADA | SSRF `Dialer.Control` + penolakan target internal, upload, rate limit dengan identitas dari edge host, header, CORS |
+| `internal/scoring` | ADA | bobot ELA .30 / AI .15 / Fact .35 / Link .20; floor `FACT_CONTRADICTED`, `LINK_MALICIOUS`, `ELA_CORROBORATED`, `LINK_STRONG`, `AI_PROVENANCE`, `AI_EDITED`, `AI_LIKELY`, `ELA_SOLO_CAP`, `INJECTION_GUARD`; vektor 1–21 + 11b |
+| `internal/provenance` | ADA | Jejak AI dari isi file: Content Credentials (C2PA), IPTC/XMP, pengaturan Stable Diffusion/ComfyUI/NovelAI/Midjourney, EXIF; hanya blok metadata yang dibaca; diuji dengan file nyata (c2pa-rs, ComfyUI, foto Canon dan Pixel) dan fuzzing |
+| `internal/aidetect` | ADA (opsional) | detektor gambar AI Sightengine `genai`; mati tanpa kunci |
+| `internal/security` | ADA | SSRF `Dialer.Control` + penolakan target internal, upload JPEG/PNG/WebP (ukuran WebP dibaca dari header), rate limit dengan identitas dari edge host, header, CORS |
 | `internal/token` | ADA | HMAC share token, tamper, rotasi |
 | `internal/forensics` | ADA | ELA q90, grid 16×16, reliabilitas per format, `Hotspots`, gambar untuk model (JPEG ≤ 1600 px) |
 | `internal/linkcheck` | ADA | brand lookalike berbasis token, domain resmi, unroll redirect, `SHORTENER_HIDES`, Safe Browsing, cek halaman tujuan (form sandi/PIN/OTP, nama bank di judul); diuji pada data phishing nyata (83,6 % tautan phishing bertema Indonesia diberi peringatan, 4 dari 10.060 situs sah salah ditandai) |
 | `internal/metadata` | ADA | oEmbed (YouTube, TikTok, X) dan OpenGraph lewat klien aman; BLOCKED/UNAVAILABLE jujur |
 | `internal/llm` | ADA | analisis + klasifikasi dengan `json_schema` strict, input gambar, deteksi injeksi, mock deterministik; bawaan deploy: OpenRouter `nvidia/nemotron-3.5-super-vl:free` + cadangan `openrouter/free` |
 | `internal/grounding` | ADA | Google Fact Check Tools + allowlist; hanya URL hasil pencarian AMBA yang bisa terverifikasi |
-| `internal/pipeline` | ADA | SSE progresif, anggaran per langkah, cache LRU 500, satu event akhir per pilar; aturan penipuan jalan sebelum model; tautan tanpa `https://` di teks atau OCR ikut diperiksa |
+| `internal/pipeline` | ADA | SSE progresif, anggaran per langkah, cache LRU 500, satu event akhir per pilar; Jejak AI dari metadata file, detektor opsional dan model; gambar pratinjau tautan ikut dinilai; WebP tanpa ELA; tautan tanpa `https://` di OCR ikut diperiksa |
 | `internal/tactics` | ADA | NFKC + verifikasi substring (teks, caption, atau OCR) |
 | `internal/reply` | ADA | draf model tervalidasi (≤ 280, URL sumber saja, kata terlarang) + template status × nada |
 | `internal/telegram` | ADA | webhook ber-secret atau polling, `/cek`, foto, batas per chat |
 | `internal/metrics` | ADA | penghitung anonim Prometheus di listener internal |
-| `internal/demo` | ADA | 4 kasus PRD F8 (+ alias `contoh-*`), dihasilkan `cmd/gendemo` |
+| `internal/demo` | ADA | 5 kasus (PRD F8 + `demo-gambar-ai` dengan Content Credentials sungguhan di filenya; alias `contoh-*`), dihasilkan `cmd/gendemo` |
 
 Endpoint: `GET /healthz` · `POST /api/v1/audit/{url,file}` · `POST /api/v1/verify` ·
 `POST /api/v1/reply` · `GET /api/v1/demo/{id}` · `POST /telegram/webhook`.
@@ -118,7 +120,7 @@ SSE: `stage → partial → verdict → done`, dengan heartbeat `: ping`.
 |---|---|---|
 | `/` beranda | ADA | hero + bar tautan (F1), scanner contoh, sekolah scam, CTA |
 | `/deteksi` | ADA | tab, dropzone, demo, radar dari SSE asli, `?tab=` dan `?q=` |
-| `/hasil` | ADA | verdict, batas jujur, slider ELA, taktik (teks/OCR), pratinjau tautan, sumber, bagikan, balas, kartu bukti |
+| `/hasil` | ADA | verdict, batas jujur, slider ELA, kartu Jejak AI (asal-usul file, detektor, kemungkinan), taktik (teks/OCR), pratinjau tautan, sumber, bagikan, balas, kartu bukti |
 | `/edukasi` | ADA | 3 modus + 3 soal + **bedah forensik** (3 gambar, ELA asli) |
 | `/tentang` | ADA | tim, privasi (apa yang dikirim ke mana), batas, disclaimer |
 | EN/ID | ADA | default Indonesia; pilihan tersimpan, dipasang sebelum paint pertama |

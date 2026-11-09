@@ -3,14 +3,16 @@
   import type { DossierParsed } from '$lib/api/schemas';
   import Skeleton from '$lib/components/ui/Skeleton.svelte';
   import Icon from '$lib/components/ui/Icon.svelte';
-  import { linkReason, caveat, reliabilityNote } from '$lib/i18n/verdict';
+  import { linkReason, caveat, reliabilityNote, aiLines } from '$lib/i18n/verdict';
 
   interface Props {
     pillars: DossierParsed['pillars'];
+    /** URL input: the AI card judged the link's preview image. */
+    inputType?: DossierParsed['input_type'];
     pending?: boolean;
   }
 
-  let { pillars, pending = false }: Props = $props();
+  let { pillars, inputType = 'FILE', pending = false }: Props = $props();
 
   const LABELS = {
     ela: 'ev.ela',
@@ -83,7 +85,8 @@
             <p>{t('ev.noAreas')}</p>
           {/if}
         {:else if key === 'ai'}
-          <p>{caveat(pillars.ai.caveat ?? '')}</p>
+          {#each aiLines(pillars.ai, inputType) as line (line)}<p>{line}</p>{/each}
+          <p class="note">{caveat(pillars.ai.caveat ?? '')}</p>
           {#if (pillars.ai.indicators ?? []).length}
             <ul>
               {#each pillars.ai.indicators ?? [] as indicator (indicator)}<li>{indicator}</li>{/each}

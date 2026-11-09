@@ -20,6 +20,8 @@ services:
       - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
       - GOOGLE_FACTCHECK_KEY=${GOOGLE_FACTCHECK_KEY:-}
       - GOOGLE_SAFE_BROWSING_KEY=${GOOGLE_SAFE_BROWSING_KEY:-}
+      - SIGHTENGINE_API_USER=${SIGHTENGINE_API_USER:-}
+      - SIGHTENGINE_API_SECRET=${SIGHTENGINE_API_SECRET:-}
       - CORS_EXTRA_ORIGINS=${CORS_EXTRA_ORIGINS:-}
       # nginx overwrites X-Real-IP with the caller's address. To rate-limit
       # per user behind it, set TRUSTED_PROXY_CIDRS=172.16.0.0/12 and

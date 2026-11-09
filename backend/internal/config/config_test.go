@@ -61,6 +61,17 @@ func TestGoogleKeyFallback(t *testing.T) {
 	}
 }
 
+func TestSightengineNeedsBothCredentials(t *testing.T) {
+	setEnv(t, map[string]string{"SIGHTENGINE_API_USER": "123", "SIGHTENGINE_API_SECRET": ""})
+	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "SIGHTENGINE") {
+		t.Fatalf("want SIGHTENGINE error, got %v", err)
+	}
+	setEnv(t, map[string]string{"SIGHTENGINE_API_USER": "123", "SIGHTENGINE_API_SECRET": "s"})
+	if cfg, err := Load(); err != nil || cfg.SightengineUser != "123" || cfg.SightengineSecret != "s" {
+		t.Fatalf("cfg = %+v err = %v", cfg, err)
+	}
+}
+
 func TestClientIPHeaderNeedsTrustedProxies(t *testing.T) {
 	setEnv(t, map[string]string{"CLIENT_IP_HEADER": "Fly-Client-IP", "TRUSTED_PROXY_CIDRS": ""})
 	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "CLIENT_IP_HEADER") {

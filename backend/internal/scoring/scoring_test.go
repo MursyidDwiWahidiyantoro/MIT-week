@@ -188,6 +188,45 @@ func TestVectors(t *testing.T) {
 			wantBasis:  []string{"ela", "ai", "fact"},
 			wantMissed: []string{"link"},
 		},
+		{
+			// W=.15 < .30, but the upload declares AI generation.
+			name:       "18 uploaded image declaring AI generation",
+			in:         Input{UploadedImage: true, AI: sig(95, 1.0), AIDeclared: DeclaredAIGenerated, ELA: sig(10, 0.7)},
+			wantScore:  ptr0(85),
+			wantStatus: models.StatusTampered,
+			wantFloors: []string{FloorAIProvenance},
+			wantBasis:  []string{"ela", "ai"},
+			wantMissed: []string{"fact", "link"},
+		},
+		{
+			name:       "19 clear visible signs of AI make an upload suspicious",
+			in:         Input{UploadedImage: true, AI: sig(85, 0.5), ELA: sig(0, 0.7)},
+			wantScore:  ptr0(45),
+			wantStatus: models.StatusSuspicious,
+			wantFloors: []string{FloorAILikely},
+			wantBasis:  []string{"ela", "ai"},
+			wantMissed: []string{"fact", "link"},
+		},
+		{
+			// W=.275: LINK_STRONG gives 75, AI_LIKELY never lowers it.
+			name:       "20 a risky link in an AI-looking image keeps the link score",
+			in:         Input{UploadedImage: true, AI: sig(85, 0.5), Link: sig(75, 1.0)},
+			wantScore:  ptr0(75),
+			wantStatus: models.StatusTampered,
+			wantFloors: []string{FloorLinkStrong, FloorAILikely},
+			wantBasis:  []string{"ai", "link"},
+			wantMissed: []string{"ela", "fact"},
+		},
+		{
+			// W=.70 raw=(14.25+6+14)/.70=48.9 -> 49; a preview image never
+			// triggers the AI floors.
+			name:       "21 a link's preview image declaring AI",
+			in:         Input{AI: sig(95, 1.0), AIDeclared: DeclaredAIGenerated, Link: sig(30, 1.0), Fact: sig(40, 1.0)},
+			wantScore:  ptr0(49),
+			wantStatus: models.StatusSuspicious,
+			wantBasis:  []string{"ai", "fact", "link"},
+			wantMissed: []string{"ela"},
+		},
 	}
 
 	for _, tt := range tests {
@@ -224,6 +263,40 @@ func TestFloors(t *testing.T) {
 			wantScore:  ptr0(85),
 			wantStatus: models.StatusTampered,
 			wantFloors: []string{FloorLinkMalicious},
+		},
+		{
+			name:       "uploaded image declaring an AI edit",
+			in:         Input{UploadedImage: true, AI: sig(80, 1.0), AIDeclared: DeclaredAIEdited, ELA: sig(5, 0.7)},
+			wantScore:  ptr0(70),
+			wantStatus: models.StatusTampered,
+			wantFloors: []string{FloorAIEdited},
+		},
+		{
+			name:       "weaker visible signs are not enough on their own",
+			in:         Input{UploadedImage: true, AI: sig(79, 0.5), ELA: sig(0, 0.7)},
+			wantStatus: models.StatusInsufficient,
+			wantFloors: []string{},
+		},
+		{
+			name:       "an unavailable AI pillar triggers nothing",
+			in:         Input{UploadedImage: true, AIDeclared: DeclaredAIGenerated},
+			wantStatus: models.StatusInsufficient,
+			wantFloors: []string{},
+		},
+		{
+			// W=.50 raw=(14.25+35)/.50=98.5 -> 99, above both floors
+			name:       "AI declaration never lowers a contradicted claim",
+			in:         Input{UploadedImage: true, AI: sig(95, 1.0), AIDeclared: DeclaredAIGenerated, Fact: sig(100, 1.0), FactContradicted: true},
+			wantScore:  ptr0(99),
+			wantStatus: models.StatusTampered,
+			wantFloors: []string{FloorFactContradicted, FloorAIProvenance},
+		},
+		{
+			name:       "no solo cap once an AI floor applied",
+			in:         Input{UploadedImage: true, AI: sig(95, 1.0), AIDeclared: DeclaredAIGenerated, ELA: sig(90, 1.0)},
+			wantScore:  ptr0(92),
+			wantStatus: models.StatusTampered,
+			wantFloors: []string{FloorAIProvenance},
 		},
 		{
 			name: "ela corroborated by overlapping anomaly",
@@ -508,6 +581,30 @@ func TestExplanationSimple(t *testing.T) {
 			name:   "safe",
 			status: models.StatusSafe,
 			want:   "Tidak ditemukan tanda bahaya, tapi tetap bijak sebelum menyebarkan.",
+		},
+		{
+			name:   "image declared as made with AI",
+			status: models.StatusTampered,
+			floors: []string{FloorAIProvenance},
+			want:   "Ada tanda jelas gambar ini dibuat dengan AI. Jangan anggap sebagai foto asli.",
+		},
+		{
+			name:   "image declared as edited with AI",
+			status: models.StatusTampered,
+			floors: []string{FloorAIEdited},
+			want:   "Ada tanda jelas gambar ini diedit dengan AI. Jangan langsung percaya.",
+		},
+		{
+			name:   "image that looks AI-generated",
+			status: models.StatusSuspicious,
+			floors: []string{FloorAILikely},
+			want:   "Gambar ini tampak buatan AI. Cek dulu sebelum menyebarkan.",
+		},
+		{
+			name:   "a risky link wins over an AI-looking image",
+			status: models.StatusTampered,
+			floors: []string{FloorLinkStrong, FloorAILikely},
+			want:   "Tautan ini punya tanda penipuan. Sebaiknya jangan diklik.",
 		},
 		{
 			name:   "fact sentence wins over link sentence",

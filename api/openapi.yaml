@@ -286,7 +286,7 @@ components:
           items:
             type: string
             enum: [FACT_CONTRADICTED, LINK_MALICIOUS, LINK_STRONG, ELA_CORROBORATED,
-                   ELA_SOLO_CAP, INJECTION_GUARD]
+                   ELA_SOLO_CAP, INJECTION_GUARD, AI_PROVENANCE, AI_EDITED, AI_LIKELY]
       required: [status, explanation, explanation_simple, basis, not_checked, floors_applied]
 
     Pillars:
@@ -305,11 +305,21 @@ components:
           required: [available, score, reliability]
         ai:
           type: object
+          description: >
+            Jejak AI: whether the image (the upload, or a link's preview image)
+            was made with AI. score is a likelihood computed in Go from the
+            image's provenance, an optional detector and the model's visible
+            clues; reliability is the weight the strongest of those earns.
           properties:
             available: { type: boolean }
-            score: { type: integer }
+            score: { type: integer, minimum: 0, maximum: 100 }
+            reliability: { type: number, minimum: 0, maximum: 1 }
             indicators: { type: array, items: { type: string } }
             caveat: { type: string }
+            provenance: { $ref: "#/components/schemas/Provenance" }
+            detector:
+              nullable: true
+              allOf: [{ $ref: "#/components/schemas/AIDetector" }]
           required: [available, score]
         fact:
           type: object
@@ -332,6 +342,31 @@ components:
               type: array
               items: { $ref: "#/components/schemas/LinkReason" }
           required: [available, score]
+
+    Provenance:
+      type: object
+      description: >
+        What the image declares about its origin: Content Credentials (c2pa),
+        IPTC/XMP metadata (xmp), generator settings in PNG text (png_text),
+        EXIF (exif), or an AI label visible on the image (watermark). Missing
+        metadata proves nothing; camera data is a hint, not proof.
+      properties:
+        kind: { type: string, enum: [AI_GENERATED, AI_EDITED, CAMERA, NONE] }
+        source: { type: string, enum: [c2pa, xmp, png_text, exif, watermark, ""] }
+        generator: { type: string }
+        camera: { type: string }
+        c2pa: { type: boolean }
+      required: [kind, source, generator, camera, c2pa]
+
+    AIDetector:
+      type: object
+      description: >
+        A dedicated AI-image detector's answer, present only when one is
+        configured (SIGHTENGINE_API_USER / SIGHTENGINE_API_SECRET) and answered.
+      properties:
+        name: { type: string }
+        score: { type: integer, minimum: 0, maximum: 100 }
+      required: [name, score]
 
     Dossier:
       type: object

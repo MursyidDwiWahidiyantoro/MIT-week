@@ -40,8 +40,17 @@
           "ai": {
             "available": false,
             "score": 0,
+            "reliability": 0,
             "indicators": [],
-            "caveat": ""
+            "caveat": "",
+            "provenance": {
+              "kind": "NONE",
+              "source": "",
+              "generator": "",
+              "camera": "",
+              "c2pa": false
+            },
+            "detector": null
           },
           "fact": {
             "available": true,
@@ -104,7 +113,7 @@
         "degraded": false,
         "is_demo": true,
         "verdict": {
-          "score": 90,
+          "score": 85,
           "status": "TAMPERED",
           "short_title": "Contoh: tangkapan layar berita diedit",
           "explanation": "Angka harga pada gambar ini tampak ditempel: kompresinya berbeda dari bagian lain. Sumber contoh juga membantah klaimnya. Geser penanda untuk membandingkan gambar asli dan hasil ELA. Ini data simulasi.",
@@ -142,12 +151,20 @@
           },
           "ai": {
             "available": true,
-            "score": 58,
+            "score": 12,
+            "reliability": 0.5,
             "indicators": [
-              "Angka harga tampak ditempel",
-              "Warna teks harga sedikit berbeda"
+              "Tampak seperti tangkapan layar unggahan biasa"
             ],
-            "caveat": "Indikatif, bukan bukti pasti"
+            "caveat": "Indikatif, bukan bukti pasti",
+            "provenance": {
+              "kind": "NONE",
+              "source": "",
+              "generator": "",
+              "camera": "",
+              "c2pa": false
+            },
+            "detector": null
           },
           "fact": {
             "available": true,
@@ -180,6 +197,81 @@
         "share_token": "",
         "source_metadata": null,
         "ocr_text": "BERITA.CONTOH HARGA BERAS TURUN JADI RP 2.000/KG SEBARKAN SEBELUM DIHAPUS! CONTOH / SIMULASI"
+      }
+    },
+    {
+      "id": "demo-gambar-ai",
+      "caption": "Foto viral: ikan raksasa terdampar di pantai",
+      "image": "/demo/gambar-ai.jpg",
+      "dossier": {
+        "schema_version": 2,
+        "id": "AMBA-20261030-DMO5",
+        "timestamp": "2026-10-30T07:25:10Z",
+        "input_type": "FILE",
+        "source_reference": "Gambar yang diunggah",
+        "degraded": false,
+        "is_demo": true,
+        "verdict": {
+          "score": 85,
+          "status": "TAMPERED",
+          "short_title": "Contoh: foto viral buatan AI",
+          "explanation": "Content Credentials di dalam file menyatakan gambar ini dibuat dengan AI, jadi gambar ini bukan foto kejadian nyata. Klaim di gambarnya juga belum dibahas sumber terpercaya. Ini data simulasi.",
+          "explanation_simple": "Ada tanda jelas gambar ini dibuat dengan AI. Jangan anggap sebagai foto asli.",
+          "basis": [
+            "ela",
+            "ai",
+            "fact"
+          ],
+          "not_checked": [
+            "link"
+          ],
+          "floors_applied": [
+            "AI_PROVENANCE"
+          ]
+        },
+        "pillars": {
+          "ela": {
+            "available": true,
+            "score": 0,
+            "reliability": 1,
+            "reliability_note": null,
+            "anomalies": []
+          },
+          "ai": {
+            "available": true,
+            "score": 95,
+            "reliability": 1,
+            "indicators": [
+              "Ikan dan pantai tampak seperti gambar, bukan foto"
+            ],
+            "caveat": "Indikatif, bukan bukti pasti",
+            "provenance": {
+              "kind": "AI_GENERATED",
+              "source": "c2pa",
+              "generator": "",
+              "camera": "",
+              "c2pa": true
+            },
+            "detector": null
+          },
+          "fact": {
+            "available": true,
+            "claim": "Ikan raksasa terdampar di pantai",
+            "status": "UNVERIFIED",
+            "sources": []
+          },
+          "link": {
+            "available": false,
+            "score": 0,
+            "final_url": "",
+            "redirect_chain": [],
+            "reasons": []
+          }
+        },
+        "tactics": [],
+        "share_token": "",
+        "source_metadata": null,
+        "ocr_text": "IKAN RAKSASA TERDAMPAR! CONTOH / SIMULASI"
       }
     },
     {
@@ -222,8 +314,17 @@
           "ai": {
             "available": false,
             "score": 0,
+            "reliability": 0,
             "indicators": [],
-            "caveat": ""
+            "caveat": "",
+            "provenance": {
+              "kind": "NONE",
+              "source": "",
+              "generator": "",
+              "camera": "",
+              "c2pa": false
+            },
+            "detector": null
           },
           "fact": {
             "available": false,
@@ -317,8 +418,17 @@
           "ai": {
             "available": false,
             "score": 0,
+            "reliability": 0,
             "indicators": [],
-            "caveat": ""
+            "caveat": "",
+            "provenance": {
+              "kind": "NONE",
+              "source": "",
+              "generator": "",
+              "camera": "",
+              "c2pa": false
+            },
+            "detector": null
           },
           "fact": {
             "available": true,

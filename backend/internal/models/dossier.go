@@ -101,12 +101,48 @@ type Anomaly struct {
 	Reason        string `json:"reason"`
 }
 
-// AIPillar is the LLM's indicative assessment.
+// AIPillar ("Jejak AI") answers whether the image was made with AI: the
+// uploaded image, or a link's preview image. Score is the likelihood (0-100)
+// computed in Go from the file's provenance, an optional dedicated detector
+// and the vision model's visible clues; Reliability is how much the strongest
+// of those deserves to weigh.
 type AIPillar struct {
-	Available  bool     `json:"available"`
-	Score      int      `json:"score"`
-	Indicators []string `json:"indicators"`
-	Caveat     string   `json:"caveat"`
+	Available   bool        `json:"available"`
+	Score       int         `json:"score"`
+	Reliability float64     `json:"reliability"`
+	Indicators  []string    `json:"indicators"`
+	Caveat      string      `json:"caveat"`
+	Provenance  Provenance  `json:"provenance"`
+	Detector    *AIDetector `json:"detector"`
+}
+
+// ProvenanceKind is what an image declares about its origin.
+type ProvenanceKind string
+
+const (
+	ProvenanceAIGenerated ProvenanceKind = "AI_GENERATED"
+	ProvenanceAIEdited    ProvenanceKind = "AI_EDITED"
+	ProvenanceCamera      ProvenanceKind = "CAMERA"
+	ProvenanceNone        ProvenanceKind = "NONE"
+)
+
+// Provenance is what the image declares about where it came from: Content
+// Credentials (c2pa), IPTC/XMP metadata (xmp), generator settings in PNG text
+// (png_text), EXIF (exif), or an AI label visible on the image (watermark).
+// Generator and Camera are "" when not named.
+type Provenance struct {
+	Kind      ProvenanceKind `json:"kind"`
+	Source    string         `json:"source"`
+	Generator string         `json:"generator"`
+	Camera    string         `json:"camera"`
+	C2PA      bool           `json:"c2pa"`
+}
+
+// AIDetector is a dedicated AI-image detector's answer (0-100), present only
+// when one is configured and answered.
+type AIDetector struct {
+	Name  string `json:"name"`
+	Score int    `json:"score"`
 }
 
 // FactStatus is the outcome of checking the claim against allowlisted sources.

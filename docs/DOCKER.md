@@ -115,6 +115,8 @@ LLM_EXTRA_BODY=
 Layanan opsional lain cukup diisi di `.env` (daftar lengkap ada di `.env.example`):
 ```env
 GOOGLE_API_KEY=...            # Fact Check Tools + Safe Browsing
+SIGHTENGINE_API_USER=...      # optional AI-image detector (both or neither)
+SIGHTENGINE_API_SECRET=...
 TELEGRAM_BOT_TOKEN=...        # bot berjalan dalam mode polling di Docker lokal
 ```
 
