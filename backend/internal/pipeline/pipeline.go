@@ -145,8 +145,8 @@ func New(client *llm.Client, g *grounding.Grounder, cacheTTL time.Duration) *Pip
 		MetaDeadline:   2500 * time.Millisecond,
 		LLMDeadline:    9 * time.Second,
 		// Measured 9 Nov: a text-only call takes 4-9 s on our gateways and a
-		// Tavily search 1-3 s; with 3 s the classifier timed out every time.
-		SearchDeadline:     6 * time.Second,
+		// Tavily search 1-5 s; with 3 s the classifier timed out every time.
+		SearchDeadline:     8 * time.Second,
 		ClassifyDeadline:   10 * time.Second,
 		DetectDeadline:     4 * time.Second,
 		PreviewDeadline:    1500 * time.Millisecond,
