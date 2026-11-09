@@ -46,12 +46,17 @@ func HighSeverity(code string) bool {
 }
 
 // brands are the names impersonated most often in Indonesian phishing.
+// Ordinary words are left out on purpose ("jago", "flip", "grab", and
+// "jenius", one edit away from "genius"): a brand list is only useful while
+// it does not fire on everyday domains.
 var brands = []string{
-	"bri", "bca", "bni", "mandiri", "bsi", "cimb", "permata", "danamon",
-	"gopay", "ovo", "dana", "shopeepay", "linkaja", "qris",
-	"tokopedia", "shopee", "lazada", "bukalapak", "blibli",
+	"bri", "brimo", "bca", "bni", "btn", "mandiri", "bsi", "cimb", "permata",
+	"danamon", "seabank", "gopay", "ovo", "dana", "shopeepay", "linkaja", "qris",
+	"akulaku", "kredivo", "pegadaian",
+	"tokopedia", "shopee", "lazada", "bukalapak", "blibli", "gojek",
 	"whatsapp", "telegram", "instagram", "facebook", "tiktok",
-	"kemendikbud", "kominfo", "komdigi", "pajak", "djp", "bpjs", "jne", "jnt",
+	"kemendikbud", "kemensos", "prakerja", "kominfo", "komdigi", "pajak", "djp",
+	"bpjs", "pln", "telkomsel", "indihome", "jne", "jnt",
 }
 
 // officialDomains are registrable domains that belong to a brand above or to
@@ -66,7 +71,14 @@ var officialDomains = map[string]bool{
 	"blibli.com": true, "whatsapp.com": true, "whatsapp.net": true, "wa.me": true,
 	"telegram.org": true, "telegram.me": true, "t.me": true, "instagram.com": true,
 	"facebook.com": true, "fb.com": true, "tiktok.com": true, "jne.co.id": true,
-	"jet.co.id": true,
+	"jet.co.id": true, "btn.co.id": true, "seabank.co.id": true,
+	"akulaku.com": true, "kredivo.com": true, "pegadaian.co.id": true,
+	"pln.co.id": true, "telkomsel.com": true, "indihome.co.id": true,
+	// The marketplaces' own sites in neighbouring countries.
+	"lazada.com.my": true, "lazada.com.ph": true, "lazada.co.th": true,
+	"lazada.vn": true, "lazada.sg": true, "shopee.com.my": true, "shopee.ph": true,
+	"shopee.sg": true, "shopee.co.th": true, "shopee.vn": true, "shopee.tw": true,
+	"shopee.com.br": true,
 	// Reviewed publishers (mirrors configs/trusted_sources.yaml).
 	"turnbackhoax.id": true, "cekfakta.com": true, "antaranews.com": true,
 	"kompas.com": true, "detik.com": true, "tempo.co": true,
@@ -77,6 +89,12 @@ var officialDomains = map[string]bool{
 // (government, universities, schools, military, villages), so a brand-like
 // label under them is not a typosquat.
 var restrictedSuffixes = []string{".go.id", ".ac.id", ".sch.id", ".mil.id", ".desa.id"}
+
+// cheapSuffixes are Indonesian second-level domains anyone can register in
+// minutes. In the public phishing feed AMBA was tested on (November 2026)
+// they hosted a third of the Indonesian-themed phishing links and none of the
+// popular legitimate sites. Reported as SUSPICIOUS_TLD.
+var cheapSuffixes = []string{".my.id", ".biz.id"}
 
 // suspiciousTLDs are cheap or frequently abused TLDs.
 var suspiciousTLDs = map[string]bool{
@@ -153,7 +171,7 @@ func Analyze(raw string) Result {
 	if u.User != nil {
 		res.Findings = append(res.Findings, Finding{Code: ReasonCredentials, Weight: 40})
 	}
-	if strings.Contains(u.String(), "@") && u.User == nil {
+	if u.User == nil && hasMisleadingAt(u) {
 		res.Findings = append(res.Findings, Finding{Code: ReasonAtSymbol, Weight: 30})
 	}
 	if u.Scheme != "https" {
@@ -187,6 +205,13 @@ func Analyze(raw string) Result {
 	tld := lastLabel(host)
 	if suspiciousTLDs[tld] {
 		res.Findings = append(res.Findings, Finding{Code: ReasonSuspiciousTLD, Weight: 25, Detail: tld})
+	} else {
+		for _, suffix := range cheapSuffixes {
+			if strings.HasSuffix(host, suffix) {
+				res.Findings = append(res.Findings, Finding{Code: ReasonSuspiciousTLD, Weight: 25, Detail: strings.TrimPrefix(suffix, ".")})
+				break
+			}
+		}
 	}
 	if shorteners[registrable(host)] {
 		res.Findings = append(res.Findings, Finding{Code: ReasonURLShortener, Weight: 20, Detail: registrable(host)})
@@ -254,6 +279,34 @@ func WithSafeBrowsingHit(r Result) Result {
 	return r
 }
 
+// hasMisleadingAt reports an "@" outside the authority that is not a social
+// handle. "/@kompascom/video/1" is how TikTok, YouTube and Medium name an
+// account and is not a trick; a pre-filled victim address
+// ("?email=a@b.example") or "/secure@bank.example" in a path is.
+func hasMisleadingAt(u *url.URL) bool {
+	for _, segment := range strings.Split(u.Path, "/") {
+		if strings.HasPrefix(segment, "@") && isHandle(segment[1:]) {
+			continue
+		}
+		if strings.Contains(segment, "@") {
+			return true
+		}
+	}
+	return strings.Contains(u.RawQuery, "@") || strings.Contains(u.Fragment, "@")
+}
+
+func isHandle(name string) bool {
+	if name == "" || len(name) > 64 {
+		return false
+	}
+	for _, r := range name {
+		if !(r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '.' || r == '_' || r == '-') {
+			return false
+		}
+	}
+	return true
+}
+
 func sumWeights(findings []Finding) int {
 	total := 0
 	for _, f := range findings {
@@ -310,8 +363,11 @@ func brandMatches(token, brand string) bool {
 			return true
 		}
 	}
-	// Typosquats ("tokopedla", "shoppe") only for names long enough that one
-	// or two edits still leave something recognisable.
+	if nearMisses[token] {
+		return false
+	}
+	// Typosquats ("tokopedla", "shoppe", "instagrarn") only for names long
+	// enough that one or two edits still leave something recognisable.
 	if len(brand) >= 5 {
 		limit := 1
 		if len(brand) >= 9 {
@@ -323,6 +379,10 @@ func brandMatches(token, brand string) bool {
 	}
 	return false
 }
+
+// nearMisses are ordinary words one edit away from a brand ("telegraf" is
+// Serbian and Ukrainian for telegraph, the name of popular news sites).
+var nearMisses = map[string]bool{"telegraf": true}
 
 func scamHostWord(host string) (string, bool) {
 	for _, label := range nameLabels(host) {

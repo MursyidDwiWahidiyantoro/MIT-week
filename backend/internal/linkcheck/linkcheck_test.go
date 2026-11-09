@@ -254,3 +254,46 @@ func TestUnparseableHasItsOwnCode(t *testing.T) {
 		t.Fatalf("got %+v", got)
 	}
 }
+
+// Real-world shapes found while testing on a public phishing feed and on
+// popular legitimate sites (November 2026).
+func TestRealWorldShapes(t *testing.T) {
+	cases := []struct {
+		url      string
+		wantCode string
+		absent   string
+	}{
+		// A social handle is not a trick.
+		{"https://www.tiktok.com/@kompascom/video/7300000000000000000", "", ReasonAtSymbol},
+		{"https://www.youtube.com/@KompasTV", "", ReasonAtSymbol},
+		// A pre-filled victim address is.
+		{"http://552924.selcdn.ru/department-via-docusign/index10.html?email=a.balao@lazada.com.ph", ReasonAtSymbol, ""},
+		{"http://www.example.com/TO/dana_l_holmes@bcbsil.example", ReasonAtSymbol, ""},
+		// Cheap Indonesian second-level domains carry most local phishing.
+		{"http://aktif.enpres.my.id/bsi", ReasonSuspiciousTLD, ""},
+		{"https://promo-dana.biz.id/", ReasonSuspiciousTLD, ""},
+		// Brands added after the feed showed them impersonated.
+		{"http://scandal2my.btn-app.my.id/sxy", ReasonLookalikeBrand, ""},
+		{"https://brimo-tarif.example/", ReasonLookalikeBrand, ""},
+		// Their real domains stay clean.
+		{"https://www.btn.co.id/", "", ReasonLookalikeBrand},
+		{"https://web.pln.co.id/", "", ReasonLookalikeBrand},
+		{"https://www.telkomsel.com/", "", ReasonLookalikeBrand},
+		{"https://kemensos.go.id/", "", ReasonLookalikeBrand},
+		// Everyday words that resemble a brand are not flagged.
+		{"https://genius.com/", "", ReasonLookalikeBrand},
+	}
+	for _, c := range cases {
+		r := Analyze(c.url)
+		has := map[string]bool{}
+		for _, f := range r.Findings {
+			has[f.Code] = true
+		}
+		if c.wantCode != "" && !has[c.wantCode] {
+			t.Errorf("%s: want %s, got %+v", c.url, c.wantCode, r.Findings)
+		}
+		if c.absent != "" && has[c.absent] {
+			t.Errorf("%s: %s must not fire, got %+v", c.url, c.absent, r.Findings)
+		}
+	}
+}

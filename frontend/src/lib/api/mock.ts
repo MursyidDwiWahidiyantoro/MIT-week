@@ -408,8 +408,8 @@ function urlDossier(payload: MockPayload): DossierParsed {
     basis: basisFor(available),
     notChecked: notCheckedFor(available),
     // Mirrors the Go scorer: >= 90 is LINK_MALICIOUS, otherwise a link-only
-    // verdict of >= 50 is LINK_STRONG.
-    floors: link.score >= 90 ? ['LINK_MALICIOUS'] : link.score >= 50 ? ['LINK_STRONG'] : [],
+    // verdict of >= 45 (scoring.LinkStrongMin) is LINK_STRONG.
+    floors: link.score >= 90 ? ['LINK_MALICIOUS'] : link.score >= 45 ? ['LINK_STRONG'] : [],
     // The browser preview cannot fetch other sites, which is exactly the
     // "could not read" case the result page explains.
     sourceMetadata: {

@@ -92,11 +92,11 @@ Hasil terakhir (8 Nov 2026):
 
 | Bagian | Status | Bukti |
 |---|---|---|
-| `internal/scoring` | ADA | bobot ELA .30 / AI .15 / Fact .35 / Link .20; 6 floor termasuk `LINK_STRONG`; vektor 1–12 |
+| `internal/scoring` | ADA | bobot ELA .30 / AI .15 / Fact .35 / Link .20; 6 floor termasuk `LINK_STRONG`; vektor 1–12 + 11b |
 | `internal/security` | ADA | SSRF `Dialer.Control` + penolakan target internal, upload, rate limit dengan identitas dari edge host, header, CORS |
 | `internal/token` | ADA | HMAC share token, tamper, rotasi |
 | `internal/forensics` | ADA | ELA q90, grid 16×16, reliabilitas per format, `Hotspots`, gambar untuk model (JPEG ≤ 1600 px) |
-| `internal/linkcheck` | ADA | brand lookalike berbasis token, domain resmi, unroll redirect, `SHORTENER_HIDES`, Safe Browsing |
+| `internal/linkcheck` | ADA | brand lookalike berbasis token, domain resmi, unroll redirect, `SHORTENER_HIDES`, Safe Browsing; diuji pada data phishing nyata (83,6 % tautan phishing bertema Indonesia diberi peringatan, 4 dari 10.060 situs sah salah ditandai) |
 | `internal/metadata` | ADA | oEmbed (YouTube, TikTok, X) dan OpenGraph lewat klien aman; BLOCKED/UNAVAILABLE jujur |
 | `internal/llm` | ADA | analisis + klasifikasi dengan `json_schema` strict, input gambar, deteksi injeksi, mock deterministik; bawaan deploy: OpenRouter `nvidia/nemotron-3.5-super-vl:free` + cadangan `openrouter/free` |
 | `internal/grounding` | ADA | Google Fact Check Tools + allowlist; hanya URL hasil pencarian AMBA yang bisa terverifikasi |
@@ -162,7 +162,7 @@ Semua detail di `docs/DECISIONS.md`. Yang paling sering ditanya:
 2. **Status fakta dari sumber terverifikasi**, bukan klaim model; hanya URL dari
    pencarian AMBA sendiri yang bisa terverifikasi.
 3. **ELA sendirian tidak bisa TAMPERED** (cap 60), dan cap hanya bila ELA tersedia.
-4. **Bukti tautan kuat cukup** (`LINK_STRONG`): skor tautan ≥ 50 tanpa bukti lain
+4. **Bukti tautan kuat cukup** (`LINK_STRONG`): skor tautan ≥ 45 tanpa bukti lain
    menjadi skor, maksimal 85.
 5. **Produksi menolak model tiruan**, tanpa kunci tanda tangan, atau tanpa https.
 6. **Token di fragment URL**, dikirim lewat body `POST /verify`.

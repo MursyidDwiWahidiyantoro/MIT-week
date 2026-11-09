@@ -362,3 +362,30 @@ frontend: playwright e2e               32/32 (axe ID + EN, mode parity, i18n)
 frontend: lighthouse (mobile, median 5) perf 93-100, a11y 100, BP 96-100, SEO 100, CLS 0
 demo diff                              in sync
 ```
+
+## Real-sample evaluation (2026-11-09)
+
+Run from a throwaway harness on the pillars that work without external
+services (the model, Fact Check Tools and Safe Browsing are unreachable from
+the development environment). Details and data sources in
+`docs/DECISIONS.md` ("Link heuristics tuned on real phishing and legitimate
+URLs").
+
+| Set | Size | Warning verdict before | After tuning |
+|---|---|---|---|
+| Indonesian-themed phishing links | 1,053 | 25.4 % | 83.6 % |
+| Phishing links on `.id` domains | 10,406 | 2.2 % | 13.1 % |
+| Random global phishing links | 3,000 | 2.4 % | 4.5 % |
+| Top 10,000 domains (legitimate) | 10,000 | 0 | 4 |
+| Official Indonesian URLs (legitimate) | 60 | 0 | 0 |
+
+| Image | Truth | ELA score |
+|---|---|---|
+| TruFor pristine1.jpg / pristine2.jpg | authentic | 0 / 0 |
+| CASIA Sp_S_NNN_A_ani0041 (JPEG) | edited | 2 |
+| CASIA Tp_S_NNN_S_N_ani20009 (lossless) | edited | 5 |
+| TruFor tampered1.png / tampered2.png | edited | 5 / 14 |
+| CAT-Net example.jpg | edited | 0 |
+
+Still to run with real keys: the model pillar, fact checking and Safe
+Browsing (`docs/DEPLOY.md` §6).
