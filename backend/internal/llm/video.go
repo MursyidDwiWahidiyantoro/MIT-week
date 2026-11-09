@@ -109,7 +109,9 @@ Cara mengisi setiap kolom:
   gerak terlalu mulus, gaya visual AI yang khas.
   71-100 ciri jelas: tangan, gigi, atau wajah cacat; tulisan di papan atau baju berupa huruf acak; benda yang muncul,
   hilang, atau menyatu antar frame; fisika mustahil; atau label atau tanda air AI.
-  Animasi kartun biasa atau editan biasa (teks, filter, potongan) BUKAN buatan AI.
+  BUKAN buatan AI generatif, beri skor 0-15 kecuali ada ciri AI generatif yang jelas: rekaman game (misalnya
+  Minecraft, Roblox, GTA), animasi 3D atau CGI biasa, kartun, efek visual film, dan editan biasa (teks, filter,
+  potongan, stiker). Grafik komputer yang rapi bukan tanda AI; yang dicari adalah ciri khas model generatif.
 - ai_indicators: paling banyak 5 ciri untuk ai_score, sebutkan nomor frame, misalnya "Frame 3: jari tangan kiri enam".
 - ai_watermark: salin persis label atau tanda air AI yang terlihat (misalnya "Sora", "Veo", "AI-generated",
   "Dibuat dengan AI", "Konten dibuat dengan AI"). "" jika tidak ada. Jangan menebak.
