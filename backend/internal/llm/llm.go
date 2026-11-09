@@ -229,9 +229,9 @@ func (c *Client) Analyze(ctx context.Context, in Input) (Findings, error) {
 	if c.Mock {
 		return mockFindings(in), nil
 	}
-	typeLabel := map[string]string{"URL": "TAUTAN", "TEXT": "TEKS", "FILE": "GAMBAR"}[in.Type]
+	typeLabel := map[string]string{"URL": "TAUTAN", "FILE": "GAMBAR"}[in.Type]
 	if typeLabel == "" {
-		typeLabel = "TEKS"
+		typeLabel = "TAUTAN"
 	}
 	system := analyzePrompt + "\n\nJenis masukan untuk permintaan ini: " + typeLabel + "."
 

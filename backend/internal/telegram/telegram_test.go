@@ -164,8 +164,9 @@ func TestRequestKinds(t *testing.T) {
 	if len(seen) != 3 {
 		t.Fatalf("audits = %d", len(seen))
 	}
-	if seen[0].InputType != models.InputText || seen[1].InputType != models.InputURL || seen[1].URL != "https://kompas.com/a" {
-		t.Fatalf("text/url requests = %+v", seen[:2])
+	// A message that carries a link is checked by that link.
+	if seen[0].InputType != models.InputURL || seen[0].URL != "https://x.example" || seen[1].InputType != models.InputURL || seen[1].URL != "https://kompas.com/a" {
+		t.Fatalf("link requests = %+v", seen[:2])
 	}
 	if seen[2].InputType != models.InputFile || seen[2].ImageFormat != "png" || seen[2].OCRText != "lihat ini" {
 		t.Fatalf("photo request = %+v", seen[2])
@@ -185,10 +186,12 @@ func TestCommandsAndRefusals(t *testing.T) {
 	b.Handle(ctx, Update{Message: &Message{Chat: Chat{ID: 9}, Text: "/hapus"}})
 	b.Handle(ctx, Update{Message: &Message{Chat: Chat{ID: 9}, Text: "http://127.0.0.1/admin"}})
 	b.Handle(ctx, Update{Message: &Message{Chat: Chat{ID: 9}, Document: &Document{FileID: "d", MimeType: "application/pdf"}}})
+	b.Handle(ctx, Update{Message: &Message{Chat: Chat{ID: 9}, Text: "Mama minta pulsa dulu ya"}})
 
 	got := f.messages()
-	if len(got) != 5 || !strings.Contains(got[0], "Halo, ini AMBA") || !strings.Contains(got[1], "Tulis /cek") ||
-		!strings.Contains(got[2], "tidak dikenal") || !strings.Contains(got[3], "tidak dapat diperiksa") || !strings.Contains(got[4], "belum didukung") {
+	if len(got) != 6 || !strings.Contains(got[0], "Halo, ini AMBA") || !strings.Contains(got[1], "Tulis /cek") ||
+		!strings.Contains(got[2], "tidak dikenal") || !strings.Contains(got[3], "tidak dapat diperiksa") || !strings.Contains(got[4], "belum didukung") ||
+		!strings.Contains(got[5], "tautan dan gambar") {
 		t.Fatalf("replies = %q", got)
 	}
 	mu.Lock()
@@ -205,7 +208,7 @@ func TestPerChatRateLimit(t *testing.T) {
 	var mu sync.Mutex
 	b := newBot(f, fakeAudit(&seen, &mu))
 	for i := 0; i < 5; i++ {
-		b.Handle(context.Background(), Update{Message: &Message{Chat: Chat{ID: 77}, Text: "pesan"}})
+		b.Handle(context.Background(), Update{Message: &Message{Chat: Chat{ID: 77}, Text: "https://contoh.example/a"}})
 	}
 	mu.Lock()
 	audits := len(seen)
@@ -221,7 +224,7 @@ func TestPerChatRateLimit(t *testing.T) {
 func TestPollProcessesUpdates(t *testing.T) {
 	f := newFakeAPI(t)
 	defer f.srv.Close()
-	f.updates = []Update{{UpdateID: 10, Message: &Message{Chat: Chat{ID: 5}, Text: "halo apa kabar"}}}
+	f.updates = []Update{{UpdateID: 10, Message: &Message{Chat: Chat{ID: 5}, Text: "cek https://contoh.example/b"}}}
 	var seen []pipeline.Request
 	var mu sync.Mutex
 	b := newBot(f, fakeAudit(&seen, &mu))

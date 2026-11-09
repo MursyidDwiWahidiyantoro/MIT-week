@@ -51,7 +51,6 @@ func NewRouterWith(cfg *config.Config, deps Deps, extra func(chi.Router)) http.H
 		r.Get("/healthz", health)
 		r.Get("/demo/{id}", getDemo)
 		r.Post("/audit/url", h.auditURL)
-		r.Post("/audit/text", h.auditText)
 		r.Post("/audit/file", h.auditFile)
 		r.Post("/verify", h.verify)
 		r.Post("/reply", h.reply)

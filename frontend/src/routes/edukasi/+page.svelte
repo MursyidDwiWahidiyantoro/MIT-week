@@ -6,11 +6,11 @@
 
   const modus = [
     {
-      id: 'bansos',
+      id: 'ai',
       tone: 'yellow',
-      icon: 'alert',
-      title: 'edu.m.bansos.title',
-      body: 'edu.m.bansos.body'
+      icon: 'sparkle',
+      title: 'edu.m.ai.title',
+      body: 'edu.m.ai.body'
     },
     {
       id: 'judul',

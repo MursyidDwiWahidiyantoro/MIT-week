@@ -4,14 +4,15 @@
   import Icon from '$lib/components/ui/Icon.svelte';
 
   /**
-   * A worked example, not a fake scan. Each tab is one real-world message
-   * pattern with the three signs AMBA would explain, so a first-time visitor
-   * learns the shape of a verdict before submitting anything.
+   * A worked example, not a fake scan. Each tab is one real-world pattern (an
+   * edited screenshot, a fake link) with the three signs AMBA would explain,
+   * so a first-time visitor learns the shape of a verdict before submitting
+   * anything.
    */
   interface Example {
-    id: 'message' | 'link';
+    id: 'image' | 'link';
     tab: string;
-    icon: 'chat' | 'link';
+    icon: 'image' | 'link';
     label: string;
     text: string;
     verdict: string;
@@ -22,18 +23,18 @@
 
   const EXAMPLES: Example[] = $derived([
     {
-      id: 'message',
-      tab: t('scan.msg.tab'),
-      icon: 'chat',
-      label: t('scan.msg.label'),
-      text: t('scan.msg.text'),
-      verdict: t('scan.msg.verdict'),
-      score: 92,
+      id: 'image',
+      tab: t('scan.img.tab'),
+      icon: 'image',
+      label: t('scan.img.label'),
+      text: t('scan.img.text'),
+      verdict: t('scan.img.verdict'),
+      score: 90,
       tone: 'danger',
       flags: [
-        { lead: t('scan.msg.f1.lead'), rest: t('scan.msg.f1.rest') },
-        { lead: t('scan.msg.f2.lead'), rest: t('scan.msg.f2.rest') },
-        { lead: t('scan.msg.f3.lead'), rest: t('scan.msg.f3.rest') }
+        { lead: t('scan.img.f1.lead'), rest: t('scan.img.f1.rest') },
+        { lead: t('scan.img.f2.lead'), rest: t('scan.img.f2.rest') },
+        { lead: t('scan.img.f3.lead'), rest: t('scan.img.f3.rest') }
       ]
     },
     {
@@ -53,7 +54,7 @@
     }
   ]);
 
-  let active = $state<Example['id']>('message');
+  let active = $state<Example['id']>('image');
   const current = $derived(EXAMPLES.find((e) => e.id === active) ?? EXAMPLES[0]);
 </script>
 

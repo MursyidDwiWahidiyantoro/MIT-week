@@ -8,7 +8,7 @@ import { SchemaVersionError, ContractError } from './errors';
 
 export const statusSchema = z.enum(['SAFE', 'SUSPICIOUS', 'TAMPERED', 'INSUFFICIENT']);
 export const factStatusSchema = z.enum(['CONTRADICTS', 'SUPPORTS', 'UNVERIFIED']);
-export const inputTypeSchema = z.enum(['URL', 'FILE', 'TEXT']);
+export const inputTypeSchema = z.enum(['URL', 'FILE']);
 
 export const tacticCodeSchema = z.enum([
   'URGENCY',
@@ -42,7 +42,7 @@ export const tacticSchema = z.object({
 
 export const metadataStatusSchema = z.enum(['OK', 'BLOCKED', 'UNAVAILABLE']);
 
-/** Public description of a submitted link (PRD F1). null for TEXT/FILE. */
+/** Public description of a submitted link (PRD F1). null for FILE. */
 export const sourceMetadataSchema = z.object({
   status: metadataStatusSchema,
   platform: z.string(),
@@ -61,23 +61,7 @@ export const verdictSchema = z.object({
   explanation_simple: z.string().max(140),
   basis: z.array(z.enum(['ela', 'ai', 'fact', 'link', 'llm_untrusted'])),
   not_checked: z.array(z.enum(['ela', 'ai', 'fact', 'link'])),
-  floors_applied: z.array(z.string()),
-  scam_pattern: z
-    .enum([
-      'CREDENTIAL_REQUEST',
-      'APK_LURE',
-      'WRONG_TRANSFER',
-      'JOB_SCAM',
-      'INVESTMENT_SCAM',
-      'PRIZE_FEE',
-      'LOAN_FEE',
-      'MONEY_PRESSURE',
-      'ACCOUNT_THREAT',
-      'UNOFFICIAL_CONTACT',
-      'CALL_FORWARD'
-    ])
-    .nullable()
-    .optional()
+  floors_applied: z.array(z.string())
 });
 
 export const dossierSchema = z.object({

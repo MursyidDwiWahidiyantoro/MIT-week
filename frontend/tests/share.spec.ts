@@ -83,7 +83,7 @@ const audit = async (page: import('@playwright/test').Page) => {
   return blocking.map((v) => `${v.id} (${v.impact}): ${v.nodes.length} node(s)`);
 };
 
-for (const path of ['/', '/deteksi', '/edukasi', '/tentang', '/cek-cepat']) {
+for (const path of ['/', '/deteksi', '/edukasi', '/tentang']) {
   test(`axe: no serious or critical violations on ${path}`, async ({ page }) => {
     await page.goto(path);
     // The SPA sets <title> after hydration; auditing before that is a race.

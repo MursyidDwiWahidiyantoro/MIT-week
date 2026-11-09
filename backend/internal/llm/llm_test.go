@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-func textInput(s string) Input { return Input{Type: "TEXT", Content: s} }
+func textInput(s string) Input { return Input{Type: "URL", Content: s} }
 
 // gateway returns a fake OpenAI-compatible server that answers every
 // completion with inner as the message content and records the last request.
@@ -141,7 +141,7 @@ func TestAnalyzeWrapsContentAsUntrusted(t *testing.T) {
 		t.Fatal("the regex detector must flag an override attempt even when the model does not")
 	}
 	system := msgs[0].(map[string]any)["content"].(string)
-	if !strings.Contains(system, "bounding_box") || !strings.Contains(system, "Jenis masukan untuk permintaan ini: TEKS") {
+	if !strings.Contains(system, "bounding_box") || !strings.Contains(system, "Jenis masukan untuk permintaan ini: TAUTAN") {
 		t.Fatal("system prompt must explain the fields and name the input type")
 	}
 }

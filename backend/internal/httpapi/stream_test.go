@@ -3,14 +3,11 @@ package httpapi
 import (
 	"encoding/json"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/amba/amba/backend/internal/config"
 	"github.com/amba/amba/backend/internal/models"
-	"github.com/amba/amba/backend/internal/scam"
 )
 
 type sseEvent struct {
@@ -40,7 +37,7 @@ func parseSSE(body string) []sseEvent {
 // Every pillar starts, ends exactly once, and its partial follows its own
 // "done" stage; the verdict comes after every pillar settled.
 func TestSSEIsProgressivePerPillar(t *testing.T) {
-	rec := postJSON(t, "/api/v1/audit/text", `{"text":"Segera klaim hadiah https://bri-verifikasi.xyz/login"}`, "text/event-stream")
+	rec := postJSON(t, "/api/v1/audit/url", `{"url":"https://bri-verifikasi.xyz/login"}`, "text/event-stream")
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status %d", rec.Code)
 	}
@@ -104,83 +101,25 @@ func TestURLDossierCarriesSourceMetadata(t *testing.T) {
 		t.Fatalf("explanation should mention the unreadable page: %q", d.Verdict.Explanation)
 	}
 
-	text := postJSON(t, "/api/v1/audit/text", `{"text":"halo"}`, "")
-	if !strings.Contains(text.Body.String(), `"source_metadata":null`) {
-		t.Fatal("text audits must carry source_metadata: null")
+	img := postImage(t, testRouter(t), "")
+	if !strings.Contains(img.Body.String(), `"source_metadata":null`) {
+		t.Fatal("image audits must carry source_metadata: null")
 	}
 }
 
 func TestExplanationUsesPlainNames(t *testing.T) {
-	rec := postJSON(t, "/api/v1/audit/text", `{"text":"halo semuanya"}`, "")
+	rec := postJSON(t, "/api/v1/audit/url", `{"url":"https://example.org/x"}`, "")
 	var d models.Dossier
 	_ = json.Unmarshal(rec.Body.Bytes(), &d)
-	if strings.Contains(d.Verdict.Explanation, "ela") || !strings.Contains(d.Verdict.Explanation, "analisis gambar") {
+	if strings.Contains(d.Verdict.Explanation, " ela") || !strings.Contains(d.Verdict.Explanation, "teks ditimpa") {
 		t.Fatalf("explanation should name pillars in plain words: %q", d.Verdict.Explanation)
 	}
 }
 
-func TestInvalidTextSaysWhatIsWrong(t *testing.T) {
-	rec := postJSON(t, "/api/v1/audit/text", `{"text":""}`, "")
-	if !strings.Contains(rec.Body.String(), "Teks kosong") {
-		t.Fatalf("body = %s", rec.Body.String())
-	}
-}
-
-// Every scam pattern the rules can return has an explanation sentence and is
-// in the published contract.
-func TestScamPatternsAreInTheContract(t *testing.T) {
-	raw, err := os.ReadFile(filepath.Clean("../../../api/dossier.schema.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	var schema struct {
-		Defs struct {
-			Verdict struct {
-				Properties struct {
-					ScamPattern struct {
-						Enum []any `json:"enum"`
-					} `json:"scam_pattern"`
-				} `json:"properties"`
-			} `json:"Verdict"`
-		} `json:"$defs"`
-	}
-	if err := json.Unmarshal(raw, &schema); err != nil {
-		t.Fatal(err)
-	}
-	inSchema := map[string]bool{}
-	for _, v := range schema.Defs.Verdict.Properties.ScamPattern.Enum {
-		if s, ok := v.(string); ok {
-			inSchema[s] = true
-		}
-	}
-	if len(inSchema) != len(scam.Patterns) {
-		t.Errorf("schema lists %d patterns, the rules %d", len(inSchema), len(scam.Patterns))
-	}
-	for _, p := range scam.Patterns {
-		if !inSchema[p] {
-			t.Errorf("%s is missing from dossier.schema.json", p)
-		}
-		if scamText[p] == "" {
-			t.Errorf("%s has no explanation sentence", p)
-		}
-	}
-}
-
-// A scam message gets the pattern, the floor and the plain sentence.
-func TestScamMessageExplainsThePattern(t *testing.T) {
-	rec := postJSON(t, "/api/v1/audit/text", `{"text":"Akun BRImo Anda akan diblokir dalam 24 jam. Segera verifikasi data di brimo-verifikasi.my.id"}`, "")
-	var d models.Dossier
-	if err := json.Unmarshal(rec.Body.Bytes(), &d); err != nil {
-		t.Fatalf("%v: %s", err, rec.Body.String())
-	}
-	if d.Verdict.ScamPattern == nil || *d.Verdict.ScamPattern != "ACCOUNT_THREAT" {
-		t.Fatalf("scam pattern = %v", d.Verdict.ScamPattern)
-	}
-	if d.Verdict.Status != models.StatusTampered {
-		t.Fatalf("status = %s", d.Verdict.Status)
-	}
-	if !strings.Contains(d.Verdict.Explanation, scamText["ACCOUNT_THREAT"]) {
-		t.Fatalf("explanation = %q", d.Verdict.Explanation)
+func TestInvalidURLSaysWhatIsWrong(t *testing.T) {
+	rec := postJSON(t, "/api/v1/audit/url", `{"url":""}`, "")
+	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "message") {
+		t.Fatalf("status %d body = %s", rec.Code, rec.Body.String())
 	}
 }
 
@@ -192,23 +131,21 @@ func TestRuleCountersUseCodesOnly(t *testing.T) {
 	}
 	deps := NewDeps(cfg)
 	router := NewRouterWith(cfg, deps, nil)
-	text := "Akun BRImo Anda akan diblokir dalam 24 jam. Segera verifikasi data di brimo-verifikasi.my.id"
-	if rec := postJSONTo(t, router, "/api/v1/audit/text", `{"text":"`+text+`"}`, ""); rec.Code != http.StatusOK {
+	if rec := postJSONTo(t, router, "/api/v1/audit/url", `{"url":"https://brimo-verifikasi.my.id/login"}`, ""); rec.Code != http.StatusOK {
 		t.Fatalf("status = %d", rec.Code)
 	}
 	var out strings.Builder
 	deps.Metrics.Render(&out)
 	body := out.String()
 	for _, want := range []string{
-		`amba_scam_patterns_total{pattern="ACCOUNT_THREAT"} 1`,
-		`amba_floors_total{floor="SCAM_PATTERN"} 1`,
+		`amba_floors_total{floor="LINK_MALICIOUS"} 1`,
 		`amba_link_reasons_total{reason="LOOKALIKE_BRAND"} 1`,
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("missing %s in\n%s", want, body)
 		}
 	}
-	if strings.Contains(body, "brimo-verifikasi") || strings.Contains(body, "diblokir") {
+	if strings.Contains(body, "brimo-verifikasi") {
 		t.Fatal("user content reached the metrics")
 	}
 }

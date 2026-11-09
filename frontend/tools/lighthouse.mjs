@@ -19,7 +19,7 @@ import fs from 'node:fs';
 import lighthouse from 'lighthouse';
 import * as chromeLauncher from 'chrome-launcher';
 
-const ROUTES = ['/', '/deteksi', '/edukasi', '/cek-cepat', '/tentang'];
+const ROUTES = ['/', '/deteksi', '/edukasi', '/tentang'];
 const MIN = { performance: 90, accessibility: 95, 'best-practices': 90, seo: 90 };
 const PORT = 4174;
 const RUNS = Number(process.env.LH_RUNS ?? 5);

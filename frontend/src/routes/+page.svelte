@@ -121,7 +121,7 @@
         </p>
         <div class="cta-row">
           <a class="btn btn--lime" href={resolve('/deteksi')}>{t('home.familyCheck')}</a>
-          <a class="btn btn--quiet" href={resolve('/cek-cepat')}>{t('home.familyGuide')}</a>
+          <a class="btn btn--quiet" href={resolve('/edukasi')}>{t('home.familyGuide')}</a>
         </div>
       </div>
     </div>

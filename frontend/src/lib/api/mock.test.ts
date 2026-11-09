@@ -3,26 +3,18 @@ import { buildMockDossier, decodeMockToken, isMockToken, mockAuditStream } from 
 
 describe('buildMockDossier', () => {
   it('marks every preview result as a demo and signs a decodable preview token', () => {
-    const dossier = buildMockDossier('text', {
-      text: 'Bantuan Rp 500.000 dibagikan hari ini saja. Sebarkan ke 10 grup!'
-    });
+    const dossier = buildMockDossier('url', { url: 'https://bit.ly/verifikasi-akun' });
 
     expect(dossier.is_demo).toBe(true);
-    expect(dossier.verdict.status).toBe('TAMPERED');
-    expect(dossier.pillars.fact.status).toBe('CONTRADICTS');
-    expect(dossier.tactics.length).toBeGreaterThan(0);
     expect(isMockToken(dossier.share_token)).toBe(true);
     expect(decodeMockToken(dossier.share_token)?.preview).toBe(true);
   });
 
-  it('recognises a benign announcement without inventing a threat', () => {
-    const dossier = buildMockDossier('text', {
-      text: 'Jadwal posyandu bulan ini: Sabtu, 8 pagi di balai warga.'
-    });
+  it('does not invent a threat for an official link', () => {
+    const dossier = buildMockDossier('url', { url: 'https://www.kemkes.go.id/' });
 
-    expect(dossier.verdict.status).toBe('SAFE');
-    expect(dossier.verdict.score).toBe(8);
-    expect(dossier.pillars.fact.status).toBe('SUPPORTS');
+    expect(dossier.verdict.status).not.toBe('TAMPERED');
+    expect(dossier.pillars.link.reasons.map((r) => r.code)).not.toContain('LOOKALIKE');
   });
 
   it('explains suspicious URL signals', () => {
@@ -52,8 +44,8 @@ describe('mockAuditStream', () => {
     const controller = new AbortController();
     const events = [];
     for await (const event of mockAuditStream(
-      'text',
-      { text: 'Akun Anda akan diblokir. Verifikasi sekarang.' },
+      'url',
+      { url: 'https://bri-verifikasi.xyz/login' },
       controller.signal,
       { step: 0, settle: 0 }
     )) {
@@ -71,8 +63,8 @@ describe('mockAuditStream', () => {
     controller.abort();
     const events = [];
     for await (const event of mockAuditStream(
-      'text',
-      { text: 'apa saja' },
+      'url',
+      { url: 'https://example.org/' },
       controller.signal,
       { step: 0, settle: 0 }
     )) {

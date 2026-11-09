@@ -12,7 +12,8 @@
 | Hal | Kondisi |
 |---|---|
 | Backend Go | **Selesai & hijau**: 419 test lulus di 17 paket, `-race` |
-| Frontend (6 halaman + alur hasil) | **Selesai**: audit nyata dengan SSE progresif, demo offline, EN/ID, mode, ukuran teks |
+| Scope (9 Nov 2026) | Input hanya **tautan** dan **unggah gambar**. Tiga deteksi: gambar buatan AI vs asli, gambar dengan teks ditimpa, tautan asli vs jebakan/hoaks |
+| Frontend (5 halaman + alur hasil) | **Selesai**: audit nyata dengan SSE progresif, demo offline, EN/ID, mode, ukuran teks |
 | PRD | **P0, P1, P2 terpasang** (rincian di bagian 4) |
 | Kontrak API (OpenAPI ↔ JSON Schema ↔ Go ↔ Zod) | **Sinkron**, termasuk `source_metadata` dan `ocr_text` |
 | Aksesibilitas & performa | axe 0 serious/critical (ID dan EN); Lighthouse mobile ≥ 90 di semua rute, a11y 100 |
@@ -102,13 +103,12 @@ Hasil terakhir (8 Nov 2026):
 | `internal/grounding` | ADA | Google Fact Check Tools + allowlist; hanya URL hasil pencarian AMBA yang bisa terverifikasi |
 | `internal/pipeline` | ADA | SSE progresif, anggaran per langkah, cache LRU 500, satu event akhir per pilar; aturan penipuan jalan sebelum model; tautan tanpa `https://` di teks atau OCR ikut diperiksa |
 | `internal/tactics` | ADA | NFKC + verifikasi substring (teks, caption, atau OCR) |
-| `internal/scam` | ADA | 11 pola penipuan tanpa model (OTP/PIN, kode pengalihan panggilan, APK, salah transfer, kerja, investasi, hadiah, pinjaman, minta uang/pulsa, ancaman blokir akun, nomor CS bank palsu); pada 1.143 SMS nyata: 0 alarm palsu dari 808 SMS pribadi dan promo, separuh SMS penipuan/spam tertandai |
 | `internal/reply` | ADA | draf model tervalidasi (≤ 280, URL sumber saja, kata terlarang) + template status × nada |
 | `internal/telegram` | ADA | webhook ber-secret atau polling, `/cek`, foto, batas per chat |
 | `internal/metrics` | ADA | penghitung anonim Prometheus di listener internal |
 | `internal/demo` | ADA | 4 kasus PRD F8 (+ alias `contoh-*`), dihasilkan `cmd/gendemo` |
 
-Endpoint: `GET /healthz` · `POST /api/v1/audit/{url,file,text}` · `POST /api/v1/verify` ·
+Endpoint: `GET /healthz` · `POST /api/v1/audit/{url,file}` · `POST /api/v1/verify` ·
 `POST /api/v1/reply` · `GET /api/v1/demo/{id}` · `POST /telegram/webhook`.
 SSE: `stage → partial → verdict → done`, dengan heartbeat `: ping`.
 
@@ -120,7 +120,6 @@ SSE: `stage → partial → verdict → done`, dengan heartbeat `: ping`.
 | `/deteksi` | ADA | tab, dropzone, demo, radar dari SSE asli, `?tab=` dan `?q=` |
 | `/hasil` | ADA | verdict, batas jujur, slider ELA, taktik (teks/OCR), pratinjau tautan, sumber, bagikan, balas, kartu bukti |
 | `/edukasi` | ADA | 3 modus + 3 soal + **bedah forensik** (3 gambar, ELA asli) |
-| `/cek-cepat` | ADA | 6 pertanyaan + sandi keluarga, offline |
 | `/tentang` | ADA | tim, privasi (apa yang dikirim ke mana), batas, disclaimer |
 | EN/ID | ADA | default Indonesia; pilihan tersimpan, dipasang sebelum paint pertama |
 | Disclaimer PRD §10 | ADA | verbatim, berbahasa Indonesia, di footer setiap halaman |
@@ -245,7 +244,7 @@ backend/
     httpapi/         router, handler, SSE, error envelope
     models/          Dossier (cermin kontrak)
 frontend/
-  src/routes/        +page · deteksi · hasil · edukasi · cek-cepat · tentang
+  src/routes/        +page · deteksi · hasil · edukasi · tentang
   src/lib/
     i18n/            id.ts · en.ts · t()
     audit.svelte.ts  sesi audit + SSE + AbortController
@@ -268,7 +267,7 @@ tools/               check-demo-diff.sh
 2. Cek share target di Android Chrome (PWA terpasang) dan bot Telegram.
 3. Skor ELA lokal (risiko 3) baru bisa diputuskan dengan kumpulan gambar berlabel;
    sampai itu ELA hanya dihitung sebagai bukti suntingan (≥ 50).
-4. Setelah seminggu di produksi, baca `amba_scam_patterns_total` dan
+4. Setelah seminggu di produksi, baca `amba_floors_total` dan
    `amba_link_reasons_total` bersama laporan pengguna: aturan yang memicu alarm
-   palsu diperbaiki dengan menambah pesannya ke test lebih dulu.
+   palsu diperbaiki dengan menambah kasusnya ke test lebih dulu.
 5. Migrasi `$lib` → `#lib` dalam satu commit terpisah.

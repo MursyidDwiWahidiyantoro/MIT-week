@@ -2,7 +2,6 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { id } from './id';
 import { en } from './en';
 import { t, locale } from './index.svelte';
-import { verdictSchema } from '$lib/api/schemas';
 
 describe('i18n', () => {
   beforeEach(() => locale.set('id'));
@@ -35,16 +34,6 @@ describe('i18n', () => {
     for (const [key, text] of Object.entries(en)) {
       if (key === 'disclaimer.full' || key.startsWith('edu.q1.') || key === 'about.p1') continue;
       expect(/\b(100%|guaranteed|proven)\b/i.test(text), `${key}: ${text}`).toBe(false);
-    }
-  });
-
-  it('explains every scam pattern in both languages', () => {
-    const patterns = verdictSchema.shape.scam_pattern.unwrap().unwrap().options;
-    expect(patterns.length).toBeGreaterThan(0);
-    for (const code of patterns) {
-      const key = `scam.${code}` as keyof typeof id;
-      expect(id[key], key).toBeTruthy();
-      expect(en[key], key).toBeTruthy();
     }
   });
 });

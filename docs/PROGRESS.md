@@ -426,3 +426,11 @@ Real SMS (public Indonesian corpus, 1,143 messages, not copied into the repo):
   "Penilaian AI" / "AI assessment".
 - The demo news screenshot (ELA 3) now scores 90 instead of 85: its low ELA
   no longer dilutes the fact check.
+
+## Scope: links and images only (2026-11-09)
+
+The team narrowed AMBA to two inputs (a link, an uploaded image) and three
+detections (AI-generated vs authentic image, pasted-over text, genuine vs
+fake or hoax link). The text audit, the SMS/phone scam rules and Cek Cepat
+were removed; the scam-rule measurements above describe code that is no
+longer in the product.

@@ -81,30 +81,6 @@ paths:
         "415": { $ref: "#/components/responses/UnsupportedMedia" }
         "429": { $ref: "#/components/responses/RateLimited" }
 
-  /audit/text:
-    post:
-      operationId: auditText
-      summary: Audit a text message
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                text: { type: string, maxLength: 5000 }
-              required: [text]
-      responses:
-        "200":
-          description: Final Dossier or SSE stream
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Dossier" }
-            text/event-stream:
-              schema: { type: string }
-        "400": { $ref: "#/components/responses/BadRequest" }
-        "429": { $ref: "#/components/responses/RateLimited" }
-
   /verify:
     post:
       operationId: verifyToken
@@ -243,7 +219,7 @@ components:
 
     InputType:
       type: string
-      enum: [URL, FILE, TEXT]
+      enum: [URL, FILE]
 
     Anomaly:
       type: object
@@ -309,18 +285,8 @@ components:
           type: array
           items:
             type: string
-            enum: [FACT_CONTRADICTED, LINK_MALICIOUS, SCAM_PATTERN, LINK_STRONG, ELA_CORROBORATED,
+            enum: [FACT_CONTRADICTED, LINK_MALICIOUS, LINK_STRONG, ELA_CORROBORATED,
                    ELA_SOLO_CAP, INJECTION_GUARD]
-        scam_pattern:
-          type: string
-          nullable: true
-          enum: [CREDENTIAL_REQUEST, APK_LURE, WRONG_TRANSFER, JOB_SCAM, INVESTMENT_SCAM,
-                 PRIZE_FEE, LOAN_FEE, MONEY_PRESSURE, ACCOUNT_THREAT, UNOFFICIAL_CONTACT,
-                 CALL_FORWARD, null]
-          description: >
-            The scam pattern behind SCAM_PATTERN, found by deterministic rules in
-            the message, the link's caption or the text read from an image.
-            Null when no pattern was found.
       required: [status, explanation, explanation_simple, basis, not_checked, floors_applied]
 
     Pillars:
@@ -387,7 +353,7 @@ components:
         source_metadata:
           description: >
             Public description of the submitted link (PRD F1), read via oEmbed
-            or OpenGraph. null for TEXT and FILE input. BLOCKED means the
+            or OpenGraph. null for FILE input. BLOCKED means the
             platform refused automated reading; the UI asks for a screenshot.
           nullable: true
           allOf: [{ $ref: "#/components/schemas/SourceMetadata" }]

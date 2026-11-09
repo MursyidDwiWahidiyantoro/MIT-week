@@ -2,33 +2,32 @@
   "cases": [
     {
       "id": "demo-tiktok",
-      "caption": "Bantuan Rp 500.000 dibagikan hari ini saja. Sebarkan ke 10 grup, jangan sampai ketinggalan!",
+      "caption": "Video TikTok: bantuan Rp 500.000 dibagikan hari ini saja",
       "dossier": {
         "schema_version": 2,
         "id": "AMBA-20261030-DMO1",
         "timestamp": "2026-10-30T07:22:15Z",
-        "input_type": "TEXT",
-        "source_reference": "Contoh caption video TikTok (simulasi)",
+        "input_type": "URL",
+        "source_reference": "https://www.tiktok.com/@contoh.simulasi/video/7300000000000000001",
         "degraded": false,
         "is_demo": true,
         "verdict": {
-          "score": 97,
+          "score": 85,
           "status": "TAMPERED",
-          "short_title": "Contoh: caption bansos di TikTok",
-          "explanation": "Caption ini memakai tekanan waktu dan iming-iming bantuan, lalu meminta disebarkan. Sumber contoh membantah klaimnya. Ini data simulasi untuk memperlihatkan cara kerja AMBA.",
+          "short_title": "Contoh: video TikTok berisi klaim bansos",
+          "explanation": "Tautannya mengarah ke TikTok asli, tetapi keterangan videonya memuat klaim bantuan yang dibantah sumber contoh. Keterangannya juga memakai tekanan waktu dan meminta disebarkan. Ini data simulasi untuk memperlihatkan cara kerja AMBA.",
           "explanation_simple": "Kabar ini dibantah sumber terpercaya. Jangan disebarkan.",
           "basis": [
-            "ai",
-            "fact"
+            "fact",
+            "link"
           ],
           "not_checked": [
             "ela",
-            "link"
+            "ai"
           ],
           "floors_applied": [
             "FACT_CONTRADICTED"
-          ],
-          "scam_pattern": null
+          ]
         },
         "pillars": {
           "ela": {
@@ -39,14 +38,10 @@
             "anomalies": []
           },
           "ai": {
-            "available": true,
-            "score": 82,
-            "indicators": [
-              "Tekanan waktu",
-              "Iming-iming hadiah",
-              "Ajakan menyebarkan"
-            ],
-            "caveat": "Indikatif, bukan bukti pasti"
+            "available": false,
+            "score": 0,
+            "indicators": [],
+            "caveat": ""
           },
           "fact": {
             "available": true,
@@ -62,10 +57,12 @@
             ]
           },
           "link": {
-            "available": false,
+            "available": true,
             "score": 0,
-            "final_url": "",
-            "redirect_chain": [],
+            "final_url": "https://www.tiktok.com/@contoh.simulasi/video/7300000000000000001",
+            "redirect_chain": [
+              "https://www.tiktok.com/@contoh.simulasi/video/7300000000000000001"
+            ],
             "reasons": []
           }
         },
@@ -82,7 +79,15 @@
           }
         ],
         "share_token": "",
-        "source_metadata": null,
+        "source_metadata": {
+          "status": "OK",
+          "platform": "tiktok",
+          "via": "oembed",
+          "title": "Bantuan Rp 500.000 dibagikan hari ini saja. Sebarkan ke 10 grup, jangan sampai ketinggalan!",
+          "author": "contoh.simulasi",
+          "description": "",
+          "site_name": "TikTok"
+        },
         "ocr_text": ""
       }
     },
@@ -114,8 +119,7 @@
           ],
           "floors_applied": [
             "FACT_CONTRADICTED"
-          ],
-          "scam_pattern": null
+          ]
         },
         "pillars": {
           "ela": {
@@ -196,17 +200,16 @@
           "explanation": "Alamat tautan memakai nama bank dengan kata umpan dan mengarah ke halaman masuk. Bukti dari tautan saja sudah cukup kuat untuk memberi peringatan. Domain .example tidak bisa didaftarkan siapa pun. Ini data simulasi.",
           "explanation_simple": "Tautan ini punya tanda penipuan. Sebaiknya jangan diklik.",
           "basis": [
-            "ai",
             "link"
           ],
           "not_checked": [
             "ela",
+            "ai",
             "fact"
           ],
           "floors_applied": [
             "LINK_STRONG"
-          ],
-          "scam_pattern": null
+          ]
         },
         "pillars": {
           "ela": {
@@ -217,13 +220,10 @@
             "anomalies": []
           },
           "ai": {
-            "available": true,
-            "score": 74,
-            "indicators": [
-              "Ancaman pemblokiran",
-              "Permintaan verifikasi mendesak"
-            ],
-            "caveat": "Indikatif, bukan bukti pasti"
+            "available": false,
+            "score": 0,
+            "indicators": [],
+            "caveat": ""
           },
           "fact": {
             "available": false,
@@ -281,31 +281,30 @@
     },
     {
       "id": "demo-resmi",
-      "caption": "Jadwal posyandu bulan ini: Sabtu, 8 pagi di balai warga. Info kesehatan: https://www.kemkes.go.id",
+      "caption": "Tautan situs resmi: jadwal imunisasi anak",
       "dossier": {
         "schema_version": 2,
         "id": "AMBA-20261030-DMO4",
         "timestamp": "2026-10-30T07:26:00Z",
-        "input_type": "TEXT",
-        "source_reference": "Contoh pengumuman warga",
+        "input_type": "URL",
+        "source_reference": "https://www.kemkes.go.id/id/jadwal-imunisasi",
         "degraded": false,
         "is_demo": true,
         "verdict": {
-          "score": 1,
+          "score": 0,
           "status": "SAFE",
-          "short_title": "Contoh: pengumuman resmi",
-          "explanation": "Pesan ini berisi jadwal tanpa tekanan waktu atau permintaan data pribadi, dan tautannya mengarah ke situs pemerintah. Tetap periksa ke pengurus setempat. Ini data simulasi.",
+          "short_title": "Contoh: tautan situs resmi",
+          "explanation": "Tautan mengarah ke situs pemerintah tanpa tanda penipuan, dan klaim di halamannya didukung sumber contoh. Tetap cek tanggal dan isi halamannya. Ini data simulasi.",
           "explanation_simple": "Tidak ditemukan tanda bahaya, tapi tetap bijak sebelum menyebarkan.",
           "basis": [
-            "ai",
             "fact",
             "link"
           ],
           "not_checked": [
-            "ela"
+            "ela",
+            "ai"
           ],
-          "floors_applied": [],
-          "scam_pattern": null
+          "floors_applied": []
         },
         "pillars": {
           "ela": {
@@ -316,18 +315,18 @@
             "anomalies": []
           },
           "ai": {
-            "available": true,
-            "score": 6,
-            "indicators": null,
-            "caveat": "Indikatif, bukan bukti pasti"
+            "available": false,
+            "score": 0,
+            "indicators": [],
+            "caveat": ""
           },
           "fact": {
             "available": true,
-            "claim": "Posyandu diadakan Sabtu pukul 8 pagi",
+            "claim": "Imunisasi dasar anak gratis di posyandu",
             "status": "SUPPORTS",
             "sources": [
               {
-                "title": "Contoh pengumuman kelurahan",
+                "title": "Contoh pengumuman resmi",
                 "publisher": "Sumber Contoh",
                 "url": "https://example.org/contoh-cek-fakta",
                 "match": "SUPPORTS"
@@ -337,16 +336,24 @@
           "link": {
             "available": true,
             "score": 0,
-            "final_url": "https://www.kemkes.go.id",
+            "final_url": "https://www.kemkes.go.id/id/jadwal-imunisasi",
             "redirect_chain": [
-              "https://www.kemkes.go.id"
+              "https://www.kemkes.go.id/id/jadwal-imunisasi"
             ],
             "reasons": []
           }
         },
         "tactics": [],
         "share_token": "",
-        "source_metadata": null,
+        "source_metadata": {
+          "status": "OK",
+          "platform": "web",
+          "via": "opengraph",
+          "title": "Jadwal imunisasi anak (contoh)",
+          "author": "",
+          "description": "Imunisasi dasar anak gratis di posyandu dan puskesmas.",
+          "site_name": "Contoh Simulasi"
+        },
         "ocr_text": ""
       }
     }

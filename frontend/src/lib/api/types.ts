@@ -3,7 +3,7 @@
  */
 export type Status = 'SAFE' | 'SUSPICIOUS' | 'TAMPERED' | 'INSUFFICIENT';
 export type FactStatus = 'CONTRADICTS' | 'SUPPORTS' | 'UNVERIFIED';
-export type InputType = 'URL' | 'FILE' | 'TEXT';
+export type InputType = 'URL' | 'FILE';
 export type TacticCode =
   | 'URGENCY'
   | 'REWARD_BAIT'
@@ -54,19 +54,6 @@ export interface Verdict {
   basis: Array<'ela' | 'ai' | 'fact' | 'link' | 'llm_untrusted'>;
   not_checked: Array<'ela' | 'ai' | 'fact' | 'link'>;
   floors_applied: string[];
-  scam_pattern?:
-    | 'CREDENTIAL_REQUEST'
-    | 'APK_LURE'
-    | 'WRONG_TRANSFER'
-    | 'JOB_SCAM'
-    | 'INVESTMENT_SCAM'
-    | 'PRIZE_FEE'
-    | 'LOAN_FEE'
-    | 'MONEY_PRESSURE'
-    | 'ACCOUNT_THREAT'
-    | 'UNOFFICIAL_CONTACT'
-    | 'CALL_FORWARD'
-    | null;
 }
 
 export interface Dossier {

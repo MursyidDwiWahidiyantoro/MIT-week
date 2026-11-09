@@ -6,7 +6,7 @@ function minimalDossier(overrides: Record<string, unknown> = {}) {
     schema_version: 2,
     id: 'AMBA-20261030-7F3K',
     timestamp: '2026-10-30T07:22:15Z',
-    input_type: 'TEXT',
+    input_type: 'URL',
     source_reference: 'contoh',
     degraded: false,
     is_demo: true,

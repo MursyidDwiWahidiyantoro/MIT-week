@@ -190,12 +190,12 @@ func (b *Bot) Handle(ctx context.Context, u Update) {
 			return
 		case "/cek":
 			if len(parts) < 2 || strings.TrimSpace(parts[1]) == "" {
-				b.send(ctx, m.Chat.ID, m.MessageID, "Tulis /cek lalu tempel tautan atau teks pesannya.")
+				b.send(ctx, m.Chat.ID, m.MessageID, "Tulis /cek lalu tempel tautannya, atau kirim gambarnya langsung.")
 				return
 			}
 			text = strings.TrimSpace(parts[1])
 		default:
-			b.send(ctx, m.Chat.ID, m.MessageID, "Perintah tidak dikenal. Kirim tautan, teks pesan, atau tangkapan layar yang ingin diperiksa.")
+			b.send(ctx, m.Chat.ID, m.MessageID, "Perintah tidak dikenal. Kirim tautan atau gambar yang ingin diperiksa.")
 			return
 		}
 	}
@@ -254,22 +254,19 @@ func (b *Bot) request(ctx context.Context, m *Message, text string) (pipeline.Re
 		return pipeline.Request{InputType: models.InputFile, Image: data, ImageFormat: format, OCRText: strings.TrimSpace(m.Caption)}, ""
 	}
 
-	if text == "" {
-		return pipeline.Request{}, "Kirim tautan, teks pesan, atau tangkapan layar yang ingin diperiksa."
+	// AMBA checks links and images only. A message that carries a link is
+	// checked by that link; text without one is not something AMBA checks.
+	link := pipeline.FirstURL(text)
+	if link == "" {
+		return pipeline.Request{}, "AMBA memeriksa tautan dan gambar. Kirim tautannya (diawali http:// atau https://) atau gambarnya."
 	}
-	if utf8.RuneCountInString(text) > 5000 {
-		return pipeline.Request{}, "Pesannya terlalu panjang. Maksimal 5.000 karakter."
+	if len(link) > 2048 {
+		return pipeline.Request{}, "Tautannya terlalu panjang untuk diperiksa."
 	}
-	if !strings.ContainsAny(text, " \n\t") && (strings.HasPrefix(strings.ToLower(text), "http://") || strings.HasPrefix(strings.ToLower(text), "https://")) {
-		if len(text) > 2048 {
-			return pipeline.Request{}, "Tautannya terlalu panjang untuk diperiksa."
-		}
-		if _, err := security.ValidateFetchURL(text); err != nil {
-			return pipeline.Request{}, "Tautan ini tidak dapat diperiksa."
-		}
-		return pipeline.Request{InputType: models.InputURL, URL: text}, ""
+	if _, err := security.ValidateFetchURL(link); err != nil {
+		return pipeline.Request{}, "Tautan ini tidak dapat diperiksa."
 	}
-	return pipeline.Request{InputType: models.InputText, Text: text}, ""
+	return pipeline.Request{InputType: models.InputURL, URL: link}, ""
 }
 
 func (b *Bot) download(ctx context.Context, fileID string) ([]byte, string, error) {
@@ -373,9 +370,9 @@ func matchLabel(m models.FactStatus) string {
 
 const welcome = `Halo, ini AMBA (Aplikasi Mengenali & Bertindak Aman).
 
-Teruskan ke sini pesan, tautan, atau tangkapan layar yang mencurigakan. AMBA akan memeriksa tanda bahaya dan menjelaskannya dengan bahasa sederhana.
+Kirim ke sini tautan atau gambar yang mencurigakan. AMBA memeriksa apakah gambar dibuat dengan AI atau teksnya ditimpa, dan apakah tautan itu asli atau penipuan, lalu menjelaskannya dengan bahasa sederhana.
 
-Privasi: isi yang kamu kirim hanya diproses sesaat dan tidak disimpan. Klaim dan tautan dapat dikirim ke layanan pihak ketiga (AI dan Google) untuk dianalisis.
+Privasi: tautan dan gambar yang kamu kirim hanya diproses sesaat dan tidak disimpan. Gambar, klaim, dan tautan dapat dikirim ke layanan pihak ketiga (AI dan Google) untuk dianalisis.
 
 Hasil AMBA bersifat indikatif, bukan alat bukti hukum.`
 

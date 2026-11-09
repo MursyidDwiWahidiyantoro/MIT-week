@@ -45,13 +45,12 @@ test('both modes show identical information keys and text', async ({ page }) => 
 
 test('switching mode mid-flow keeps the typed input', async ({ page }) => {
   await page.goto('/deteksi');
-  await page.getByRole('tab', { name: 'Teks' }).click();
-  const field = page.getByLabel('Teks pesan');
-  await field.fill('Pesan yang belum diperiksa');
+  const field = page.getByLabel('Tautan', { exact: true });
+  await field.fill('https://contoh.example/belum-diperiksa');
   await page.getByRole('button', { name: 'Esensial', exact: true }).click();
-  await expect(field).toHaveValue('Pesan yang belum diperiksa');
+  await expect(field).toHaveValue('https://contoh.example/belum-diperiksa');
   await page.getByRole('button', { name: 'Jelajah', exact: true }).click();
-  await expect(field).toHaveValue('Pesan yang belum diperiksa');
+  await expect(field).toHaveValue('https://contoh.example/belum-diperiksa');
 });
 
 test('reduced motion is calm in both modes', async ({ page }) => {
@@ -114,7 +113,7 @@ test('auto-read is off by default and speaks the next result once enabled', asyn
   expect(await page.evaluate(() => (window as unknown as { __spoken: string[] }).__spoken)).toEqual([]);
 
   await page.getByLabel('Bacakan otomatis hasil berikutnya').check();
-  await openDemo(page, /posyandu/);
+  await openDemo(page, /situs resmi/);
   await expect
     .poll(() => page.evaluate(() => (window as unknown as { __spoken: string[] }).__spoken.length))
     .toBe(1);

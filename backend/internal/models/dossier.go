@@ -6,10 +6,10 @@ package models
 // InputType is what the user submitted.
 type InputType string
 
+// AMBA checks two kinds of input: a link and an uploaded image.
 const (
 	InputURL  InputType = "URL"
 	InputFile InputType = "FILE"
-	InputText InputType = "TEXT"
 )
 
 // Status is the verdict band computed by internal/scoring.
@@ -36,7 +36,7 @@ type Dossier struct {
 	Tactics         []Tactic  `json:"tactics"`
 	ShareToken      string    `json:"share_token"`
 	// SourceMetadata is the link's public description (PRD F1). It is null
-	// for TEXT and FILE input.
+	// for FILE input.
 	SourceMetadata *SourceMetadata `json:"source_metadata"`
 	// OCRText is the text the model read in an uploaded image ("" unless
 	// FILE). Tactics with source "ocr" are highlighted in it.
@@ -75,9 +75,6 @@ type Verdict struct {
 	Basis             []string `json:"basis"`
 	NotChecked        []string `json:"not_checked"`
 	FloorsApplied     []string `json:"floors_applied"`
-	// ScamPattern names the deterministic scam pattern behind SCAM_PATTERN
-	// (internal/scam); nil when none was found.
-	ScamPattern *string `json:"scam_pattern"`
 }
 
 // Pillars holds the four independent evidence sources.

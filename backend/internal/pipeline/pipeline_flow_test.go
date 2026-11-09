@@ -32,18 +32,18 @@ func (f *fakeSearcher) Search(_ context.Context, q string) ([]grounding.Result, 
 	return f.results, f.err
 }
 
-// claimText is an input the deterministic mock answers with a claim.
-func claimText(t *testing.T) string {
+// claimRequest is an image the deterministic mock answers with a claim: the
+// fact pillar only runs when the model found one.
+func claimRequest(t *testing.T) Request {
 	t.Helper()
-	c := llm.New("", "", "", true)
-	for i := 0; i < 50; i++ {
-		text := "Bantuan cair hari ini " + strings.Repeat("!", i)
-		if f, _ := c.Analyze(context.Background(), llm.Input{Type: "TEXT", Content: text}); f.Claim != "" {
-			return text
+	for i := 0; i < 60; i++ {
+		req := imageRequest(t, 100+i, "Bantuan cair hari ini")
+		if newTestPipeline(true).Run(context.Background(), req).Pillars.Fact.Available {
+			return req
 		}
 	}
 	t.Fatal("no mock input with a claim")
-	return ""
+	return Request{}
 }
 
 func TestFactCheckUsesOnlySearchedSources(t *testing.T) {
@@ -54,7 +54,7 @@ func TestFactCheckUsesOnlySearchedSources(t *testing.T) {
 	}}
 	p.Searcher = s
 
-	res := p.Run(context.Background(), Request{InputType: models.InputText, Text: claimText(t)})
+	res := p.Run(context.Background(), claimRequest(t))
 	fact := res.Pillars.Fact
 	if !fact.Available || fact.Status != models.FactContradicts || len(fact.Sources) != 2 {
 		t.Fatalf("fact pillar = %+v", fact)
@@ -73,7 +73,7 @@ func TestFactCheckUsesOnlySearchedSources(t *testing.T) {
 
 func TestFactCheckWithoutSearchIsUnverifiedNotDegraded(t *testing.T) {
 	p := newTestPipeline(true)
-	res := p.Run(context.Background(), Request{InputType: models.InputText, Text: claimText(t)})
+	res := p.Run(context.Background(), claimRequest(t))
 	if res.Pillars.Fact.Status != models.FactUnverified || len(res.Pillars.Fact.Sources) != 0 {
 		t.Fatalf("fact = %+v", res.Pillars.Fact)
 	}
@@ -85,7 +85,7 @@ func TestFactCheckWithoutSearchIsUnverifiedNotDegraded(t *testing.T) {
 func TestSearchOutageDegrades(t *testing.T) {
 	p := newTestPipeline(true)
 	p.Searcher = &fakeSearcher{err: grounding.ErrSearchFailed}
-	res := p.Run(context.Background(), Request{InputType: models.InputText, Text: claimText(t)})
+	res := p.Run(context.Background(), claimRequest(t))
 	if !res.Degraded || res.Pillars.Fact.Status != models.FactUnverified {
 		t.Fatalf("degraded=%v fact=%+v", res.Degraded, res.Pillars.Fact)
 	}
@@ -100,7 +100,7 @@ func TestEventsArriveAsPillarsFinish(t *testing.T) {
 		events = append(events, e)
 		mu.Unlock()
 	}
-	p.RunStream(context.Background(), Request{InputType: models.InputText, Text: "halo https://bri-verifikasi.xyz/login"}, emit)
+	p.RunStream(context.Background(), Request{InputType: models.InputURL, URL: "https://bri-verifikasi.xyz/login"}, emit)
 
 	terminal := map[string]string{}
 	running := map[string]int{}
@@ -118,7 +118,7 @@ func TestEventsArriveAsPillarsFinish(t *testing.T) {
 			terminal[e.Pillar] = e.Status
 		}
 	}
-	want := map[string]string{"ela": "skipped", "link": "done", "ai": "done"}
+	want := map[string]string{"ela": "skipped", "link": "done"}
 	for pillar, status := range want {
 		if terminal[pillar] != status {
 			t.Fatalf("%s = %q, want %q (events %+v)", pillar, terminal[pillar], status, events)
@@ -131,7 +131,7 @@ func TestEventsArriveAsPillarsFinish(t *testing.T) {
 
 func TestCachedRunReplaysEvents(t *testing.T) {
 	p := newTestPipeline(true)
-	req := Request{InputType: models.InputText, Text: "halo lagi"}
+	req := imageRequest(t, 7, "")
 	p.Run(context.Background(), req)
 	var events []Event
 	p.RunStream(context.Background(), req, func(e Event) { events = append(events, e) })
@@ -224,7 +224,7 @@ func TestShortLinkIsScoredByItsDestination(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 	defer srv.Close()
-	res := p.Run(context.Background(), Request{InputType: models.InputText, Text: "cek https://bit.ly/abc"})
+	res := p.Run(context.Background(), Request{InputType: models.InputURL, URL: "https://bit.ly/abc"})
 	link := res.Pillars.Link
 	if link.FinalURL != "https://bri-verifikasi.xyz/login" || len(link.RedirectChain) != 2 {
 		t.Fatalf("link = %+v", link)
@@ -248,7 +248,7 @@ func TestSafeBrowsingHitSetsMalicious(t *testing.T) {
 	p.SafeBrowsing = linkcheck.NewSafeBrowsing("k")
 	p.SafeBrowsing.Endpoint = sb.URL
 
-	res := p.Run(context.Background(), Request{InputType: models.InputText, Text: "https://example.org/"})
+	res := p.Run(context.Background(), Request{InputType: models.InputURL, URL: "https://example.org/"})
 	if !res.LinkMalicious || res.Pillars.Link.Score != 100 {
 		t.Fatalf("malicious=%v score=%d", res.LinkMalicious, res.Pillars.Link.Score)
 	}
@@ -321,7 +321,7 @@ func TestPhishingPageOnAnOrdinaryHost(t *testing.T) {
 	})
 	defer srv.Close()
 
-	res := p.Run(context.Background(), Request{InputType: models.InputText, Text: "Cek mutasi di https://wisata-kita.example/wp-content/klik/"})
+	res := p.Run(context.Background(), Request{InputType: models.InputURL, URL: "https://wisata-kita.example/wp-content/klik/"})
 	link := res.Pillars.Link
 	found := false
 	for _, r := range link.Reasons {

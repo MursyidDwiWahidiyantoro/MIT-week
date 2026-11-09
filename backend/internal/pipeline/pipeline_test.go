@@ -1,7 +1,12 @@
 package pipeline
 
 import (
+	"bytes"
 	"context"
+	"image"
+	"image/color"
+	"image/jpeg"
+	"strings"
 	"testing"
 	"time"
 
@@ -14,12 +19,30 @@ func newTestPipeline(mock bool) *Pipeline {
 	return New(llm.New("http://127.0.0.1:1/v1", "", "", mock), grounding.New(grounding.DefaultAllowlist), time.Minute)
 }
 
-func TestTextAuditProducesPillars(t *testing.T) {
+// testJPEG is a small textured photo-like JPEG, made once per call.
+func testJPEG(t *testing.T, seed int) []byte {
+	t.Helper()
+	img := image.NewRGBA(image.Rect(0, 0, 96, 96))
+	for y := 0; y < 96; y++ {
+		for x := 0; x < 96; x++ {
+			n := uint8((x*7 + y*13 + seed*31 + (x*y)%11) % 64)
+			img.SetRGBA(x, y, color.RGBA{60 + n, 90 + n/2, 120 + n/3, 255})
+		}
+	}
+	var buf bytes.Buffer
+	if err := jpeg.Encode(&buf, img, &jpeg.Options{Quality: 85}); err != nil {
+		t.Fatal(err)
+	}
+	return buf.Bytes()
+}
+
+func imageRequest(t *testing.T, seed int, ocrHint string) Request {
+	return Request{InputType: models.InputFile, Image: testJPEG(t, seed), ImageFormat: "jpeg", OCRText: ocrHint}
+}
+
+func TestImageAuditProducesPillars(t *testing.T) {
 	p := newTestPipeline(true)
-	res := p.Run(context.Background(), Request{
-		InputType: models.InputText,
-		Text:      "Bantuan Rp 500.000 dibagikan hari ini saja. Sebarkan!",
-	})
+	res := p.Run(context.Background(), imageRequest(t, 1, ""))
 
 	if !res.Pillars.AI.Available {
 		t.Error("AI pillar should be available in mock mode")
@@ -27,11 +50,11 @@ func TestTextAuditProducesPillars(t *testing.T) {
 	if res.Pillars.AI.Caveat != "Indikatif, bukan bukti pasti" {
 		t.Errorf("caveat = %q", res.Pillars.AI.Caveat)
 	}
-	if res.Pillars.ELA.Available {
-		t.Error("ELA must not run for a text audit")
+	if !res.Pillars.ELA.Available {
+		t.Error("ELA must run for an image audit")
 	}
 	if res.Pillars.Link.Available {
-		t.Error("Link must not run for a text audit")
+		t.Error("Link must not run for an image without a link")
 	}
 }
 
@@ -50,7 +73,7 @@ func TestURLInjectionIsNotFollowed(t *testing.T) {
 
 func TestDegradedWhenLLMUnavailable(t *testing.T) {
 	p := newTestPipeline(false) // no credentials -> ErrUnavailable
-	res := p.Run(context.Background(), Request{InputType: models.InputText, Text: "halo"})
+	res := p.Run(context.Background(), imageRequest(t, 2, ""))
 	if !res.Degraded {
 		t.Error("expected degraded when the model cannot be reached")
 	}
@@ -61,7 +84,7 @@ func TestDegradedWhenLLMUnavailable(t *testing.T) {
 
 func TestCacheReturnsTheSameResult(t *testing.T) {
 	p := newTestPipeline(true)
-	req := Request{InputType: models.InputText, Text: "pesan yang sama persis"}
+	req := imageRequest(t, 3, "")
 	a := p.Run(context.Background(), req)
 	b := p.Run(context.Background(), req)
 	if a.Pillars.AI.Score != b.Pillars.AI.Score {
@@ -70,12 +93,12 @@ func TestCacheReturnsTheSameResult(t *testing.T) {
 }
 
 func TestCacheKeyDoesNotContainRawContent(t *testing.T) {
-	key := CacheKey(Request{InputType: models.InputText, Text: "rahasia pengguna"})
+	key := CacheKey(Request{InputType: models.InputURL, URL: "https://rahasia.example/pengguna"})
 	if len(key) != 64 {
 		t.Fatalf("key length = %d, want 64 hex chars", len(key))
 	}
-	if key == "rahasia pengguna" {
-		t.Fatal("cache key is the raw text")
+	if strings.Contains(key, "rahasia") {
+		t.Fatal("cache key carries the raw link")
 	}
 }
 
@@ -113,13 +136,11 @@ func TestTacticsOnlyWhenPhrasePresent(t *testing.T) {
 	p := newTestPipeline(true)
 	// The mock only emits tactics whose phrases occur in the input for some
 	// inputs; verify the contract holds: every returned phrase is a substring.
-	res := p.Run(context.Background(), Request{
-		InputType: models.InputText,
-		Text:      "Bantuan Rp 500.000 dibagikan hari ini saja.",
-	})
+	hint := "Bantuan Rp 500.000 dibagikan hari ini saja."
+	res := p.Run(context.Background(), imageRequest(t, 4, hint))
 	for _, tac := range res.Tactics {
-		if tac.Phrase == "" {
-			t.Error("empty tactic phrase")
+		if tac.Phrase == "" || !strings.Contains(strings.ToLower(hint), strings.ToLower(tac.Phrase)) {
+			t.Errorf("tactic phrase %q is not in the image text", tac.Phrase)
 		}
 	}
 }
@@ -171,48 +192,8 @@ func TestUnverifiedSourceCannotReachTampered(t *testing.T) {
 	}
 }
 
-// The scam rules need no model: an OTP request still gets a verdict, with
-// the phrases highlighted, when the gateway is down or out of quota.
-func TestScamPatternWithoutTheModel(t *testing.T) {
-	p := newTestPipeline(false) // unreachable gateway, no key
-	text := "Halo kak, tadi ada kode OTP masuk ke nomor kakak, salah kirim. Tolong kirimkan kode OTP itu ke saya ya kak, segera."
-	res := p.Run(context.Background(), Request{InputType: models.InputText, Text: text})
-	if res.ScamPattern != "CREDENTIAL_REQUEST" {
-		t.Fatalf("scam pattern = %q", res.ScamPattern)
-	}
-	v := Verdict(res, false)
-	if v.Status != models.StatusTampered || v.Score == nil || *v.Score != 80 {
-		t.Fatalf("verdict = %+v", v)
-	}
-	if v.ScamPattern == nil || *v.ScamPattern != "CREDENTIAL_REQUEST" {
-		t.Fatalf("verdict scam pattern = %v", v.ScamPattern)
-	}
-	if !res.Degraded {
-		t.Fatal("a missing model must still mark the result degraded")
-	}
-	found := false
-	for _, tc := range res.Tactics {
-		if tc.Code == "URGENCY" && tc.Phrase == "segera" {
-			found = true
-		}
-	}
-	if !found {
-		t.Fatalf("rule tactics missing: %+v", res.Tactics)
-	}
-}
-
-// A genuine warning about the same scam is not scored as the scam.
-func TestScamWarningIsNotAScam(t *testing.T) {
-	p := newTestPipeline(true)
-	text := "Jangan Pernah Berikan Kode OTP dan Data Rahasia Anda kepada Siapa Pun."
-	res := p.Run(context.Background(), Request{InputType: models.InputText, Text: text})
-	if res.ScamPattern != "" {
-		t.Fatalf("warning scored as %q", res.ScamPattern)
-	}
-}
-
-// Scam SMS write links without a scheme. They still get the link pillar; an
-// e-mail address does not.
+// Links in screenshots are often written without a scheme. They still get
+// the link pillar; an e-mail address does not.
 func TestFirstURLReadsLinksWithoutAScheme(t *testing.T) {
 	cases := map[string]string{
 		"Segera verifikasi di bri-verifikasi.my.id/login sebelum diblokir.": "https://bri-verifikasi.my.id/login",
@@ -224,22 +205,16 @@ func TestFirstURLReadsLinksWithoutAScheme(t *testing.T) {
 		"Ma, nanti aku pulang jam 5 ya.":                                    "",
 	}
 	for text, want := range cases {
-		if got := firstURL(text); got != want {
-			t.Errorf("firstURL(%q) = %q, want %q", text, got, want)
+		if got := FirstURL(text); got != want {
+			t.Errorf("FirstURL(%q) = %q, want %q", text, got, want)
 		}
 	}
 }
 
-func TestBareLinkGetsTheLinkPillar(t *testing.T) {
+func TestBareLinkInAnImageGetsTheLinkPillar(t *testing.T) {
 	p := newTestPipeline(true)
-	res := p.Run(context.Background(), Request{
-		InputType: models.InputText,
-		Text:      "Akun BRImo Anda akan diblokir. Verifikasi di brimo-verifikasi.my.id",
-	})
-	if !res.Pillars.Link.Available {
-		t.Fatal("a link without https:// must still be checked")
-	}
-	if res.ScamPattern != "ACCOUNT_THREAT" {
-		t.Fatalf("scam pattern = %q", res.ScamPattern)
+	res := p.Run(context.Background(), imageRequest(t, 5, "Akun BRImo Anda akan diblokir. Verifikasi di brimo-verifikasi.my.id"))
+	if !res.Pillars.Link.Available || res.Pillars.Link.FinalURL == "" {
+		t.Fatalf("a link without https:// must still be checked: %+v", res.Pillars.Link)
 	}
 }

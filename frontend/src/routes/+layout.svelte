@@ -22,7 +22,6 @@
 
   const LINKS: Array<{ href: string; label: MessageKey; match: string[] }> = [
     { href: '/deteksi', label: 'nav.check', match: ['/deteksi', '/hasil'] },
-    { href: '/cek-cepat', label: 'nav.quick', match: ['/cek-cepat'] },
     { href: '/edukasi', label: 'nav.learn', match: ['/edukasi'] },
     { href: '/tentang', label: 'nav.about', match: ['/tentang'] }
   ];
@@ -72,7 +71,7 @@
           <li>
             <a
               class="nav-link"
-              href={resolve(link.href as '/' | '/deteksi' | '/cek-cepat' | '/edukasi' | '/tentang')}
+              href={resolve(link.href as '/' | '/deteksi' | '/edukasi' | '/tentang')}
               aria-current={link.match.includes(page.url.pathname) ? 'page' : undefined}
             >
               {t(link.label)}
@@ -123,7 +122,6 @@
     <ul class="footer-links">
       <li><a href={resolve('/deteksi')}>{t('nav.check')}</a></li>
       <li><a href={resolve('/edukasi')}>{t('nav.learn')}</a></li>
-      <li><a href={resolve('/cek-cepat')}>{t('nav.quick')}</a></li>
       <li><a href={resolve('/tentang')}>{t('nav.about')}</a></li>
     </ul>
   </div>
