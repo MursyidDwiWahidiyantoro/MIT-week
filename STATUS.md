@@ -219,7 +219,7 @@ Semua detail di `docs/DECISIONS.md`. Yang paling sering ditanya:
 - **`tokens.css` wajib diimpor sebelum `app.css`.**
 - **`go mod tidy` dengan toolchain lebih baru** menulis ulang direktif `go`.
 - **Kontras** diperiksa `tools/check-contrast.mjs` (82 pasang, dua tema).
-- **Budget bundle** 250 KB gz; sekarang 142,0 KB (total semua JS; JS awal per halaman lebih kecil).
+- **Budget bundle** 250 KB gz; sekarang 136,5 KB (total semua JS; JS awal per halaman lebih kecil).
 - **Lighthouse** dijalankan dari folder `frontend` setelah `npm run build`.
 - **Jangan memakai emoji Unicode**; ikon dari `@lucide/svelte`.
 - **Jangan mencetak `err` dari `http.Client.Do`** untuk layanan luar: pesannya
@@ -257,6 +257,7 @@ backend/
     models/          Dossier (cermin kontrak)
 tools/
   textbench/         benchmark teks ditempel dari foto nyata
+  eval/              pilih model + ukur Jejak AI/Timpa Teks (free_models, compare, analyze)
 frontend/
   src/routes/        +page · deteksi · hasil · edukasi · tentang
   src/lib/
@@ -279,9 +280,10 @@ tools/               check-demo-diff.sh
 
 1. Deploy dengan kunci asli mengikuti `docs/DEPLOY.md`, lalu jalankan uji §6.
 2. Cek share target di Android Chrome (PWA terpasang) dan bot Telegram.
-3. Kalibrasi Jejak AI dan Timpa Teks dengan kunci model asli:
-   `go run ./cmd/evalimages ./eval/ai ./eval/asli ./eval/teks-ditempel`
-   (`docs/DEPLOY.md` §6.1); ulangi `tools/textbench` dengan hoaks nyata bila tersedia.
+3. Pilih model gratis terbaik dan kalibrasi Jejak AI serta Timpa Teks dengan kunci
+   model asli: `python tools/eval/free_models.py` lalu `python tools/eval/compare.py`
+   (`tools/eval/README.md`, `docs/DEPLOY.md` §6.1). Lingkungan cloud sebelumnya tidak
+   bisa menjangkau openrouter.ai, jadi langkah ini belum dijalankan.
 4. Setelah seminggu di produksi, baca `amba_floors_total` dan
    `amba_link_reasons_total` bersama laporan pengguna: aturan yang memicu alarm
    palsu diperbaiki dengan menambah kasusnya ke test lebih dulu.
