@@ -233,12 +233,15 @@ api/                 openapi.yaml · dossier.schema.json
 backend/
   cmd/server/        entrypoint, Telegram, metrik, graceful shutdown
   cmd/gendemo/       generator demo + gambar kuis forensik
+  cmd/evalimages/    kalibrasi: pipeline asli pada folder gambar berlabel
   fly.toml · railway.json · Dockerfile
   internal/
     scoring/         satu-satunya tempat skor dihitung
-    security/        ssrf · upload · ratelimit · headers
-    forensics/       ELA server + hotspot grid + gambar untuk model
-    linkcheck/       heuristik URL, unroll, Safe Browsing
+    security/        ssrf · upload (JPEG/PNG/WebP) · ratelimit · headers
+    forensics/       ELA server + hotspot grid + Timpa Teks + gambar untuk model
+    provenance/      Jejak AI dari isi file (C2PA, IPTC/XMP, PNG, EXIF)
+    aidetect/        detektor gambar AI opsional (Sightengine)
+    linkcheck/       heuristik URL, unroll, Safe Browsing, umur domain (RDAP)
     metadata/        oEmbed / OpenGraph
     llm/             klien OpenAI-compatible + mock
     grounding/       allowlist + Fact Check Tools
@@ -251,6 +254,8 @@ backend/
     demo/            demo-cases.json (embed)
     httpapi/         router, handler, SSE, error envelope
     models/          Dossier (cermin kontrak)
+tools/
+  textbench/         benchmark teks ditempel dari foto nyata
 frontend/
   src/routes/        +page · deteksi · hasil · edukasi · tentang
   src/lib/
@@ -273,9 +278,9 @@ tools/               check-demo-diff.sh
 
 1. Deploy dengan kunci asli mengikuti `docs/DEPLOY.md`, lalu jalankan uji §6.
 2. Cek share target di Android Chrome (PWA terpasang) dan bot Telegram.
-3. Kalibrasi Jejak AI dan Timpa Teks dengan kunci model asli: unggah sekumpulan
-   gambar AI dan foto asli (tanpa metadata), lalu baca skor `ai` dan `evidence`
-   di Dossier; ulangi `tools/textbench` dengan hoaks nyata bila tersedia.
+3. Kalibrasi Jejak AI dan Timpa Teks dengan kunci model asli:
+   `go run ./cmd/evalimages ./eval/ai ./eval/asli ./eval/teks-ditempel`
+   (`docs/DEPLOY.md` §6.1); ulangi `tools/textbench` dengan hoaks nyata bila tersedia.
 4. Setelah seminggu di produksi, baca `amba_floors_total` dan
    `amba_link_reasons_total` bersama laporan pengguna: aturan yang memicu alarm
    palsu diperbaiki dengan menambah kasusnya ke test lebih dulu.
