@@ -36,6 +36,7 @@ const (
 	MoneyPressure     = "MONEY_PRESSURE"
 	AccountThreat     = "ACCOUNT_THREAT"
 	UnofficialContact = "UNOFFICIAL_CONTACT"
+	CallForward       = "CALL_FORWARD"
 
 	prize       = "prize"
 	fee         = "fee"
@@ -53,7 +54,7 @@ const (
 // Patterns lists every pattern in the order the rules try them. The API
 // contract (scam_pattern) and the explanation copy must cover all of them.
 var Patterns = []string{
-	CredentialRequest, APKLure, WrongTransfer, JobScam, InvestmentScam,
+	CredentialRequest, CallForward, APKLure, WrongTransfer, JobScam, InvestmentScam,
 	PrizeFee, LoanFee, MoneyPressure, AccountThreat, UnofficialContact,
 }
 
@@ -89,9 +90,9 @@ var (
 	// or the code does ("kode OTP yang masuk tolong disebutkan").
 	secretWord  = `(?:kode\s*(?:otp|verifikasi|aktivasi|pembatalan(?:\s+transaksi)?|rahasia|keamanan|unik|token|sms|wa|whatsapp)|kode\s+m-?[a-z]+|kode\s+\d\s*digit|\d\s*digit\s+kode|kode\s+(?:\S+\s+){0,2}?(?:yang|yg)\s+(?:\S+\s+){0,2}?(?:masuk|dikirim|kirim|terkirim|diterima|terima|tampil|muncul)|otp|pin(?:\s*atm)?|m-?pin|password|pasword|kata\s*sandi|cvv|cvc)`
 	credVerbObj = re(`\b(?:kirim(?:kan|in)?|berikan|beri|kasih(?:kan)?|kasi|beritahu(?:kan)?|kasih\s*tau|kasi\s*tau|sebut(?:kan|in)?|bacakan|baca(?:in)?|infokan|info(?:in)?|share|balas|forward|teruskan|fotokan|foto(?:in)?|screenshot|tunjukkan|siapkan|minta)\s+(?:\S+\s+){0,4}?` + secretWord + `\b`)
-	credObjVerb = re(`\b` + secretWord + `\b(?:[^.!?\n]|\.\d){0,80}?\b(?:(?:tolong|mohon|harap|silakan|silahkan|bisa|boleh)\s+(?:di)?(?:sebut|kirim|beri|baca|info|forward|teruskan|foto|share)(?:kan|in)?|di(?:sebutkan|bacakan|infokan|teruskan|forward(?:kan)?)|(?:kirim|kasih|kasi|beri)(?:kan|in)?\s+ke\s+(?:saya|kami|sini|nomor\s+ini|no\s+ini))\b`)
-	cardEntry   = re(`\b(?:masukkan|memasukkan|input|mengisi)\b(?:[^.!?\n]|\.\d){0,40}?\b(?:\d{2}\s*digit\s+)?(?:nomor|no)\s+kartu\b(?:[^.!?\n]|\.\d){0,60}?\b(?:cvv|cvc|masa\s+berlaku|pin)\b`)
-	cardData    = re(`\b(?:isi(?:kan)?|kirim(?:kan|in)?|sebut(?:kan|in)?|berikan|beri|foto(?:kan|in)?|ketik(?:kan)?|lengkapi|balas|minta)\b(?:[^.!?\n]|\.\d){0,40}?\b(?:\d{2}\s*digit\s+)?(?:nomor|no)\s+kartu\b(?:[^.!?\n]|\.\d){0,60}?\b(?:cvv|cvc|masa\s+berlaku|pin)\b`)
+	credObjVerb = re(`\b` + secretWord + `\b(?:[^.!?\n]|\.\w){0,80}?\b(?:(?:tolong|mohon|harap|silakan|silahkan|bisa|boleh)\s+(?:di)?(?:sebut|kirim|beri|baca|info|forward|teruskan|foto|share)(?:kan|in)?|di(?:sebutkan|bacakan|infokan|teruskan|forward(?:kan)?)|(?:kirim|kasih|kasi|beri)(?:kan|in)?\s+ke\s+(?:saya|kami|sini|nomor\s+ini|no\s+ini))\b`)
+	cardEntry   = re(`\b(?:masukkan|memasukkan|input|mengisi)\b(?:[^.!?\n]|\.\w){0,40}?\b(?:\d{2}\s*digit\s+)?(?:nomor|no)\s+kartu\b(?:[^.!?\n]|\.\w){0,60}?\b(?:cvv|cvc|masa\s+berlaku|pin)\b`)
+	cardData    = re(`\b(?:isi(?:kan)?|kirim(?:kan|in)?|sebut(?:kan|in)?|berikan|beri|foto(?:kan|in)?|ketik(?:kan)?|lengkapi|balas|minta)\b(?:[^.!?\n]|\.\w){0,40}?\b(?:\d{2}\s*digit\s+)?(?:nomor|no)\s+kartu\b(?:[^.!?\n]|\.\w){0,60}?\b(?:cvv|cvc|masa\s+berlaku|pin)\b`)
 	// A location pin or the password of a meeting or a Wi-Fi network is not
 	// a bank secret.
 	notASecret     = re(`\b(?:lokasi|location|loc|maps?|wifi|wi-fi|hotspot|zoom|meet|gmeet|meeting|rapat|room|grup|group|kelas)\b`)
@@ -99,7 +100,7 @@ var (
 
 	// APK files sent through chat are almost always malware in Indonesia.
 	apkFile = re(`[\p{L}\p{N}][\p{L}\p{N} _\-().]{0,60}\.apk\b`)
-	apkUse  = re(`\b(?:instal|install|pasang|unduh|download|buka|klik|cek)\b(?:[^.!?\n]|\.\d){0,40}?\b(?:apk|aplikasi\s+(?:undangan|surat|tilang|paket|resi|tagihan|kurir))\b`)
+	apkUse  = re(`\b(?:instal|install|pasang|unduh|download|buka|klik|cek)\b(?:[^.!?\n]|\.\w){0,40}?\b(?:apk|aplikasi\s+(?:undangan|surat|tilang|paket|resi|tagihan|kurir))\b`)
 
 	// "Saya salah transfer, tolong kembalikan".
 	wrongLoose    = re(`\bsalah\s+(?:ketik|input|nomor|no|rek(?:ening)?)\b[\s\S]{0,140}?\b(?:kembalikan|balikin|dikembalikan|refund)\b`)
@@ -119,7 +120,7 @@ var (
 	investPromise = re(`\b(?:investasi|trading|robot\s+trading|arisan|deposito|saham)\b[\s\S]{0,80}?\b(?:pasti\s+untung|dijamin\s+untung|untung\s+dijamin|tanpa\s+risiko|anti\s+rugi|modal\s+kecil\s+untung\s+besar|untung\s+pasti)\b`)
 
 	// Cues that only count in combination.
-	prizeCash = re(`\b(?:(?:anda|kamu|nomor|no|akun)\b[\s\S]{0,40}?\bterpilih\b[\s\S]{0,40}?\b(?:mendapat(?:kan)?|dapat|memenangkan|menerima)|saldo\s+(?:\S+\s+)?gratis|selamat\b[\s\S]{0,80}?\b(?:anda|kamu|nomor|no|akun|rekening|pelanggan|nasabah)\b[\s\S]{0,40}?\b(?:terpilih|memenangkan|menang|berhak\s+(?:mendapat|menerima)|resmi\s+menerima)|(?:anda|kamu|nomor|no|akun)\s+(?:\S+\s+){0,2}?(?:dapat|mendapat(?:kan)?|memenangkan|menang|berhak\s+(?:atas|mendapat(?:kan)?|menerima))\s+(?:\d[\d.,]*\s*(?:unit|buah|jt|juta|rb|ribu)?\s+|satu\s+unit\s+|sebuah\s+)?(?:hadiah|uang\s+tunai|saldo|bonus|mobil|motor)\b|(?:anda|kamu|nomor|no|akun|rekening)\s+(?:\S+\s+){0,2}?(?:menang|memenangkan)\s+(?:\S+\s+){0,4}?(?:hadiah|undian|rp\s*\d)|undian\s+berhadiah|pemenang\s+(?:undian|giveaway|kuis|lucky\s+draw)|(?:kamu|anda)\s+(?:adalah\s+)?pemenang\b|(?:saldo|dana|jht|uang)\s+(?:\S+\s+){0,6}?(?:bisa|dapat|siap|sudah|telah)\s+dicairkan|hadiah\s+(?:\S+\s+){0,3}?siap\s+dikirim|memenangkan\s+(?:undian|hadiah|uang|mobil|motor|cek)|hadiah\s+undian|uang\s+tunai\s+(?:sebesar\s+)?rp|selamat\b[\s\S]{0,60}?\b(?:mendapat(?:kan)?|dapat)\s+(?:hadiah|uang\s+tunai|mobil|motor|cek\s+tunai)|cek\s+tunai|uang\s+tunai\s+sebesar|hadiah\s+(?:uang|mobil|motor|cek|tunai|sebesar)|dana\s+kaget|bantuan\s+(?:\S+\s+){0,3}?gratis|klaim\s+(?:hadiah|saldo|bansos|bantuan|dana)|bansos\s+(?:cair|rp)|blt\s+(?:cair|rp)|(?:bansos|blt|bantuan(?:\s+sosial)?)\s+(?:\S+\s+){0,3}?(?:sudah|telah)\s+cair|(?:anda|kamu|nomor|no|akun)\s+(?:\S+\s+){0,2}?berhak\s+(?:atas|mendapat(?:kan)?|menerima)\s+(?:diskon\s+token|token\s+(?:listrik\s+)?gratis|subsidi|kuota\s+(?:internet\s+)?gratis)|(?:dana|uang|saldo|refund|pengembalian\s+dana)\b(?:[^.!?\n]|\.\d){0,60}?\b(?:dikembalikan|direfund|dicairkan)\b(?:[^.!?\n]|\.\d){0,30}?\b(?:setelah|jika|bila|dengan)\s+(?:anda\s+|kamu\s+)?(?:konfirmasi|verifikasi|mengisi|isi|klik|login|melengkapi|lengkapi|mengklik))`)
+	prizeCash = re(`\b(?:(?:anda|kamu|nomor|no|akun)\b[\s\S]{0,40}?\bterpilih\b[\s\S]{0,40}?\b(?:mendapat(?:kan)?|dapat|memenangkan|menerima)|saldo\s+(?:\S+\s+)?gratis|selamat\b[\s\S]{0,80}?\b(?:anda|kamu|nomor|no|akun|rekening|pelanggan|nasabah)\b[\s\S]{0,40}?\b(?:terpilih|memenangkan|menang|berhak\s+(?:mendapat|menerima)|resmi\s+menerima)|(?:anda|kamu|nomor|no|akun)\s+(?:\S+\s+){0,2}?(?:dapat|mendapat(?:kan)?|memenangkan|menang|berhak\s+(?:atas|mendapat(?:kan)?|menerima))\s+(?:\d[\d.,]*\s*(?:unit|buah|jt|juta|rb|ribu)?\s+|satu\s+unit\s+|sebuah\s+)?(?:hadiah|uang\s+tunai|saldo|bonus|mobil|motor)\b|(?:anda|kamu|nomor|no|akun|rekening)\s+(?:\S+\s+){0,2}?(?:menang|memenangkan)\s+(?:\S+\s+){0,4}?(?:hadiah|undian|rp\s*\d)|undian\s+berhadiah|pemenang\s+(?:undian|giveaway|kuis|lucky\s+draw)|(?:kamu|anda)\s+(?:adalah\s+)?pemenang\b|(?:saldo|dana|jht|uang)\s+(?:\S+\s+){0,6}?(?:bisa|dapat|siap|sudah|telah)\s+dicairkan|hadiah\s+(?:\S+\s+){0,3}?siap\s+dikirim|memenangkan\s+(?:undian|hadiah|uang|mobil|motor|cek)|hadiah\s+undian|uang\s+tunai\s+(?:sebesar\s+)?rp|selamat\b[\s\S]{0,60}?\b(?:mendapat(?:kan)?|dapat)\s+(?:hadiah|uang\s+tunai|mobil|motor|cek\s+tunai)|cek\s+tunai|uang\s+tunai\s+sebesar|hadiah\s+(?:uang|mobil|motor|cek|tunai|sebesar)|dana\s+kaget|bantuan\s+(?:\S+\s+){0,3}?gratis|klaim\s+(?:hadiah|saldo|bansos|bantuan|dana)|bansos\s+(?:cair|rp)|blt\s+(?:cair|rp)|(?:bansos|blt|bantuan(?:\s+sosial)?)\s+(?:\S+\s+){0,3}?(?:sudah|telah)\s+cair|(?:anda|kamu|nomor|no|akun)\s+(?:\S+\s+){0,2}?berhak\s+(?:atas|mendapat(?:kan)?|menerima)\s+(?:diskon\s+token|token\s+(?:listrik\s+)?gratis|subsidi|kuota\s+(?:internet\s+)?gratis)|(?:dana|uang|saldo|refund|pengembalian\s+dana)\b(?:[^.!?\n]|\.\w){0,60}?\b(?:dikembalikan|direfund|dicairkan)\b(?:[^.!?\n]|\.\w){0,30}?\b(?:setelah|jika|bila|dengan)\s+(?:anda\s+|kamu\s+)?(?:konfirmasi|verifikasi|mengisi|isi|klik|login|melengkapi|lengkapi|mengklik))`)
 	// Fees asked for to release a prize, a loan, a parcel or an account, or
 	// paid into an officer's own account. Ordinary services rarely ask for
 	// these by chat.
@@ -129,22 +130,36 @@ var (
 	plainFee = re(`\bbiaya\s+(?:admin(?:istrasi)?|pengiriman|ongkir|pendaftaran|registrasi)\b`)
 	// A loan fee paid before the money arrives, not deducted from it.
 	upfront    = re(`\b(?:di\s*(?:awal|muka|depan)|terlebih\s+dahulu|duluan|sebelum\s+(?:pencairan|dana\s+cair|cair))\b`)
-	moneyAsk   = re(`\b(?:transfer(?:kan|in)?|trf|tf|kirim(?:kan|in)?\s+(?:uang|dana|duit|saldo|pulsa)|isi(?:kan|in)?\s+(?:pulsa|saldo)|top\s*up|beli(?:kan|in)?\s+pulsa|minta\s+(?:pulsa|uang|duit)|(?:pinjam|pinjem)(?:in|kan)?\s+(?:\S+\s+){0,2}?(?:uang|duit|dulu|dana|\d+\s*(?:rb|ribu|jt|juta))|bayar(?:kan|in)?|setor(?:kan)?|siapkan\s+(?:uang\s+|dana\s+)?(?:rp\.?\s*)?\d+(?:[.,]\d+)?\s*(?:rb|ribu|jt|juta))\b`)
+	moneyAsk   = re(`\b(?:transfer(?:kan|in)?|trf|tf|kirim(?:kan|in)?\s+(?:\S+\s+){0,2}?(?:uang|dana|duit|saldo|pulsa)|isi(?:kan|in)?\s+(?:\S+\s+){0,2}?(?:pulsa|saldo)|top\s*up|beli(?:kan|in)?\s+(?:\S+\s+){0,3}?pulsa|minta\s+(?:pulsa|uang|duit)|(?:pinjam|pinjem)(?:in|kan)?\s+(?:\S+\s+){0,2}?(?:uang|duit|dulu|dana|\d+\s*(?:rb|ribu|jt|juta))|bayar(?:kan|in)?|setor(?:kan)?|siapkan\s+(?:uang\s+|dana\s+)?(?:rp\.?\s*)?\d+(?:[.,]\d+)?\s*(?:rb|ribu|jt|juta))(?:\b|\d)`)
 	urgent     = re(`\b(?:segera|secepatnya|hari\s+ini\s+(?:juga|saja)|khusus\s+hari\s+ini|sekarang\s+juga|batas\s+waktu|1\s*x\s*24\s*jam|dalam\s+\d+\s*jam|sebelum\s+(?:jam|pukul|dihapus|hangus|kadaluarsa|kedaluwarsa)|kesempatan\s+terakhir|jangan\s+sampai\s+ketinggalan|(?:verifikasi|klaim|konfirmasi|login|perbarui|aktifkan|lengkapi|transfer|tf|kirim|bayar)\s+sekarang|buruan|darurat|mendesak)\b`)
 	secret     = re(`\b(?:jangan\s+(?:bilang|kasih\s*(?:tau|tahu)|beritahu|ceritakan|kasi\s*tau|kabari)\s+(?:\S+\s+){0,3}?(?:siapa\s*(?:pun)?|siapa-siapa|orang|mama|papa|ayah|ibu|bapak|keluarga|polisi)|rahasiakan|cukup\s+(?:kita|kamu|anda)\s+(?:berdua|yang\s+tahu))\b`)
 	threatCue  = re(`\b(?:akan\s+(?:di)?(?:blokir|nonaktif(?:kan)?|tutup|hapus|tangguhkan|bekukan|suspend|putus|cabut|matikan)|(?:di)?(?:blokir|nonaktifkan|bekukan|tangguhkan|suspend)\s+(?:dalam|jika|bila|apabila|permanen|otomatis)|denda\s+(?:sebesar\s+)?rp|dipolisikan|diproses\s+(?:secara\s+)?hukum|surat\s+tilang)\b`)
-	imperson   = re(`\b(?:ini\s+(?:nomor|no|nmr)\s+(?:baru|mama|papa|ibu|bapak|ayah|kakak|adik|anak|saya)|ini\s+(?:\S+\s+){1,2}?(?:nomor|no|nmr)\s+baru|(?:nomor|no|nmr)\s+baru\s+(?:aku|saya|ku|mama|papa|ibu|bapak|ayah|kakak|adik|om|tante|nenek|kakek)|(?:pakai|pake|pinjam|minjem)\s+(?:nomor|no|nmr|hp)\s+(?:ini|teman|temen|kawan|orang)|ini\s+(?:om|tante|pakde|bude|paman|bibi|kakak|kak|adik|dek|mama|papa|ibu|bapak|ayah|nenek|kakek)\s+\S+(?:[^.!?\n]|\.\d){0,60}?\b(?:dompet|hp|ponsel|tas)\s+(?:\S+\s+)?(?:hilang|dicuri|kecopetan|jatuh|rusak|ketinggalan)|(?:saya|kami|ini)\s+(?:adalah\s+)?(?:kompol|akp|ipda|iptu|aiptu|aipda|bripka|brigadir|briptu|bripda|kombes|akbp|jaksa|hakim|penyidik)\b|ini\s+(?:mama|papa|ibu|bapak|ayah|kakak|adik|om|tante|aku|saya)\s+(?:pakai|pake|pinjam|minjem)\s+(?:nomor|no|nmr|hp)|hp\s+(?:mama|papa|ibu|ayah|bapak|kakak|adik|om|tante|nenek|kakek|aku|saya|ku)\s+(?:rusak|hilang|mati|dicuri|kecebur|jatuh)|ganti\s+(?:nomor|no|nmr)|(?:nomor|hp)\s+(?:lama|yang\s+lama)\s+(?:hilang|rusak|mati|dicuri)|(?:saya|kami|ini)\s+(?:adalah\s+)?(?:dokter|perawat|bidan|polisi)\b|(?:saya|sy|kami|ini)\s+(?:adalah\s+|dengan\s+)?(?:dari|dr|petugas|pihak|cs|customer\s+service|kurir|staf|staff)\s+(?:\S+\s+){0,2}?(?:puskesmas|rumah\s+sakit|rs|klinik|bank|bri|bca|bni|btn|mandiri|bsi|j&t|jnt|jne|pos\s+indonesia|kantor\s+pos|bea\s+cukai|imigrasi|telkomsel|pln|bpjs|pajak|polisi|polda|polres|kejaksaan|pengadilan|ojk|kemensos|shopee|tokopedia|dana|ovo|gopay))\b`)
-	callAction = re(`\b(?:klik|kunjungi|buka|hubungi|hub|telepon|telp|call|chat|wa|whatsapp|sms|klaim|daftar|registrasi|regis|ambil|akses|isi|mengisi|konfirmasi|verifikasi|validasi|login|log\s+in|masuk|update|perbarui|aktifkan|aktivasi|lengkapi|ajukan|bayar|transfer|tf|kirim|cek)\b(?:[^.!?\n]|\.\d){0,40}?(?:` + destination + `)`)
+	imperson   = re(`\b(?:ini\s+(?:nomor|no|nmr)\s+(?:baru|mama|papa|ibu|bapak|ayah|kakak|adik|anak|saya)|ini\s+(?:\S+\s+){1,2}?(?:nomor|no|nmr)\s+baru|(?:nomor|no|nmr)\s+baru\s+(?:aku|saya|ku|mama|papa|ibu|bapak|ayah|kakak|adik|om|tante|nenek|kakek)|(?:pakai|pake|pinjam|minjem)\s+(?:nomor|no|nmr|hp)\s+(?:ini|teman|temen|kawan|orang)|ini\s+(?:om|tante|pakde|bude|paman|bibi|kakak|kak|adik|dek|mama|papa|ibu|bapak|ayah|nenek|kakek)\s+\S+(?:[^.!?\n]|\.\w){0,60}?\b(?:dompet|hp|ponsel|tas)\s+(?:\S+\s+)?(?:hilang|dicuri|kecopetan|jatuh|rusak|ketinggalan)|(?:saya|kami|ini)\s+(?:adalah\s+)?(?:kompol|akp|ipda|iptu|aiptu|aipda|bripka|brigadir|briptu|bripda|kombes|akbp|jaksa|hakim|penyidik)\b|ini\s+(?:mama|papa|ibu|bapak|ayah|kakak|adik|om|tante|aku|saya)\s+(?:pakai|pake|pinjam|minjem)\s+(?:nomor|no|nmr|hp)|hp\s+(?:mama|papa|ibu|ayah|bapak|kakak|adik|om|tante|nenek|kakek|aku|saya|ku)\s+(?:rusak|hilang|mati|dicuri|kecebur|jatuh)|ganti\s+(?:nomor|no|nmr)|(?:nomor|hp)\s+(?:lama|yang\s+lama)\s+(?:hilang|rusak|mati|dicuri)|(?:saya|kami|ini)\s+(?:adalah\s+)?(?:dokter|perawat|bidan|polisi)\b|(?:saya|sy|kami|ini)\s+(?:adalah\s+|dengan\s+)?(?:dari|dr|petugas|pihak|cs|customer\s+service|kurir|staf|staff)\s+(?:\S+\s+){0,2}?(?:puskesmas|rumah\s+sakit|rs|klinik|bank|bri|bca|bni|btn|mandiri|bsi|j&t|jnt|jne|pos\s+indonesia|kantor\s+pos|bea\s+cukai|imigrasi|telkomsel|pln|bpjs|pajak|polisi|polda|polres|kejaksaan|pengadilan|ojk|kemensos|shopee|tokopedia|dana|ovo|gopay))\b`)
+	callAction = re(`\b(?:klik|kunjungi|buka|hubungi|hub|telepon|telp|call|chat|wa|whatsapp|sms|klaim|daftar|registrasi|regis|ambil|akses|isi|mengisi|konfirmasi|verifikasi|validasi|login|log\s+in|masuk|update|perbarui|aktifkan|aktivasi|lengkapi|ajukan|bayar|transfer|tf|kirim|cek)\b(?:[^.!?\n]|\.\w){0,40}?(?:` + destination + `)`)
+	// SMS-era prize wording: "M-dptkan hadiah", "PIN pemenang", "hadiah
+	// ke-2", "cek Rp.27jt", "Slmt ... hadiah".
+	prizeSlang = re(`\b(?:(?:pin|kode)[\s_:.-]*(?:pemenang|undian|hadiah|cek)|pemenang\s+(?:hadiah|ke|promo|poin|program)|hadiah\s*(?:ke|ke-)\s*-?\s*[({]?\d|(?:anda|no\.?|nomor|resmi)\s+(?:\S+\s+){0,2}?(?:meraih|m-?e?n?['’-]?dpt(?:kan|kn)?|mendpt|mndpt|mndptkn|men-?dapat(?:kan)?|mendpatkn|mdpt|mendapat(?:kan)?)\s+(?:\S+\s+){0,3}?(?:hadiah|cek|uang\s+tunai|mobil|motor|bonus\s+poin|honda|toyota|nissan|suzuki|yamaha|daihatsu|mitsubishi|iphone|samsung)|cek\s+(?:tu?anai\s*)?(?:rp|senilai)|cek\s*\.?\s*(?:rp\.?\s*)?\d+(?:[.,]\d+)?\s*\.?\s*(?:jt|juta)\b|(?:trpilih|terpilh)\b|(?:selamat|slmt|selamt|slamat)\b(?:[^.!?\n]|\.\w){0,80}?\b(?:hadiah|pemenang|cek\s+tunai|mobil|motor))`)
+	// "Isi pulsa di nomor baru ini": a top-up for a "new number", or for a
+	// mobile number with "penting / sekarang".
+	pulsaAsk  = re(`\b(?:isi(?:kan|['’]?in)?|beli(?:kan|['’]?in)?|kirim(?:kan|['’]?in)?|tf|transfer)\s+(?:\S+\s+){0,3}?pulsa`)
+	newNumber = re(`\b(?:nomor|no|nmr)\s+baru(?:nya|ku)?\b|\b(?:di|ke)\s+(?:nomor|no|nmr)\s+(?:ini|baru(?:nya|ku)?)\b`)
+	pressing  = re(`\b(?:sekarang|penting|segera|cepat|secepatnya|darurat|urgent)\b`)
+	// Payment redirected to someone else: "sudah saya kuasakan ke Bpk X".
+	redirected = re(`\b(?:sudah|sdh|shd|telah)\s+(?:saya\s+|sy\s+|sya\s+)?(?:di)?kuasakan\b|\bada\s+perubahan\s+pembayaran\b|\bpembayaran\s+(?:harus\s+)?(?:melalui|lewat)\s+(?:ke\s+)?(?:bpk|bapak|pak|ibu|bu)\b`)
+	// A dial code that carries a phone number, or a call-forwarding code
+	// (**21*, *21*, **61*, **62*, **67*): it diverts calls and SMS, OTP
+	// codes included.
+	forwardCode = re(`(?:\*{1,2}(?:21|61|62|67)\*|\*\d{2,4}\*(?:\d+\*)*(?:\+?62|0)8\d{7,12}#?)`)
 	// Someone reports that your relative had an accident or was arrested.
-	relativeEmergency = re(`\b(?:anak|suami|istri|ayah|ibu|bapak|adik|kakak|cucu|keluarga)(?:nya|\s+(?:ibu|bapak|bpk|anda|kamu))\b(?:[^.!?\n]|\.\d){0,60}?\b(?:kecelakaan|tertabrak|jatuh|berdarah|terluka|luka\s+parah|masuk\s+(?:rs|rumah\s+sakit|igd|icu)|di\s+(?:igd|icu)|dirawat|(?:harus\s+(?:segera\s+)?)?dioperasi|ditahan|ditangkap|(?:kami\s+)?amankan|diamankan|pingsan|kritis|koma)\b`)
+	relativeEmergency = re(`\b(?:anak|suami|istri|ayah|ibu|bapak|adik|kakak|cucu|keluarga)(?:nya|\s+(?:ibu|bapak|bpk|anda|kamu))\b(?:[^.!?\n]|\.\w){0,60}?\b(?:kecelakaan|tertabrak|jatuh|berdarah|terluka|luka\s+parah|masuk\s+(?:rs|rumah\s+sakit|igd|icu)|di\s+(?:igd|icu)|dirawat|(?:harus\s+(?:segera\s+)?)?dioperasi|ditahan|ditangkap|(?:kami\s+)?amankan|diamankan|pingsan|kritis|koma)\b`)
 	// An account, card, number or service that "will be blocked": blocking
 	// verbs in any form, or "akan" with cutting off, closing or deleting
 	// ("layanan diputus sementara karena pemeliharaan" is not a threat).
-	accountThreat = re(`\b(?:akun|rekening|rek|kartu|nomor|no|nmr|simcard|sim\s+card|saldo|atm|m-?banking|mobile\s+banking|internet\s+banking|brimo|livin|wondr|whatsapp|wa|facebook|fb|instagram|ig|tiktok|bpjs|npwp|nik|e-?ktp|ktp|listrik|meteran|kwh|layanan|langganan|paylater|limit)\b(?:[^.!?\n]|\.\d){0,60}?\b(?:(?:di|ter)(?:blokir|nonaktif(?:kan)?|tangguhkan|bekukan|suspend|kunci|batasi|cabut)|nonaktif|akan\s+(?:di)?(?:blokir|nonaktif(?:kan)?|tutup|hapus|putus|hentikan|tangguhkan|bekukan|cabut|matikan))\b`)
+	accountThreat = re(`\b(?:akun|rekening|rek|kartu|nomor|no|nmr|simcard|sim\s+card|saldo|atm|m-?banking|mobile\s+banking|internet\s+banking|brimo|livin|wondr|whatsapp|wa|facebook|fb|instagram|ig|tiktok|bpjs|npwp|nik|e-?ktp|ktp|listrik|meteran|kwh|layanan|langganan|paylater|limit)\b(?:[^.!?\n]|\.\w){0,60}?\b(?:(?:di|ter)(?:blokir|nonaktif(?:kan)?|tangguhkan|bekukan|suspend|kunci|batasi|cabut)|nonaktif|akan\s+(?:di)?(?:blokir|nonaktif(?:kan)?|tutup|hapus|putus|hentikan|tangguhkan|bekukan|cabut|matikan))\b`)
 	// "Tarif transfer berubah ... jika tidak setuju, isi formulir di ...".
 	tariffThreat = re(`\b(?:tarif|biaya)\s+(?:baru|transfer|transaksi|admin(?:istrasi)?|bulanan|layanan)\b[\s\S]{0,140}?\b(?:jika|bila|apabila|kalau|kalo)\s+(?:anda\s+|bapak/ibu\s+|bapak\s+|ibu\s+|nasabah\s+|kamu\s+)?(?:tidak|tdk|tak|belum)\s+(?:setuju|bersedia|ingin|mau|menyetujui)\b`)
 	// A parcel "held" until a fee is paid.
-	parcelHeld = re(`\bpaket\b(?:[^.!?\n]|\.\d){0,40}?\b(?:tertahan|ditahan|gagal\s+dikirim|tidak\s+dapat\s+dikirim|tertunda)\b`)
+	parcelHeld = re(`\bpaket\b(?:[^.!?\n]|\.\w){0,40}?\b(?:tertahan|ditahan|gagal\s+dikirim|tidak\s+dapat\s+dikirim|tertunda)\b`)
 	// Money sent to "this account": an account number after "ke rekening".
 	accountNumber = re(`\b(?:rek(?:ening)?|no\.?\s*rek)\.?(?:\s+[^\s\d]+){0,3}?\s*:?\s*\d{3}[\d\s-]{6,16}\d\b`)
 	loanBait      = re(`\b(?:pinjaman|pinjol|dana\s+tunai|kredit|kta)\b[\s\S]{0,80}?\b(?:tanpa\s+(?:jaminan|agunan|bi\s*checking|slik|survei|survey)|langsung\s+cair|cair\s+dalam|acc\s+cepat|pasti\s+(?:cair|acc))\b`)
@@ -200,6 +215,7 @@ func Analyze(text string) Result {
 		r.Hits = append(r.Hits, Hit{Signal: InvestmentScam, Phrase: clip(invest)})
 	}
 	pz := add(prize, prizeCash, true)
+	pz = add(prize, prizeSlang, true) || pz
 	sf := add(fee, scamFee, false)
 	fe := add(fee, plainFee, false) || sf
 	mo := add(money, moneyAsk, true)
@@ -211,6 +227,11 @@ func Analyze(text string) Result {
 	ca := addCallToAction(&r, text)
 	ln := add(loan, loanBait, false)
 	fakeLine := addUnofficialContact(&r, text)
+	forward := add(CallForward, forwardCode, true)
+	topUp := pulsaAsk.MatchString(text)
+	toNewNumber := newNumber.MatchString(text)
+	toMobile := mobile.MatchString(text)
+	diverted := redirected.MatchString(text)
 	acct := add(acctThreat, accountThreat, true)
 	acct = add(acctThreat, tariffThreat, false) || acct
 	held := parcelHeld.MatchString(text)
@@ -226,6 +247,8 @@ func Analyze(text string) Result {
 	switch {
 	case cred:
 		r.Pattern = CredentialRequest
+	case forward:
+		r.Pattern = CallForward
 	case apk:
 		r.Pattern = APKLure
 	case wrong || (wrongish && mo):
@@ -238,6 +261,10 @@ func Analyze(text string) Result {
 		r.Pattern = PrizeFee
 	case ln && fe && (mo || upfront.MatchString(text)):
 		r.Pattern = LoanFee
+	case topUp && (toNewNumber || (toMobile && pressing.MatchString(text))):
+		r.Pattern = MoneyPressure
+	case diverted && toMobile:
+		r.Pattern = MoneyPressure
 	case mo && (im || em || (th && elsewhere) || (se && ur) || (ur && sf) || (sf && ca) || (held && (ca || sf))):
 		r.Pattern = MoneyPressure
 	case acct && elsewhere:
