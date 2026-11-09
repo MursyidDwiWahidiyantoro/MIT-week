@@ -599,3 +599,49 @@ now two images and three links; the home, education and about copy talk about
 images and links instead of messages and calls. The pillars are named after
 the detections: "Jejak AI", "Teks ditimpa (ELA)", "Pengecekan fakta",
 "Pemeriksaan tautan". The PRD carries a scope note at the top.
+
+## 2026-11-09 · Jejak AI: what the file declares comes first
+
+Scope (see above): "is this image AI-generated or authentic?". The AI pillar
+now answers only that question, for the uploaded image or a link's preview
+image. It supersedes the "Penilaian AI" manipulation-risk rubric decided
+earlier the same day.
+
+Evidence, strongest first (TECH_SPEC §3.6):
+
+1. **What the file declares** (`internal/provenance`): Content Credentials
+   (C2PA in JPEG APP11, PNG `caBX`, WebP `C2PA`), IPTC `DigitalSourceType` in
+   XMP, a generator as XMP `CreatorTool` or EXIF `Software`, generator
+   settings in PNG text (Stable Diffusion, Fooocus, ComfyUI, InvokeAI,
+   NovelAI, Midjourney) or the EXIF user comment, and camera make and model.
+   Only metadata blocks are read, never pixels. Checked by hand on real
+   files: the c2pa-rs test image (algorithmicMedia) and its edited copy
+   (opened, no AI), three ComfyUI outputs (FLUX, SDXL), a Canon photo whose
+   EXIF ImageMagick copied into PNG text, and a Pixel 7 Pro photo; the unit
+   tests use crafted bytes of the same structures, and a fuzz target guards
+   against hostile files. A visible AI label ("Imagined with AI", "Dibuat
+   dengan AI", "AI生成") counts only when the model reports it and the
+   image's OCR text carries one.
+2. **An optional dedicated detector**: Sightengine's `genai` model, off
+   without credentials. The image goes to a third party, so the privacy
+   notice says so.
+3. **The model's visible clues**, with a written rubric: 0-15 an ordinary
+   photo, screenshot or design; 71-100 clear signs such as malformed hands,
+   gibberish lettering, impossible objects or an AI label. An ordinary edit
+   (pasted text, crop, filter) is not AI generation; it belongs to Timpa Teks.
+
+Missing metadata proves nothing (WhatsApp and social networks strip it), so it
+never lowers the score; camera data is only a hint and caps a visual judgement
+at 50. Floors apply to uploads only: `AI_PROVENANCE` (85), `AI_EDITED` (70) and
+`AI_LIKELY` (45, from a pillar score of 80). They run after `LINK_STRONG`, so a
+risky link in the same image keeps its score. A link's preview image is judged
+too, without floors: an AI illustration does not make a link a hoax.
+
+Open: the `AI_LIKELY` threshold (80) is set from the rubric, not yet measured
+against the live model on a labelled set, because no model key was available
+when this was built. Revisit with real traffic or a labelled set.
+
+Found on the way: WebP uploads were rejected because the standard library has
+no WebP decoder, although the UI accepts them. The size now comes from the
+VP8/VP8L/VP8X header; WebP is passed to the model and detector as is, and ELA
+is skipped for it (re-compressing as JPEG says nothing about a WebP file).

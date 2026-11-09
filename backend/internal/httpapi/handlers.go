@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/amba/amba/backend/internal/aidetect"
 	"github.com/amba/amba/backend/internal/config"
 	"github.com/amba/amba/backend/internal/grounding"
 	"github.com/amba/amba/backend/internal/linkcheck"
@@ -57,6 +58,9 @@ func NewDeps(cfg *config.Config) Deps {
 	grounder := grounding.New(grounding.DefaultAllowlist)
 	p := pipeline.New(client, grounder, cfg.CacheTTL)
 	p.SafeBrowsing = linkcheck.NewSafeBrowsing(cfg.SafeBrowsing)
+	if cfg.SightengineUser != "" {
+		p.Detector = aidetect.NewSightengine(cfg.SightengineUser, cfg.SightengineSecret)
+	}
 	if cfg.FactCheckKey != "" {
 		p.Searcher = grounding.NewFactCheckSearcher(cfg.FactCheckKey, grounder)
 	}
@@ -74,6 +78,7 @@ func LogReadiness(ctx context.Context, cfg *config.Config, d Deps) {
 		"llm_extra_fields", extraKeys(cfg.LLMExtraBody),
 		"fact_search", d.Pipeline.Searcher != nil && d.Pipeline.Searcher.Enabled(),
 		"safe_browsing", d.Pipeline.SafeBrowsing.Enabled(),
+		"ai_detector", d.Pipeline.Detector != nil && d.Pipeline.Detector.Enabled(),
 		"telegram", cfg.TelegramToken != "" && cfg.TelegramMode != "off",
 		"metrics", cfg.MetricsAddr != "",
 	)

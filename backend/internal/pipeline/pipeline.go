@@ -23,6 +23,7 @@ import (
 	"github.com/amba/amba/backend/internal/llm"
 	"github.com/amba/amba/backend/internal/metadata"
 	"github.com/amba/amba/backend/internal/models"
+	"github.com/amba/amba/backend/internal/provenance"
 	"github.com/amba/amba/backend/internal/scoring"
 	"github.com/amba/amba/backend/internal/security"
 	"github.com/amba/amba/backend/internal/tactics"
@@ -41,9 +42,11 @@ type Request struct {
 
 // Result is what the pipeline produces before signing.
 type Result struct {
-	Pillars  models.Pillars
-	Tactics  []models.Tactic
-	Metadata *models.SourceMetadata
+	// InputType is the request's: the AI floors apply to uploads only.
+	InputType models.InputType
+	Pillars   models.Pillars
+	Tactics   []models.Tactic
+	Metadata  *models.SourceMetadata
 	// OCRText is the model's reading of an uploaded image (FILE only).
 	OCRText  string
 	Degraded bool
@@ -80,6 +83,8 @@ type Pipeline struct {
 	Grounder     *grounding.Grounder
 	Searcher     grounding.Searcher
 	SafeBrowsing *linkcheck.SafeBrowsing
+	// Detector is an optional dedicated AI-image detector (nil: none).
+	Detector AIDetector
 	// NewFetchClient returns the SSRF-safe client used for every request to a
 	// user-supplied URL. Tests replace it to reach httptest servers.
 	NewFetchClient func(timeout time.Duration) *http.Client
@@ -95,6 +100,10 @@ type Pipeline struct {
 	LLMDeadline      time.Duration
 	SearchDeadline   time.Duration
 	ClassifyDeadline time.Duration
+	// DetectDeadline bounds the AI detector; PreviewDeadline bounds the
+	// download of a link's preview image.
+	DetectDeadline  time.Duration
+	PreviewDeadline time.Duration
 
 	mu    sync.Mutex
 	cache map[string]*list.Element
@@ -124,6 +133,8 @@ func New(client *llm.Client, g *grounding.Grounder, cacheTTL time.Duration) *Pip
 		LLMDeadline:      9 * time.Second,
 		SearchDeadline:   2500 * time.Millisecond,
 		ClassifyDeadline: 3 * time.Second,
+		DetectDeadline:   4 * time.Second,
+		PreviewDeadline:  1500 * time.Millisecond,
 		cache:            make(map[string]*list.Element),
 		order:            list.New(),
 	}
@@ -174,10 +185,12 @@ func (p *Pipeline) RunStream(ctx context.Context, req Request, emit func(Event))
 		modelBoxes                                     []llm.Anomaly
 	)
 
+	res.InputType = req.InputType
 	g, gctx := errgroup.WithContext(ctx)
 
-	// ELA: FILE only.
-	if req.InputType == models.InputFile && len(req.Image) > 0 {
+	// ELA: JPEG and PNG uploads. Error level analysis re-compresses the image
+	// as JPEG, which says nothing about a WebP file's history.
+	if req.InputType == models.InputFile && len(req.Image) > 0 && req.ImageFormat != "webp" {
 		tracker.start(PillarELA)
 		g.Go(func() error {
 			pillar, hotspots, ok := p.runELA(gctx, req.Image)
@@ -220,12 +233,19 @@ func (p *Pipeline) RunStream(ctx context.Context, req Request, emit func(Event))
 		})
 	}
 
-	// Model: metadata (URL) -> findings -> search -> classify.
+	// Model: metadata and preview image (URL) -> findings -> AI pillar ->
+	// search -> classify. The AI detector, when configured, runs beside the
+	// model on the same image.
 	tracker.start(PillarAI)
 	tracker.start(PillarFact)
 	g.Go(func() error {
-		content, tacticSource := "", ""
+		tacticSource := ""
 		in := llm.Input{Type: string(req.InputType)}
+		var (
+			judged   bool // an image the AI pillar can judge
+			prov     provenance.Result
+			detected <-chan detection
+		)
 
 		switch req.InputType {
 		case models.InputURL:
@@ -233,19 +253,29 @@ func (p *Pipeline) RunStream(ctx context.Context, req Request, emit func(Event))
 			mu.Lock()
 			res.Metadata = md.model
 			mu.Unlock()
-			content = md.forModel
+			in.Content = md.forModel
 			tacticSource = md.caption
 			if tacticSource == "" {
 				tacticSource = req.URL
 			}
+			// The link's preview image is what people see when it is shared.
+			if md.image != "" {
+				if img, format, ok := p.fetchPreview(gctx, md.image); ok {
+					judged, prov = true, provenance.Scan(img)
+					detected = p.startDetector(gctx, img, format)
+					in.Image, in.ImageMIME = forensics.ModelImage(img, format, 1024)
+				}
+			}
 		case models.InputFile:
-			content = req.OCRText
+			in.Content = req.OCRText
 			tacticSource = req.OCRText
 			if len(req.Image) > 0 {
+				// Metadata blocks only: microseconds, no decoding.
+				judged, prov = true, provenance.Scan(req.Image)
+				detected = p.startDetector(gctx, req.Image, req.ImageFormat)
 				in.Image, in.ImageMIME = forensics.ModelImage(req.Image, req.ImageFormat, 1600)
 			}
 		}
-		in.Content = content
 		label := "text"
 		if req.InputType == models.InputFile {
 			label = "ocr"
@@ -254,21 +284,35 @@ func (p *Pipeline) RunStream(ctx context.Context, req Request, emit func(Event))
 		lctx, cancel := withBudget(gctx, p.LLMDeadline)
 		f, err := p.LLM.Analyze(lctx, in)
 		cancel()
-		if err != nil {
+		modelOK := err == nil
+
+		if judged {
+			ocr := f.OCRText
+			if ocr == "" {
+				ocr = req.OCRText
+			}
+			ai, ok := buildAIPillar(aiEvidence{prov: prov, modelOK: modelOK, findings: f, ocr: ocr, det: awaitDetection(gctx, detected)})
+			mu.Lock()
+			res.Pillars.AI = ai
+			mu.Unlock()
+			if ok {
+				tracker.done(PillarAI, ai)
+			} else {
+				tracker.fail(PillarAI)
+			}
+		} else {
+			// A link without a preview image has no image to judge.
+			tracker.skip(PillarAI)
+		}
+
+		if !modelOK {
 			mu.Lock()
 			llmFailed = true
 			mu.Unlock()
-			tracker.fail(PillarAI)
 			tracker.fail(PillarFact)
 			return nil
 		}
 
-		ai := models.AIPillar{
-			Available:  true,
-			Score:      f.AIScore,
-			Indicators: nonNil(f.AIIndicators),
-			Caveat:     "Indikatif, bukan bukti pasti",
-		}
 		anomalies := make([]scoring.Box, 0, len(f.TextAnomalies))
 		for _, a := range f.TextAnomalies {
 			anomalies = append(anomalies, scoring.Box(a.BoundingBox))
@@ -287,7 +331,6 @@ func (p *Pipeline) RunStream(ctx context.Context, req Request, emit func(Event))
 		found := tactics.Verify(candidates, source)
 
 		mu.Lock()
-		res.Pillars.AI = ai
 		res.AIAnomalies = anomalies
 		modelBoxes = f.TextAnomalies
 		res.Tactics = found
@@ -296,7 +339,6 @@ func (p *Pipeline) RunStream(ctx context.Context, req Request, emit func(Event))
 			res.OCRText = f.OCRText
 		}
 		mu.Unlock()
-		tracker.done(PillarAI, ai)
 
 		// A URL the model read inside the screenshot gets the link pillar
 		// too (PRD F4), unless the client already supplied one.
@@ -442,6 +484,8 @@ type resolvedMetadata struct {
 	model    *models.SourceMetadata
 	forModel string
 	caption  string
+	// image is the link's preview image URL, "" when it has none.
+	image string
 }
 
 func (p *Pipeline) resolveMetadata(ctx context.Context, rawURL string) resolvedMetadata {
@@ -460,6 +504,7 @@ func (p *Pipeline) resolveMetadata(ctx context.Context, rawURL string) resolvedM
 		},
 		forModel: m.ForModel(rawURL),
 		caption:  m.Caption(),
+		image:    m.Image,
 	}
 }
 
@@ -540,13 +585,20 @@ func Verdict(res Result, injectionSuspected bool) models.Verdict {
 	}
 	in := scoring.Input{
 		ELA:                scoring.Signal{Available: res.Pillars.ELA.Available, Score: res.Pillars.ELA.Score, Reliability: res.Pillars.ELA.Reliability},
-		AI:                 scoring.Signal{Available: res.Pillars.AI.Available, Score: res.Pillars.AI.Score, Reliability: aiReliabilityFromPillar(res)},
+		AI:                 scoring.Signal{Available: res.Pillars.AI.Available, Score: res.Pillars.AI.Score, Reliability: res.Pillars.AI.Reliability},
 		Fact:               scoring.Signal{Available: res.Pillars.Fact.Available, Score: factScore(res.Pillars.Fact.Status), Reliability: 1.0},
 		Link:               scoring.Signal{Available: res.Pillars.Link.Available, Score: res.Pillars.Link.Score, Reliability: 1.0},
 		LinkMalicious:      res.LinkMalicious,
 		InjectionSuspected: injectionSuspected,
 		ELAHotspots:        res.ELAHotspots,
 		AIAnomalies:        res.AIAnomalies,
+		UploadedImage:      res.InputType == models.InputFile,
+	}
+	switch res.Pillars.AI.Provenance.Kind {
+	case models.ProvenanceAIGenerated:
+		in.AIDeclared = scoring.DeclaredAIGenerated
+	case models.ProvenanceAIEdited:
+		in.AIDeclared = scoring.DeclaredAIEdited
 	}
 	if res.Pillars.Fact.Available && res.Pillars.Fact.Status == models.FactContradicts {
 		for _, s := range res.Pillars.Fact.Sources {
@@ -557,16 +609,6 @@ func Verdict(res Result, injectionSuspected bool) models.Verdict {
 		}
 	}
 	return scoring.Compute(in)
-}
-
-func aiReliabilityFromPillar(res Result) float64 {
-	// The pillar does not carry its own reliability; the input type does, and
-	// only an image audit has an ELA pillar (TECH_SPEC §3.1: 0.7 image, 0.5
-	// text).
-	if res.Pillars.ELA.Available {
-		return 0.7
-	}
-	return 0.5
 }
 
 func factScore(s models.FactStatus) int {
@@ -701,10 +743,11 @@ func (p *Pipeline) CacheLen() int {
 }
 
 // FirstURL returns the first link in a text, so a link inside a screenshot
-// or a shared message gets the link pillar (PRD F4). Scam SMS usually write links without a scheme
-// ("klik bri-verifikasi.my.id", "bit.ly/abc"); those are read as https, so
-// the missing scheme is not counted against the link. An e-mail address is
-// not a link.
+// or a message shared to the Telegram bot gets the link pillar (PRD F4).
+// Links in screenshots are often written without a scheme ("klik
+// bri-verifikasi.my.id", "bit.ly/abc"); those are read as https, so the
+// missing scheme is not counted against the link. An e-mail address is not
+// a link.
 func FirstURL(text string) string {
 	for _, field := range strings.Fields(text) {
 		field = strings.Trim(field, "\"'()[]<>,.;!?")

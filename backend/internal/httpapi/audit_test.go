@@ -88,6 +88,13 @@ func TestAuditImageReturnsDossier(t *testing.T) {
 	if d.ShareToken == "" {
 		t.Error("expected a signed share token")
 	}
+	// An ordinary photo declares nothing; the contract still names the kind.
+	if !d.Pillars.AI.Available || d.Pillars.AI.Provenance.Kind != models.ProvenanceNone || d.Pillars.AI.Reliability <= 0 {
+		t.Errorf("ai pillar = %+v", d.Pillars.AI)
+	}
+	if !strings.Contains(rec.Body.String(), `"detector":null`) {
+		t.Error("an unconfigured detector must serialise as null")
+	}
 }
 
 // AMBA checks links and images only; there is no text route.
@@ -118,6 +125,11 @@ func TestAuditURLAcceptsHTTPS(t *testing.T) {
 	}
 	if !d.Pillars.Link.Available {
 		t.Error("link pillar should be available for a URL audit")
+	}
+	// No preview image could be read, so there is no image to judge; the
+	// provenance kind is still a valid enum value, never "".
+	if d.Pillars.AI.Available || d.Pillars.AI.Provenance.Kind != models.ProvenanceNone {
+		t.Errorf("ai pillar = %+v", d.Pillars.AI)
 	}
 }
 

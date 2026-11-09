@@ -56,6 +56,23 @@ export interface Verdict {
   floors_applied: string[];
 }
 
+/** What the image declares about its origin (Jejak AI). */
+export type ProvenanceKind = 'AI_GENERATED' | 'AI_EDITED' | 'CAMERA' | 'NONE';
+export type ProvenanceSource = 'c2pa' | 'xmp' | 'png_text' | 'exif' | 'watermark' | '';
+
+export interface Provenance {
+  kind: ProvenanceKind;
+  source: ProvenanceSource;
+  generator: string;
+  camera: string;
+  c2pa: boolean;
+}
+
+export interface AIDetector {
+  name: string;
+  score: number;
+}
+
 export interface Dossier {
   schema_version: 2;
   id: string;
@@ -67,7 +84,15 @@ export interface Dossier {
   verdict: Verdict;
   pillars: {
     ela: { available: boolean; score: number; reliability: number; reliability_note: string | null; anomalies: Anomaly[] };
-    ai: { available: boolean; score: number; indicators: string[]; caveat: string };
+    ai: {
+      available: boolean;
+      score: number;
+      reliability?: number;
+      indicators: string[];
+      caveat: string;
+      provenance?: Provenance | null;
+      detector?: AIDetector | null;
+    };
     fact: { available: boolean; claim: string; status: FactStatus; sources: Source[] };
     link: { available: boolean; score: number; final_url: string; redirect_chain: string[]; reasons: { code: string; text: string }[] };
   };

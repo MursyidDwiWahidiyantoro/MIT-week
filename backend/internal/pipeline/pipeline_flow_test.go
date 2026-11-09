@@ -295,7 +295,13 @@ func rewrite(srv *httptest.Server) http.RoundTripper {
 		r2.URL.Scheme = "http"
 		r2.URL.Host = strings.TrimPrefix(srv.URL, "http://")
 		r2.Host = req.URL.Host
-		return http.DefaultTransport.RoundTrip(r2)
+		resp, err := http.DefaultTransport.RoundTrip(r2)
+		if resp != nil {
+			// The client sees the address it asked for, as on the internet:
+			// relative links on the page resolve against it.
+			resp.Request = req
+		}
+		return resp, err
 	})
 }
 

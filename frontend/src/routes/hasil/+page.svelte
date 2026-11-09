@@ -222,7 +222,7 @@
   {/if}
 
   <Panel title={t('res.panelDetails')}>
-    <EvidenceAccordion pillars={dossier.pillars} />
+    <EvidenceAccordion pillars={dossier.pillars} inputType={dossier.input_type} />
   </Panel>
 
   <Panel title={t('res.panelLimits')} tone="soft">

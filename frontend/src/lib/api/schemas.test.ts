@@ -58,6 +58,35 @@ describe('parseDossier', () => {
     expect(parseDossier(d).verdict.score).toBeNull();
   });
 
+  it('reads the AI pillar provenance and detector, and accepts older payloads without them', () => {
+    const old = parseDossier(minimalDossier());
+    expect(old.pillars.ai.provenance).toBeNull();
+    expect(old.pillars.ai.detector).toBeNull();
+
+    const base = minimalDossier();
+    const d = parseDossier({
+      ...base,
+      pillars: {
+        ...base.pillars,
+        ai: {
+          available: true,
+          score: 95,
+          reliability: 1,
+          indicators: [],
+          caveat: 'Indikatif, bukan bukti pasti',
+          provenance: { kind: 'AI_GENERATED', source: 'c2pa', generator: 'OpenAI', camera: '', c2pa: true },
+          detector: { name: 'sightengine', score: 98 }
+        }
+      }
+    });
+    expect(d.pillars.ai.provenance?.kind).toBe('AI_GENERATED');
+    expect(d.pillars.ai.detector?.score).toBe(98);
+
+    const bad = minimalDossier();
+    (bad.pillars.ai as Record<string, unknown>).provenance = { kind: 'MAYBE', source: '', generator: '', camera: '', c2pa: false };
+    expect(() => parseDossier(bad)).toThrow();
+  });
+
   it('raises SchemaVersionError for a newer contract', () => {
     expect(() => parseDossier(minimalDossier({ schema_version: 3 }))).toThrow(SchemaVersionError);
   });

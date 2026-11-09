@@ -256,6 +256,56 @@ func TestFormatHandlesInsufficientAndBlocked(t *testing.T) {
 	}
 }
 
+func TestFormatExplainsTheImageChecks(t *testing.T) {
+	b := New("T", "s", "", nil)
+	score := 85
+	out := b.Format(models.Dossier{
+		InputType: models.InputFile,
+		Verdict:   models.Verdict{Status: models.StatusTampered, Score: &score, ShortTitle: "Terindikasi Hoax/Manipulasi", ExplanationSimple: "Ada tanda jelas gambar ini dibuat dengan AI. Jangan anggap sebagai foto asli."},
+		Pillars: models.Pillars{
+			AI: models.AIPillar{Available: true, Score: 95, Indicators: []string{"Tulisan di spanduk berupa huruf acak"},
+				Provenance: models.Provenance{Kind: models.ProvenanceAIGenerated, Source: "c2pa", Generator: "OpenAI", C2PA: true},
+				Detector:   &models.AIDetector{Name: "sightengine", Score: 98}},
+			ELA: models.ELAPillar{Available: true, Anomalies: []models.Anomaly{{ExtractedText: "Rp 5.000", Reason: "huruf berbeda"}}},
+		},
+	})
+	for _, want := range []string{
+		"Jejak AI: Content Credentials (C2PA) di file menyatakan gambar ini dibuat dengan AI (OpenAI). Pemeriksa khusus AI: 98/100.",
+		"- Tulisan di spanduk berupa huruf acak",
+		"Teks yang tampak ditempel:\n- \"Rp 5.000\": huruf berbeda",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %q in %s", want, out)
+		}
+	}
+}
+
+func TestAISummary(t *testing.T) {
+	cases := []struct {
+		ai   models.AIPillar
+		want string
+	}{
+		{models.AIPillar{Score: 82}, "Gambar ini kemungkinan dibuat dengan AI: tinggi (82/100)."},
+		{models.AIPillar{Score: 45}, "Gambar ini kemungkinan dibuat dengan AI: sedang (45/100)."},
+		{models.AIPillar{Score: 50, Provenance: models.Provenance{Kind: models.ProvenanceCamera, Camera: "Canon EOS 80D"}},
+			"Gambar ini kemungkinan dibuat dengan AI: sedang (50/100). Data kamera: Canon EOS 80D (petunjuk, bukan bukti)."},
+		{models.AIPillar{Score: 90, Provenance: models.Provenance{Kind: models.ProvenanceAIGenerated, Source: "watermark", Generator: "Meta"}},
+			"Ada label AI yang terlihat pada gambar ini (Meta)."},
+		{models.AIPillar{Score: 80, Provenance: models.Provenance{Kind: models.ProvenanceAIEdited, Source: "xmp"}},
+			"Metadata file menyatakan gambar ini diedit dengan AI."},
+		{models.AIPillar{Score: 95, Provenance: models.Provenance{Kind: models.ProvenanceAIGenerated, Source: "png_text", Generator: "ComfyUI"}},
+			"File menyimpan pengaturan pembuat gambar AI (ComfyUI)."},
+	}
+	for _, tc := range cases {
+		if got := AISummary(tc.ai, "Gambar ini"); got != tc.want {
+			t.Errorf("AISummary = %q, want %q", got, tc.want)
+		}
+	}
+	if got := AISummary(models.AIPillar{Score: 10}, "Gambar pratinjau tautan"); got != "Gambar pratinjau tautan kemungkinan dibuat dengan AI: rendah (10/100)." {
+		t.Errorf("preview summary = %q", got)
+	}
+}
+
 func waitFor(t *testing.T, cond func() bool) {
 	t.Helper()
 	deadline := time.Now().Add(3 * time.Second)

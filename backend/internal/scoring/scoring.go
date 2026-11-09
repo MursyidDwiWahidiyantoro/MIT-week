@@ -42,6 +42,11 @@ const (
 	// low score says nothing about authenticity. Below this it neither lowers
 	// the score nor helps a verdict reach SAFE; it only counts as coverage.
 	ELAEvidenceMin = 50
+	// AILikelyMin is the AI pillar score from which an uploaded image is
+	// SUSPICIOUS on visible signs alone (AI_LIKELY). The prompt reserves
+	// 71-100 for clear signs (malformed hands, gibberish lettering, impossible
+	// objects, AI labels); a configured detector shares the score.
+	AILikelyMin = 80
 
 	// weightEpsilon absorbs binary floating-point error in the weight sums.
 	// 0.35 + 0.15 is 0.49999999999999994, which must still count as 0.50.
@@ -56,6 +61,17 @@ const (
 	FloorLinkStrong       = "LINK_STRONG"
 	FloorELASoloCap       = "ELA_SOLO_CAP"
 	FloorInjectionGuard   = "INJECTION_GUARD"
+	// The AI floors apply to an uploaded image only: a link's preview image
+	// may be an honest illustration.
+	FloorAIProvenance = "AI_PROVENANCE"
+	FloorAIEdited     = "AI_EDITED"
+	FloorAILikely     = "AI_LIKELY"
+)
+
+// AI origins an uploaded image can declare (Input.AIDeclared).
+const (
+	DeclaredAIGenerated = "AI_GENERATED"
+	DeclaredAIEdited    = "AI_EDITED"
 )
 
 // Signal is one pillar's contribution. Unavailable pillars contribute neither
@@ -91,6 +107,14 @@ type Input struct {
 	// InjectionSuspected is true when the LLM output was flagged by the
 	// injection detector.
 	InjectionSuspected bool
+
+	// UploadedImage is true when the user uploaded the image the AI pillar
+	// judged. Only then do the AI floors apply.
+	UploadedImage bool
+	// AIDeclared is what the image declares about its origin, from its
+	// metadata or an AI label visible on it: DeclaredAIGenerated,
+	// DeclaredAIEdited or "".
+	AIDeclared string
 }
 
 // Compute returns the verdict fields this package owns. ShortTitle and
@@ -166,6 +190,23 @@ func Compute(in Input) models.Verdict {
 		score = &s
 		v.FloorsApplied = append(v.FloorsApplied, FloorLinkStrong)
 	}
+	// An uploaded image that declares AI generation is not a photo of a real
+	// event, whatever else it shows; one edited with AI is altered; one whose
+	// visible signs are clear deserves a check before it is shared. These
+	// come after LINK_STRONG so a risky link in the image keeps its score.
+	if in.UploadedImage && in.AI.Available {
+		switch {
+		case in.AIDeclared == DeclaredAIGenerated:
+			score = atLeast(score, 85)
+			v.FloorsApplied = append(v.FloorsApplied, FloorAIProvenance)
+		case in.AIDeclared == DeclaredAIEdited:
+			score = atLeast(score, 70)
+			v.FloorsApplied = append(v.FloorsApplied, FloorAIEdited)
+		case in.AI.Score >= AILikelyMin:
+			score = atLeast(score, 45)
+			v.FloorsApplied = append(v.FloorsApplied, FloorAILikely)
+		}
+	}
 	// The solo cap is recorded only when it actually lowers the score: it is a
 	// numerical ceiling, not evidence, so listing it for a score already below
 	// 60 would make the honest-limits copy claim a cap that never mattered.
@@ -222,8 +263,14 @@ func ExplanationSimple(status models.Status, floors []string) string {
 		return "Tautan ini mirip penipuan. Jangan diklik."
 	case slices.Contains(floors, FloorLinkStrong):
 		return "Tautan ini punya tanda penipuan. Sebaiknya jangan diklik."
+	case slices.Contains(floors, FloorAIProvenance):
+		return "Ada tanda jelas gambar ini dibuat dengan AI. Jangan anggap sebagai foto asli."
 	case slices.Contains(floors, FloorELACorroborated):
 		return "Gambar ini terindikasi diedit. Jangan langsung percaya."
+	case slices.Contains(floors, FloorAIEdited):
+		return "Ada tanda jelas gambar ini diedit dengan AI. Jangan langsung percaya."
+	case slices.Contains(floors, FloorAILikely):
+		return "Gambar ini tampak buatan AI. Cek dulu sebelum menyebarkan."
 	}
 
 	switch status {
@@ -232,7 +279,7 @@ func ExplanationSimple(status models.Status, floors []string) string {
 	case models.StatusSuspicious:
 		return "Belum jelas benar atau tidak. Cek dulu sebelum menyebarkan."
 	case models.StatusTampered:
-		// §8.2 only defines TAMPERED sentences for floors 1–3. A weighted
+		// §8.2 defines TAMPERED sentences for the floors above. A weighted
 		// score can reach TAMPERED without one (e.g. ELA 69 + AI 100 +
 		// UNVERIFIED + link 89), so keep a calm, non-certain fallback.
 		return "Beberapa tanda bahaya ditemukan. Cek dulu sebelum menyebarkan."

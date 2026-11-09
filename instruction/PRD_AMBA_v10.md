@@ -60,7 +60,7 @@ Indonesians constantly receive forwarded screenshots, "bansos/undian" links and 
 **AMBA is a literacy aid, not a lie detector.** It combines four independent signals and explains them in plain Indonesian:
 
 1. **Timpa Teks** — image forensics (ELA + AI-located text-region anomalies) for screenshots.
-2. **Jejak AI** — indicative likelihood that an image/text is AI-generated.
+2. **Jejak AI** — indicative likelihood that an image is AI-generated: first what the file itself declares (Content Credentials/C2PA, IPTC/XMP, generator settings, EXIF, a visible AI label), then an optional dedicated detector, then the visible clues the model reports.
 3. **Cek Fakta** — claim extraction + search grounding against trusted Indonesian fact-check/news sources.
 4. **Keamanan Tautan** — phishing/scam heuristics for any URL involved.
 

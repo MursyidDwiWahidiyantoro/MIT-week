@@ -27,10 +27,14 @@ type Config struct {
 	SigningKey    string
 	SafeBrowsing  string
 	FactCheckKey  string
-	MaxUploadMB   int64
-	HardTimeout   time.Duration
-	CacheTTL      time.Duration
-	MetricsAddr   string
+	// Sightengine credentials for the optional AI-image detector. Both
+	// empty: no detector (the AI pillar uses metadata and the model).
+	SightengineUser   string
+	SightengineSecret string
+	MaxUploadMB       int64
+	HardTimeout       time.Duration
+	CacheTTL          time.Duration
+	MetricsAddr       string
 	// ClientIPHeader names the header a trusted proxy puts the client address
 	// in (Fly-Client-IP on Fly.io, X-Real-IP on Railway).
 	ClientIPHeader string
@@ -66,13 +70,15 @@ func Load() (*Config, error) {
 		RouterModel:   os.Getenv("NINEROUTER_MODEL"),
 		SigningKey:    os.Getenv("REPORT_SIGNING_KEY"),
 		// One Google Cloud key may serve both APIs; the specific variable wins.
-		SafeBrowsing:   env("GOOGLE_SAFE_BROWSING_KEY", os.Getenv("GOOGLE_API_KEY")),
-		FactCheckKey:   env("GOOGLE_FACTCHECK_KEY", os.Getenv("GOOGLE_API_KEY")),
-		MetricsAddr:    os.Getenv("METRICS_ADDR"),
-		ClientIPHeader: os.Getenv("CLIENT_IP_HEADER"),
-		TelegramToken:  os.Getenv("TELEGRAM_BOT_TOKEN"),
-		TelegramSecret: os.Getenv("TELEGRAM_WEBHOOK_SECRET"),
-		TelegramMode:   env("TELEGRAM_MODE", "webhook"),
+		SafeBrowsing:      env("GOOGLE_SAFE_BROWSING_KEY", os.Getenv("GOOGLE_API_KEY")),
+		FactCheckKey:      env("GOOGLE_FACTCHECK_KEY", os.Getenv("GOOGLE_API_KEY")),
+		SightengineUser:   os.Getenv("SIGHTENGINE_API_USER"),
+		SightengineSecret: os.Getenv("SIGHTENGINE_API_SECRET"),
+		MetricsAddr:       os.Getenv("METRICS_ADDR"),
+		ClientIPHeader:    os.Getenv("CLIENT_IP_HEADER"),
+		TelegramToken:     os.Getenv("TELEGRAM_BOT_TOKEN"),
+		TelegramSecret:    os.Getenv("TELEGRAM_WEBHOOK_SECRET"),
+		TelegramMode:      env("TELEGRAM_MODE", "webhook"),
 		// The public URL Telegram should push updates to, e.g.
 		// https://amba-api.fly.dev/telegram/webhook. Empty: register it by hand.
 		TelegramWebhookURL: os.Getenv("TELEGRAM_WEBHOOK_URL"),
@@ -143,6 +149,10 @@ func Load() (*Config, error) {
 	}
 	if c.TelegramWebhookURL != "" && !strings.HasPrefix(c.TelegramWebhookURL, "https://") {
 		errs = append(errs, errors.New("TELEGRAM_WEBHOOK_URL: must start with https://"))
+	}
+
+	if (c.SightengineUser == "") != (c.SightengineSecret == "") {
+		errs = append(errs, errors.New("SIGHTENGINE_API_USER, SIGHTENGINE_API_SECRET: set both or neither"))
 	}
 
 	if raw := strings.TrimSpace(os.Getenv("LLM_EXTRA_BODY")); raw != "" {

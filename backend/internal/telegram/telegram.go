@@ -297,6 +297,52 @@ func (b *Bot) download(ctx context.Context, fileID string) ([]byte, string, erro
 	return data, format, err
 }
 
+// AISummary says in one plain sentence what the AI pillar found about an
+// image: what the image declares, or how likely it looks AI-made.
+func AISummary(ai models.AIPillar, subject string) string {
+	p := ai.Provenance
+	by := ""
+	if p.Generator != "" {
+		by = " (" + p.Generator + ")"
+	}
+	made := "dibuat"
+	if p.Kind == models.ProvenanceAIEdited {
+		made = "diedit"
+	}
+	var out string
+	switch {
+	case p.Kind == models.ProvenanceAIGenerated || p.Kind == models.ProvenanceAIEdited:
+		switch p.Source {
+		case "c2pa":
+			out = fmt.Sprintf("Content Credentials (C2PA) di file menyatakan %s %s dengan AI%s.", strings.ToLower(subject), made, by)
+		case "watermark":
+			out = fmt.Sprintf("Ada label AI yang terlihat pada %s%s.", strings.ToLower(subject), by)
+		case "png_text":
+			out = fmt.Sprintf("File menyimpan pengaturan pembuat gambar AI%s.", by)
+		case "exif":
+			out = fmt.Sprintf("Data EXIF di file menyebut pembuat gambar AI%s.", by)
+		default:
+			out = fmt.Sprintf("Metadata file menyatakan %s %s dengan AI%s.", strings.ToLower(subject), made, by)
+		}
+	default:
+		level := "rendah"
+		switch {
+		case ai.Score >= 70:
+			level = "tinggi"
+		case ai.Score >= 40:
+			level = "sedang"
+		}
+		out = fmt.Sprintf("%s kemungkinan dibuat dengan AI: %s (%d/100).", subject, level, ai.Score)
+	}
+	if ai.Detector != nil {
+		out += fmt.Sprintf(" Pemeriksa khusus AI: %d/100.", ai.Detector.Score)
+	}
+	if p.Kind == models.ProvenanceCamera && p.Camera != "" {
+		out += " Data kamera: " + p.Camera + " (petunjuk, bukan bukti)."
+	}
+	return out
+}
+
 // Format renders a Dossier as a plain-text Telegram message.
 func (b *Bot) Format(d models.Dossier) string {
 	var s strings.Builder
@@ -308,6 +354,32 @@ func (b *Bot) Format(d models.Dossier) string {
 
 	if md := d.SourceMetadata; md != nil && md.Status == models.MetadataBlocked {
 		s.WriteString("\nPlatform tidak mengizinkan pembacaan otomatis. Kirim tangkapan layarnya agar bisa diperiksa lengkap.\n")
+	}
+	if ai := d.Pillars.AI; ai.Available {
+		subject := "Gambar ini"
+		if d.InputType == models.InputURL {
+			subject = "Gambar pratinjau tautan"
+		}
+		s.WriteString("\nJejak AI: " + AISummary(ai, subject) + "\n")
+		for i, ind := range ai.Indicators {
+			if i == 3 {
+				break
+			}
+			s.WriteString("- " + ind + "\n")
+		}
+	}
+	if ela := d.Pillars.ELA; ela.Available && len(ela.Anomalies) > 0 {
+		s.WriteString("\nTeks yang tampak ditempel:\n")
+		for i, a := range ela.Anomalies {
+			if i == 3 {
+				break
+			}
+			if a.ExtractedText != "" {
+				fmt.Fprintf(&s, "- \"%s\": %s\n", a.ExtractedText, a.Reason)
+			} else {
+				s.WriteString("- " + a.Reason + "\n")
+			}
+		}
 	}
 	if d.Pillars.Fact.Available && len(d.Pillars.Fact.Sources) > 0 {
 		s.WriteString("\nSumber cek fakta:\n")

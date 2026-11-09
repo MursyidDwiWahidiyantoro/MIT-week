@@ -223,6 +223,9 @@ func normalizePillar(data any) any {
 		return p
 	case models.AIPillar:
 		p.Indicators = nonNilStrings(p.Indicators)
+		if p.Provenance.Kind == "" {
+			p.Provenance.Kind = models.ProvenanceNone
+		}
 		return p
 	case models.FactPillar:
 		p.Sources = nonNilSources(p.Sources)
@@ -269,6 +272,9 @@ func BuildDossier(key []byte, res pipeline.Result, req pipeline.Request) models.
 	}
 	d.Pillars.ELA.Anomalies = nonNilAnomalies(d.Pillars.ELA.Anomalies)
 	d.Pillars.AI.Indicators = nonNilStrings(d.Pillars.AI.Indicators)
+	if d.Pillars.AI.Provenance.Kind == "" {
+		d.Pillars.AI.Provenance.Kind = models.ProvenanceNone
+	}
 	d.Pillars.Fact.Sources = nonNilSources(d.Pillars.Fact.Sources)
 	d.Pillars.Link.RedirectChain = nonNilStrings(d.Pillars.Link.RedirectChain)
 	d.Pillars.Link.Reasons = nonNilLinkReasons(d.Pillars.Link.Reasons)
