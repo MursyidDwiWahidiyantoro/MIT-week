@@ -99,6 +99,10 @@ type Client struct {
 	// error, timeout, non-200 or an unreadable answer): e.g. OpenRouter behind
 	// a 9router that runs on someone's PC. Nil: no fallback.
 	Fallback *Client
+	// AudioInput: the gateway takes OpenAI "input_audio" parts (Gemini via
+	// 9router does; OpenRouter's free vision models do not). Without it,
+	// audio parts are dropped before the request is sent.
+	AudioInput bool
 
 	mu        sync.Mutex
 	downUntil time.Time // after a failure, go straight to the fallback until then
@@ -425,17 +429,46 @@ func (c *Client) complete(ctx context.Context, messages []message, name, schema 
 }
 
 // primaryShare is the first gateway's part of the remaining budget: all of it
-// but fallbackReserve, and never less than half.
+// but a reserve for the fallback (fallbackReserve, or a third of a longer
+// budget such as a video's), and never less than half.
 func primaryShare(ctx context.Context) time.Duration {
 	dl, ok := ctx.Deadline()
 	if !ok {
 		return 20 * time.Second
 	}
 	rem := time.Until(dl)
-	if d := rem - fallbackReserve; d > rem/2 {
+	reserve := fallbackReserve
+	if r := rem / 3; r > reserve {
+		reserve = r
+	}
+	if d := rem - reserve; d > rem/2 {
 		return d
 	}
 	return rem / 2
+}
+
+// forGateway drops audio parts for a gateway without audio input, so the
+// same request can go to either gateway.
+func (c *Client) forGateway(messages []message) []message {
+	if c.AudioInput {
+		return messages
+	}
+	out := make([]message, len(messages))
+	for i, m := range messages {
+		out[i] = m
+		parts, ok := m.Content.([]map[string]any)
+		if !ok {
+			continue
+		}
+		kept := make([]map[string]any, 0, len(parts))
+		for _, p := range parts {
+			if p["type"] != "input_audio" {
+				kept = append(kept, p)
+			}
+		}
+		out[i].Content = kept
+	}
+	return out
 }
 
 func (c *Client) skipping() bool {
@@ -460,7 +493,7 @@ func (c *Client) call(ctx context.Context, messages []message, name, schema stri
 		body[k] = v
 	}
 	body["model"] = c.Model
-	body["messages"] = messages
+	body["messages"] = c.forGateway(messages)
 	body["response_format"] = map[string]any{
 		"type": "json_schema",
 		"json_schema": map[string]any{
