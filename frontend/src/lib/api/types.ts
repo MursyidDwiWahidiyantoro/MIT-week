@@ -102,6 +102,28 @@ export interface Dossier {
   share_token: string;
   source_metadata?: SourceMetadata | null;
   ocr_text?: string;
+  video?: VideoAnalysis | null;
+}
+
+export interface VideoSignal {
+  score: number;
+  indicators: string[];
+}
+
+/** Frame-by-frame analysis of a social video link; its AI score is in pillars.ai. */
+export interface VideoAnalysis {
+  status: 'OK' | 'UNAVAILABLE';
+  reason: string;
+  platform: string;
+  duration_sec: number;
+  upload_date: string;
+  platform_ai_label: boolean;
+  frames: { at_sec: number; thumb: string }[];
+  audio_analyzed: boolean;
+  summary: string;
+  transcript: string;
+  manipulation: VideoSignal;
+  context: VideoSignal;
 }
 
 export interface ErrorEnvelope {

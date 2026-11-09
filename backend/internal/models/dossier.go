@@ -41,6 +41,47 @@ type Dossier struct {
 	// OCRText is the text the model read in an uploaded image ("" unless
 	// FILE). Tactics with source "ocr" are highlighted in it.
 	OCRText string `json:"ocr_text"`
+	// Video is the frame-by-frame analysis of a social video link (TikTok,
+	// YouTube, X, Instagram, Facebook). Absent for other input.
+	Video *VideoAnalysis `json:"video,omitempty"`
+}
+
+// VideoStatus says whether a social video could be downloaded and analysed.
+type VideoStatus string
+
+const (
+	VideoOK          VideoStatus = "OK"
+	VideoUnavailable VideoStatus = "UNAVAILABLE"
+)
+
+// VideoAnalysis holds what only a video has; its AI score is in Pillars.AI.
+// Reason is "" when Status is OK, else one of unsupported, private, too_long,
+// too_big, timeout, download_failed, no_tools, model_failed.
+type VideoAnalysis struct {
+	Status          VideoStatus  `json:"status"`
+	Reason          string       `json:"reason"`
+	Platform        string       `json:"platform"`
+	DurationSec     float64      `json:"duration_sec"`
+	UploadDate      string       `json:"upload_date"`
+	PlatformAILabel bool         `json:"platform_ai_label"`
+	Frames          []VideoFrame `json:"frames"`
+	AudioAnalyzed   bool         `json:"audio_analyzed"`
+	Summary         string       `json:"summary"`
+	Transcript      string       `json:"transcript"`
+	Manipulation    VideoSignal  `json:"manipulation"`
+	Context         VideoSignal  `json:"context"`
+}
+
+// VideoFrame is one analysed keyframe: a small JPEG data URL for the UI.
+type VideoFrame struct {
+	AtSec float64 `json:"at_sec"`
+	Thumb string  `json:"thumb"`
+}
+
+// VideoSignal is a model-reported 0-100 signal with what it saw.
+type VideoSignal struct {
+	Score      int      `json:"score"`
+	Indicators []string `json:"indicators"`
 }
 
 // MetadataStatus says whether a link's public description could be read.

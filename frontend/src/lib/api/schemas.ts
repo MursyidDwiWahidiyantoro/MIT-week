@@ -70,6 +70,36 @@ export const sourceMetadataSchema = z.object({
   site_name: z.string()
 });
 
+const videoSignalSchema = z.object({
+  score: z.number().int().min(0).max(100),
+  indicators: z.array(z.string()).nullish().transform((v) => v ?? [])
+});
+
+/** Frame-by-frame analysis of a social video link. Absent for other input. */
+export const videoSchema = z.object({
+  status: z.enum(['OK', 'UNAVAILABLE']),
+  reason: z.string(),
+  platform: z.string(),
+  duration_sec: z.number().min(0),
+  upload_date: z.string(),
+  platform_ai_label: z.boolean(),
+  frames: z
+    .array(
+      z.object({
+        at_sec: z.number().min(0),
+        // Only our own JPEG thumbnails may become an <img src>.
+        thumb: z.string().startsWith('data:image/jpeg;base64,')
+      })
+    )
+    .nullish()
+    .transform((v) => v ?? []),
+  audio_analyzed: z.boolean(),
+  summary: z.string(),
+  transcript: z.string(),
+  manipulation: videoSignalSchema,
+  context: videoSignalSchema
+});
+
 export const verdictSchema = z.object({
   score: z.number().int().min(0).max(100).nullable(),
   status: statusSchema,
@@ -137,7 +167,9 @@ export const dossierSchema = z.object({
   // Added in the same schema_version: older payloads (and bundled demos built
   // before the field existed) simply omit them.
   source_metadata: sourceMetadataSchema.nullish().transform((v) => v ?? null),
-  ocr_text: z.string().max(2000).nullish().transform((v) => v ?? '')
+  ocr_text: z.string().max(2000).nullish().transform((v) => v ?? ''),
+  // Social video links only; older payloads and other input omit it.
+  video: videoSchema.nullish().transform((v) => v ?? null)
 });
 
 export const errorEnvelopeSchema = z.object({

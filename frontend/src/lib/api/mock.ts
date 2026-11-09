@@ -233,7 +233,8 @@ function baseDossier(
     pillars: overrides.pillars,
     tactics: overrides.tactics,
     source_metadata: overrides.sourceMetadata ?? null,
-    ocr_text: ''
+    ocr_text: '',
+    video: null
   };
 
   return parseDossier({ ...withoutToken, share_token: makeToken(withoutToken) });
