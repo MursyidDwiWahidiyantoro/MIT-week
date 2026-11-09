@@ -132,8 +132,9 @@ func TestTransientVideoFailureIsNotCached(t *testing.T) {
 			t.Fatalf("run %d: video %+v degraded %v", i, res.Video, res.Degraded)
 		}
 	}
-	if n := atomic.LoadInt32(&fv.calls); n != 2 {
-		t.Fatalf("fetched %d times, want 2 (a failed download is not cached)", n)
+	// Each run tries twice (one retry after a stall); nothing is cached.
+	if n := atomic.LoadInt32(&fv.calls); n != 4 {
+		t.Fatalf("fetched %d times, want 4 (two runs, one retry each, nothing cached)", n)
 	}
 }
 
