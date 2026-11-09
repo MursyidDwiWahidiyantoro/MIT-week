@@ -23,17 +23,15 @@ import (
 	"github.com/amba/amba/backend/internal/llm"
 	"github.com/amba/amba/backend/internal/metadata"
 	"github.com/amba/amba/backend/internal/models"
-	"github.com/amba/amba/backend/internal/scam"
 	"github.com/amba/amba/backend/internal/scoring"
 	"github.com/amba/amba/backend/internal/security"
 	"github.com/amba/amba/backend/internal/tactics"
 )
 
-// Request is one audit input. Exactly one of URL, Text or Image is set.
+// Request is one audit input: a link (URL) or an uploaded image (Image).
 type Request struct {
 	InputType models.InputType
 	URL       string
-	Text      string
 	Image     []byte
 	// ImageFormat is the validated decoder format ("jpeg", "png", "webp").
 	ImageFormat string
@@ -54,9 +52,6 @@ type Result struct {
 	InjectionSuspected bool
 	// LinkMalicious is set on a Safe Browsing hit (floor 2).
 	LinkMalicious bool
-	// ScamPattern is the deterministic scam pattern found in the message,
-	// the link's caption or the image's text (floor 2b, internal/scam).
-	ScamPattern string
 	// ELAHotspots and AIAnomalies are the evidence the ELA_CORROBORATED floor
 	// compares; they are not serialised to the client.
 	ELAHotspots []scoring.Box
@@ -143,8 +138,6 @@ func CacheKey(req Request) string {
 	switch req.InputType {
 	case models.InputURL:
 		h.Write([]byte(req.URL))
-	case models.InputText:
-		h.Write([]byte(req.Text))
 	case models.InputFile:
 		h.Write(req.Image)
 		h.Write([]byte{0})
@@ -202,17 +195,15 @@ func (p *Pipeline) RunStream(ctx context.Context, req Request, emit func(Event))
 		})
 	}
 
-	// Link: the submitted URL, or the first URL in a text message or in the
-	// client's OCR hint. URLs that only appear in the model's OCR text are
+	// Link: the submitted URL, or the first link in the client's OCR hint
+	// for an image. Links that only appear in the model's OCR text are
 	// checked after the model answers (below).
 	linkTarget := ""
 	switch req.InputType {
 	case models.InputURL:
 		linkTarget = req.URL
-	case models.InputText:
-		linkTarget = firstURL(req.Text)
 	case models.InputFile:
-		linkTarget = firstURL(req.OCRText)
+		linkTarget = FirstURL(req.OCRText)
 	}
 	if linkTarget != "" {
 		linkRan = true
@@ -233,8 +224,7 @@ func (p *Pipeline) RunStream(ctx context.Context, req Request, emit func(Event))
 	tracker.start(PillarAI)
 	tracker.start(PillarFact)
 	g.Go(func() error {
-		content := req.Text
-		tacticSource := req.Text
+		content, tacticSource := "", ""
 		in := llm.Input{Type: string(req.InputType)}
 
 		switch req.InputType {
@@ -256,19 +246,10 @@ func (p *Pipeline) RunStream(ctx context.Context, req Request, emit func(Event))
 			}
 		}
 		in.Content = content
-
-		// The scam rules need no model, so they run first and their result
-		// survives a model that is down or out of quota: the message, the
-		// link's caption, or the text the client read from the image.
 		label := "text"
 		if req.InputType == models.InputFile {
 			label = "ocr"
 		}
-		rules := scam.Analyze(tacticSource)
-		mu.Lock()
-		res.ScamPattern = rules.Pattern
-		res.Tactics = tactics.Verify(rules.Tactics(label), tacticSource)
-		mu.Unlock()
 
 		lctx, cancel := withBudget(gctx, p.LLMDeadline)
 		f, err := p.LLM.Analyze(lctx, in)
@@ -293,17 +274,13 @@ func (p *Pipeline) RunStream(ctx context.Context, req Request, emit func(Event))
 			anomalies = append(anomalies, scoring.Box(a.BoundingBox))
 		}
 
-		// Tactics are verified against the text the user can see: the
-		// message, the link's caption, or the model's own OCR of the image,
-		// which is also where the scam rules look once the model has read it.
+		// Tactics are verified against the text the user can see: the link's
+		// caption, or the model's own OCR of the image.
 		source := tacticSource
 		if req.InputType == models.InputFile && f.OCRText != "" {
 			source = f.OCRText
-			if ocrRules := scam.Analyze(f.OCRText); ocrRules.Pattern != "" || len(ocrRules.Hits) > 0 {
-				rules = ocrRules
-			}
 		}
-		candidates := rules.Tactics(label)
+		candidates := make([]models.Tactic, 0, len(f.Tactics))
 		for _, t := range f.Tactics {
 			candidates = append(candidates, models.Tactic{Code: t.Code, Phrase: t.Phrase, Source: label})
 		}
@@ -314,9 +291,6 @@ func (p *Pipeline) RunStream(ctx context.Context, req Request, emit func(Event))
 		res.AIAnomalies = anomalies
 		modelBoxes = f.TextAnomalies
 		res.Tactics = found
-		if rules.Pattern != "" {
-			res.ScamPattern = rules.Pattern
-		}
 		res.InjectionSuspected = f.InjectionSuspected
 		if req.InputType == models.InputFile {
 			res.OCRText = f.OCRText
@@ -327,7 +301,7 @@ func (p *Pipeline) RunStream(ctx context.Context, req Request, emit func(Event))
 		// A URL the model read inside the screenshot gets the link pillar
 		// too (PRD F4), unless the client already supplied one.
 		if req.InputType == models.InputFile && !linkRan {
-			if target := firstURL(f.OCRText); target != "" {
+			if target := FirstURL(f.OCRText); target != "" {
 				tracker.start(PillarLink)
 				pillar, malicious, ok := p.runLink(gctx, target)
 				mu.Lock()
@@ -573,7 +547,6 @@ func Verdict(res Result, injectionSuspected bool) models.Verdict {
 		InjectionSuspected: injectionSuspected,
 		ELAHotspots:        res.ELAHotspots,
 		AIAnomalies:        res.AIAnomalies,
-		ScamPattern:        res.ScamPattern,
 	}
 	if res.Pillars.Fact.Available && res.Pillars.Fact.Status == models.FactContradicts {
 		for _, s := range res.Pillars.Fact.Sources {
@@ -727,12 +700,12 @@ func (p *Pipeline) CacheLen() int {
 	return p.order.Len()
 }
 
-// firstURL returns the first link in a message, so a forwarded text gets the
-// link pillar too (PRD F4). Scam SMS usually write links without a scheme
+// FirstURL returns the first link in a text, so a link inside a screenshot
+// or a shared message gets the link pillar (PRD F4). Scam SMS usually write links without a scheme
 // ("klik bri-verifikasi.my.id", "bit.ly/abc"); those are read as https, so
 // the missing scheme is not counted against the link. An e-mail address is
 // not a link.
-func firstURL(text string) string {
+func FirstURL(text string) string {
 	for _, field := range strings.Fields(text) {
 		field = strings.Trim(field, "\"'()[]<>,.;!?")
 		lower := strings.ToLower(field)

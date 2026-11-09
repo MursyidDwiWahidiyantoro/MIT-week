@@ -1,14 +1,15 @@
 # AMBA — Aplikasi Mengenali & Bertindak Aman
 
-Alat bantu literasi digital untuk memeriksa tautan, tangkapan layar, dan pesan
-yang mencurigakan. Hasil analisis bersifat **indikatif** — bukan bukti pasti,
-bukan alat bukti hukum.
+Alat bantu literasi digital untuk memeriksa **gambar** dan **tautan** yang
+mencurigakan: apakah gambar dibuat dengan AI atau asli, apakah teks di gambar
+ditimpa, dan apakah tautan itu asli atau jebakan/hoaks. Hasil analisis bersifat
+**indikatif** — bukan bukti pasti, bukan alat bukti hukum.
 
 ## Arsitektur
 
 ```
 Browser (SvelteKit SPA, ID/EN)        Telegram
-   │  POST /api/v1/audit/{url,file,text}   │  POST /telegram/webhook
+   │  POST /api/v1/audit/{url,file}        │  POST /telegram/webhook
    │  (SSE: stage → partial → verdict)     │
    ▼                                       ▼
 Go API (chi)
@@ -167,7 +168,7 @@ VITE_API_MODE=http VITE_API_BASE_URL=http://localhost:8080/api/v1 \
 Cara memastikan sudah benar:
 
 - Banner kuning “Mode pratinjau” **hilang**.
-- Di DevTools → Network ada `POST http://localhost:8080/api/v1/audit/text`
+- Di DevTools → Network ada `POST http://localhost:8080/api/v1/audit/url`
   saat menekan **Mulai periksa**.
 - Halaman `/hasil` **tidak** menampilkan pita merah “CONTOH / SIMULASI”.
 
@@ -203,16 +204,16 @@ VITE_API_MODE=mock npm run build && npm run preview -- --port 4400
 
 Yang perlu dicek di preview:
 
-- Semua halaman terbuka: `/`, `/deteksi`, `/hasil`, `/edukasi`, `/cek-cepat`,
-  `/tentang`, dan satu URL ngawur untuk melihat 404.
+- Semua halaman terbuka: `/`, `/deteksi`, `/hasil`, `/edukasi`, `/tentang`,
+  dan satu URL ngawur untuk melihat 404.
 - Tidak ada scroll horizontal di 360px, 390px, 768px, 1280px.
 - Toggle **A / A+ / A++** memperbesar seluruh halaman dan tersimpan setelah reload.
 - Toggle **Jelajah / Esensial**: Esensial menjadi satu kolom dan tanpa animasi.
 - Tab / Shift+Tab: skip link **“Langsung ke isi utama”** muncul pertama, setiap
   perhentian punya ring fokus hitam 4px.
-- Tab **Pesan / Tautan** di kartu hero mengganti teks contoh, meter risiko,
-  dan tiga tanda bahaya.
-- Kuis “Asli atau scam?” memberi umpan balik lalu bisa diulang.
+- Tab **Gambar / Tautan** di kartu hero mengganti contoh, meter risiko, dan
+  tiga tanda bahaya.
+- Kuis “Asli atau jebakan?” memberi umpan balik lalu bisa diulang.
 
 ---
 
@@ -247,7 +248,7 @@ npm run test:e2e            # sama dengan: npx playwright test
 ```
 
 Tes ini **menyalakan sendiri** Go (`LLM_MOCK=true`, port 8080) dan preview build
-(port 4173), lalu menjalankan 32 skenario: audit teks sampai `/hasil`, keempat
+(port 4173), lalu menjalankan semua skenario: audit tautan sampai `/hasil`, keempat
 pilar, demo offline tanpa panggilan API, unggah gambar sampai slider ELA,
 tautan yang tidak bisa dibaca, token yang diubah, rate limit, error server,
 paritas Mode Jelajah/Esensial, read-aloud, pindah bahasa, dan axe di enam

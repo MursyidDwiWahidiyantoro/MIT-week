@@ -47,7 +47,6 @@ var (
 	errInvalidURL = newAPIError(http.StatusBadRequest, models.CodeInvalidURL, "Tautan tidak valid.", false)
 	// Text input shares the INVALID_URL code (the contract has no separate
 	// one) but says what is actually wrong.
-	errInvalidText      = newAPIError(http.StatusBadRequest, models.CodeInvalidURL, "Teks kosong atau terlalu panjang. Maksimal 5.000 karakter.", false)
 	errInvalidReply     = newAPIError(http.StatusBadRequest, models.CodeInvalidURL, "Permintaan balasan tidak valid.", false)
 	errBlockedTarget    = newAPIError(http.StatusBadRequest, models.CodeBlockedTarget, "Tautan ini tidak dapat diperiksa.", false)
 	errUnsupportedMedia = newAPIError(http.StatusUnsupportedMediaType, models.CodeUnsupportedMedia, "Jenis berkas ini belum didukung.", false)

@@ -20,7 +20,6 @@
 
   let kind = $state<InputKind>('url');
   let url = $state('');
-  let text = $state('');
   let file = $state<File | null>(null);
   let inputError = $state<string | null>(null);
   let sharedNotice = $state<string | null>(null);
@@ -31,7 +30,7 @@
   // to action on a blocked link opens the image tab with ?tab=file.
   onMount(() => {
     const tab = page.url.searchParams.get('tab');
-    if (tab === 'file' || tab === 'text' || tab === 'url') kind = tab;
+    if (tab === 'file' || tab === 'url') kind = tab;
     const q = page.url.searchParams.get('q')?.trim();
     if (q && !page.url.searchParams.get('share')) {
       kind = 'url';
@@ -71,15 +70,15 @@
     } else if (item.url) {
       kind = 'url';
       url = item.url;
-    } else if (item.text) {
-      const found = firstHttpUrl(item.text);
-      if (found) {
-        kind = 'url';
-        url = found;
-      } else {
-        kind = 'text';
-        text = item.text;
-      }
+    } else if (item.text && firstHttpUrl(item.text)) {
+      kind = 'url';
+      url = firstHttpUrl(item.text) ?? '';
+    } else {
+      // AMBA checks links and images only; shared text without a link has
+      // nothing to check.
+      sharedNotice = null;
+      inputError = t('det.sharedNoLink');
+      return;
     }
 
     sharedNotice = null;
@@ -114,8 +113,7 @@
         kind = 'url';
         url = found;
       } else {
-        kind = 'text';
-        text = value;
+        inputError = t('det.clipNoLink');
       }
     } catch {
       inputError = t('det.clipDenied');
@@ -146,8 +144,7 @@
     try {
       const { parseDossier } = await import('$lib/api/schemas');
       const dossier = parseDossier(demo.dossier);
-      const text = dossier.input_type === 'TEXT' ? demo.label : null;
-      result.set(dossier, image, text);
+      result.set(dossier, image);
       void goto(resolve('/hasil'));
     } catch {
       // A bundled dossier that fails the contract is a build-time bug, not a
@@ -162,10 +159,6 @@
       if (!/^https?:\/\//i.test(value)) return t('det.errUrlScheme');
       if (value.length > 2048) return t('det.errUrlLong');
     }
-    if (kind === 'text') {
-      if (!text.trim()) return t('det.errTextEmpty');
-      if (text.length > 5000) return t('det.errTextLong');
-    }
     if (kind === 'file' && !file) return t('det.errFile');
     return null;
   }
@@ -173,7 +166,7 @@
   async function submit(): Promise<void> {
     inputError = validate();
     if (inputError) return;
-    await session.start(kind, { url: url.trim(), text: text.trim(), file: file ?? undefined });
+    await session.start(kind, { url: url.trim(), file: file ?? undefined });
     if (session.verdict) {
       // goto() keeps the in-memory result store; a location.href reload would
       // wipe it and land on "Hasil tidak tersimpan".
@@ -213,19 +206,6 @@
 
   {#if kind === 'url'}
     <Field id="url" label={t('det.urlLabel')} type="url" bind:value={url} hint={t('det.urlHint')} error={inputError ?? undefined} />
-  {:else if kind === 'text'}
-    <div class="field">
-      <label for="teks">{t('det.textLabel')}</label>
-      <textarea
-        class="textarea"
-        id="teks"
-        rows="6"
-        bind:value={text}
-        aria-invalid={inputError ? 'true' : undefined}
-        placeholder={t('det.textPlaceholder')}
-      ></textarea>
-      {#if inputError}<p class="error-text" role="alert">{inputError}</p>{/if}
-    </div>
   {:else}
     <DropzoneUploader onselect={(f) => { file = f; inputError = null; }} />
     {#if inputError}<p class="error-text" role="alert">{inputError}</p>{/if}
@@ -297,8 +277,6 @@
   .console :global(.field) { margin-bottom: var(--space-5); }
   .console > :global(.field) { margin-bottom: var(--space-5); }
   .shared { margin: var(--space-3) 0 0; color: var(--body-2); font-size: var(--text-sm); }
-  .field { display: grid; gap: var(--space-2); margin-bottom: var(--space-5); }
-  label { font-weight: 700; }
   .actions { display: flex; gap: var(--space-3); margin: var(--space-5) 0 0; flex-wrap: wrap; }
   .live { min-height: 1.5em; color: var(--body-2); font-size: var(--text-sm); margin: var(--space-3) 0 0; }
   .error-panel {
@@ -342,13 +320,13 @@
 
   .console + :global(.radar) { margin-top: var(--space-5); }
 
-  /* Phone: the tab row gets the full width so three tabs share one line, and
+  /* Phone: the tab row gets the full width so both tabs share one line, and
    * the clipboard action drops below instead of squeezing them. */
   @media (max-width: 44rem) {
     .console-top { flex-direction: column; align-items: stretch; }
     .console-top :global(.tabs) { display: flex; width: 100%; }
     /* min-width:0 is required: flex-basis:0 alone still refuses to shrink
-     * below the icon+label intrinsic width, which wrapped the third tab. */
+     * below the icon+label intrinsic width, which wrapped the last tab. */
     .console-top :global(.tabs button) { flex: 1 1 0; min-width: 0; padding: 0 8px; }
     .console-top :global(.btn) { width: 100%; }
     .actions { flex-direction: column; }

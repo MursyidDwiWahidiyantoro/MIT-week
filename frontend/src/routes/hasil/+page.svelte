@@ -23,7 +23,6 @@
 
   let live = $state<DossierParsed | null>(result.value);
   let imageFile = $state<File | null>(result.imageFile);
-  const inputText = result.inputText;
   let shared = $state<VerifyResult | null>(null);
   let checking = $state(false);
   let verdictHeading: HTMLElement | null = $state(null);
@@ -63,8 +62,8 @@
   );
 
   // The text tactic phrases were verified against, so the highlights land
-  // where the user can see them: the message they sent, the link's caption,
-  // or what the model read in the image.
+  // where the user can see them: the link's caption, or what the model read
+  // in the image.
   const highlight = $derived.by(() => {
     if (!live) return { text: '', label: '' };
     if (live.input_type === 'FILE') {
@@ -77,7 +76,7 @@
         .join('\n');
       return { text: caption, label: t('res.captionLabel') };
     }
-    return { text: inputText ?? live.source_reference, label: '' };
+    return { text: '', label: '' };
   });
 
   const sentence = $derived(live ? simpleSentence(live) : '');

@@ -35,13 +35,12 @@ amba/
     ├── security-headers.json                      # single source for CSP etc. (host-specific emit deferred)
     ├── static/manifest.webmanifest  src/service-worker.ts  # PWA + share target (§8.1)
     └── src/
-        ├── routes/ (+layout.svelte, +page.svelte, deteksi/, hasil/, edukasi/, tentang/, cek-cepat/)  # SvelteKit file routing; ssr=false, adapter-static fallback
+        ├── routes/ (+layout.svelte, +page.svelte, deteksi/, hasil/, edukasi/, tentang/)  # SvelteKit file routing; ssr=false, adapter-static fallback
         ├── lib/components/ (*.svelte: layout/, home/, deteksi/, hasil/, edukasi/, shared/, a11y/ReadAloud, a11y/TextSize, share/WhatsAppButton, mode/ModeSwitch)
         ├── lib/ (api/, audit.svelte.ts [runes state + SSE], mode.svelte.ts, sse.ts, forensics/ela.worker.ts, token.ts, a11y.ts, styles/tokens.css)
         ├── lib/data/demo-cases.json    # identical copy of backend demo data (CI diff check)
         ├── lib/data/reply-templates.json  # copy of configs/reply_templates.json (CI diff check)
         ├── lib/data/tactics.json          # static tactic labels + explanations (Indonesian)
-        ├── lib/data/quickcheck.json       # Cek Cepat questions/weights/advice + safe-word list
         └── tests/
 ```
 
@@ -62,7 +61,6 @@ Codes: `INVALID_URL, BLOCKED_TARGET, UNSUPPORTED_MEDIA, PAYLOAD_TOO_LARGE, RATE_
 |---|---|---|---|
 | `/audit/url` | POST | `{"url": string}` (≤2048) | |
 | `/audit/file` | POST | multipart: `file`; optional `ocr_text` | ≤10 MB; client ELA score is **ignored** |
-| `/audit/text` | POST | `{"text": string}` (≤5000) | |
 | `/verify` | POST | `{"token": string}` | returns `{valid, payload?}` |
 | `/reply` | POST | `{"token": string, "tone": "hormat\|santai\|singkat"}` | returns `{text, source: "llm\|template"}`; see §6.2 |
 | `/demo/{id}` | GET | – | `^[a-z0-9-]{4,40}$` |
@@ -86,7 +84,7 @@ Heartbeat comment `: ping` every 10 s. Frontend uses `fetch` + `ReadableStream` 
   "schema_version": 2,
   "id": "AMBA-20261030-7F3K",          // date + 4 base32 chars
   "timestamp": "2026-10-30T07:22:15Z", // UTC ISO; UI formats to WITA
-  "input_type": "URL|FILE|TEXT",
+  "input_type": "URL|FILE",              // AMBA checks a link or an uploaded image (scope 2026-11-09)
   "source_reference": "string",         // display only; truncated 200 chars
   "degraded": false,
   "is_demo": false,
@@ -95,8 +93,7 @@ Heartbeat comment `: ping` every 10 s. Frontend uses `fetch` + `ReadableStream` 
     "short_title": "string", "explanation": "string (<=400 chars, Indonesian)",
     "explanation_simple": "string (<=140 chars; deterministic template by status/floor, see §8.2)",
     "basis": ["ela","fact"], "not_checked": ["ai"],   // honest-limits data
-    "floors_applied": ["FACT_CONTRADICTED"],
-    "scam_pattern": null                    // §6.3 code behind SCAM_PATTERN, or null
+    "floors_applied": ["FACT_CONTRADICTED"]
   },
   "pillars": {
     "ela":  {"available":true,"score":88,"reliability":1.0,"reliability_note":null,
@@ -143,7 +140,6 @@ score    = round_half_up(raw)            # Go: int(math.Floor(raw + 0.5))
 Apply in this order, then clamp 0–100:
 1. `FACT_CONTRADICTED`: ≥1 source with `match=CONTRADICTS`, host on allowlist, URL came from search tool → `score = max(score, 85)`.
 2. `LINK_MALICIOUS`: Safe Browsing hit or `S_Link ≥ 90` → `score = max(score, 85)`.
-2b. `SCAM_PATTERN` (added 2026-11-09): the deterministic rules of §6.3 found a scam pattern in the message, the link's caption or the text read from an image → `score = max(score, 80)`, also when there is no weighted score yet (a message with no checkable claim). 80 sits inside `TAMPERED`, below the 85 of a fact checker's verdict or a malicious link. `verdict.scam_pattern` carries the code. Lead sentence: "Pesan ini memakai pola penipuan yang umum. Jangan transfer uang atau memberi kode."
 3. `ELA_CORROBORATED`: `S_ELA ≥ 70` **and** an LLM text anomaly box overlapping an ELA hotspot (IoU ≥ 0.1 or centre inside) → `score = max(score, 70)`.
 3b. `LINK_STRONG` (added 2026-11-08, team decision "strong link evidence is enough"): if there is still **no** score (W < 0.30, e.g. a bare-URL audit) and the link pillar is available with `S_Link ≥ 45` → `score = min(S_Link, 85)`. 45 is a brand-impersonating host on its own; tuned on a public phishing feed on 2026-11-09 (was 50). The cap keeps a link-only verdict at or below the `LINK_MALICIOUS` floor, so a score never rises as evidence gets thinner. It can never produce `SAFE`. Lead sentence: "Tautan ini punya tanda penipuan. Sebaiknya jangan diklik."
 4. `ELA_SOLO_CAP`: if **no** other pillar has score ≥ 50 and no floor 1–3 applied → `score = min(score, 60)`.
@@ -170,8 +166,6 @@ Decode (limit dimensions via `image.DecodeConfig` first; reject > 4096 px side o
 | 11 | n/a | n/a | n/a | 40 | S_Link < 45 → no floor → INSUFFICIENT |
 | 11b | n/a | n/a | n/a | 45 | LINK_STRONG → 45 → SUSPICIOUS (a brand lookalike alone) |
 | 12 | n/a | n/a | n/a | 89 | LINK_STRONG → min(89, 85) = 85 → TAMPERED |
-| 13 | n/a | 20, 0.5 | n/a | n/a | W=0.075 → no weighted score; scam pattern → SCAM_PATTERN → 80 → TAMPERED |
-| 14 | n/a | n/a | n/a | 45 | scam pattern `PRIZE_FEE` → 80; LINK_STRONG does not apply once a score exists → floors `[SCAM_PATTERN]` |
 | 15 | 5, 1.0 | 30, 0.7 | n/a | 10 | ELA no weight: W=0.305, raw ≈ 16.9 → 17, but no fact check → INSUFFICIENT (was SAFE) |
 | 16 | 5, 1.0 | 80, 0.7 | UNVERIFIED | n/a | W=0.455, raw=(8.4+14)/0.455 ≈ 49.2 → 49 → SUSPICIOUS (the two-sided mean gave 32) |
 | 17 | 3, 1.0 | 0, 0.7 | SUPPORTS | n/a | W=0.455, raw 0; coverage 0.755 ≥ 0.50 and fact available → SAFE |
@@ -188,8 +182,7 @@ request ctx (12 s hard deadline)
  ├─ validate + hash (SHA-256) → cache hit? replay stage/partial events, then verdict (TTL 10 min, max 500 entries, LRU)
  ├─ errgroup (each step has its own budget, bounded by the hard deadline minus a 300 ms reserve; no step fails the group):
  │    ela      : 4 s    (FILE only; server ELA on up to 16 MP)
- │    link     : 2.5 s  (URL, or the first link in the text / the model's OCR, also one written without a scheme such as `bit.ly/x` or `bri-verifikasi.my.id`, read as https; an e-mail address is not a link) → unroll ≤ 3 hops → heuristics on first and final host → Safe Browsing on the chain
- │    scam     : (no I/O) §6.3 rules on the message / the link's caption / the client's OCR hint, before the model; re-run on the model's OCR
+ │    link     : 2.5 s  (URL, or the first link in an image: the client's OCR hint, then the model's OCR; also one written without a scheme such as `bit.ly/x` or `bri-verifikasi.my.id`, read as https; an e-mail address is not a link) → unroll ≤ 3 hops → heuristics on first and final host → Safe Browsing on the chain
  │    metadata : 2.5 s  (URL only; oEmbed for YouTube/TikTok/X, else OpenGraph, via the SSRF client) → `source_metadata`
  │    llm      : 9 s    (one structured call: claim, search_query, ai score, anomalies, OCR, tactics)
  │    search   : 2.5 s  (Fact Check Tools `claims:search` with the model's `search_query`, allowlist-filtered)
@@ -257,28 +250,6 @@ Server verification: normalize (NFKC, lowercase, collapse whitespace) both phras
 - **Validation:** ≤ 280 chars; every URL must be in `payload.srcs[].url` else strip the URL (and if text becomes empty/invalid → fallback); no profanity/shaming regex hits; no score or "terbukti" claims. The share link is not given to the model: a full token does not fit in 280 characters, and the UI's share button already carries it.
 - **Fallback:** deterministic templates per status × tone in `configs/reply_templates.json` (embedded in Go; copied to `frontend/src/lib/data/reply-templates.json`, CI diff). Used when LLM is mock/unavailable, validation fails, or in the offline demo (client renders templates directly).
 - Cache by SHA-256(token+tone) for 10 min. `source` in the response tells the UI whether it was LLM or template.
-
-### 6.3 Scam rules (`internal/scam`) — deterministic, the `SCAM_PATTERN` floor
-The most common Indonesian phone scams are recognisable from their wording, without a model. The rules run on the text the user can see (the message, the link's caption, the client's OCR hint, then the model's OCR) before the model is called, so a scam message still gets a verdict when the gateway is down or out of quota.
-
-| Code | What the message does |
-|---|---|
-| `CREDENTIAL_REQUEST` | asks for an OTP, PIN, password or card data (not a location pin, a Wi-Fi or meeting password, or a warning that names them) |
-| `CALL_FORWARD` | asks to dial a code that carries a phone number or a call-forwarding code (`**21*`, `*21*`, `**61*`, `**62*`, `**67*`), which diverts calls and SMS, OTP codes included |
-| `APK_LURE` | sends an `.apk` or asks to install an "undangan / resi / tilang" app |
-| `WRONG_TRANSFER` | claims a wrong transfer and asks for the money back |
-| `JOB_SCAM` | paid like/follow/rating tasks, pay per day for remote work, or a fee to get a job |
-| `INVESTMENT_SCAM` | any return per day or week, ≥ 10 % a month, or profit "dijamin / tanpa risiko" |
-| `PRIZE_FEE` | a prize, aid, released balance or conditional refund (also in SMS shorthand: "M-dptkan hadiah", "PIN pemenang", "hadiah ke-2"), plus a fee, a money request, secrecy, a threat or an unofficial link/number |
-| `LOAN_FEE` | an easy loan with a fee paid before the money arrives |
-| `MONEY_PRESSURE` | asks for money while posing as family or an officer, reporting a relative's emergency, threatening (with an unofficial destination), or with a scam-typical fee; a top-up for a "new number" (or for a mobile number with "penting / sekarang"); a payment redirected to someone else ("sudah saya kuasakan") |
-| `ACCOUNT_THREAT` | an account, card, number or service "will be blocked" or a new fee is coming, plus an unofficial link, mobile number or account number |
-| `UNOFFICIAL_CONTACT` | a bank's service line (Halo BCA, CS BRI, call center Mandiri) on a mobile number that is not the bank's own WhatsApp number (verified list) |
-
-- Single persuasion cues only become tactics (`URGENCY`, `SECRECY`, `FEAR`, `IMPERSONATION`, `REWARD_BAIT`, §6.1); only the combinations above set the floor.
-- Guards: a denial just before a cue in the same sentence ("jangan berikan…", "tidak pernah meminta…", "kalau ada yang minta…") cancels it; awareness wording (waspada, modus, penipuan, imbau, cek fakta, pelaku, korban…) means the text is a warning or a report, so no pattern is claimed; a link or number on an official domain or the verified bank list is not an "unofficial destination"; an amount such as `Rp 1.500.000` does not end a sentence.
-- Every pattern has one plain Indonesian sentence in the server's `explanation`; the English interface rebuilds it from the code.
-- Measured on messages written before the rules that they led to (November 2026): the first sight of each new set caught about half of the scams (35 of 65 over three sets) with 1 false alarm in 65 ordinary messages. On a public corpus of real Indonesian SMS (1,143 messages: 569 personal, 239 operator promos, 335 fraud and spam, the latter including plain ads) the rules flagged 0 of the 808 personal and promo messages before and after tuning; the fraud/spam class went from 79 of 335 to 172 of 335, tuned on half of the corpus and 80 of 168 on the other, held-out half (40 before). All sets are kept as regression tests; what the rules miss is left to the model and the link check.
 
 ---
 
@@ -348,7 +319,7 @@ Read at most 10 MB + 1; verify magic bytes (JPEG `FFD8FF`, PNG `89504E47`, WebP 
 Frontend puts token in the **URL fragment** (`/hasil#t=…`) so servers/CDNs never see it; it POSTs to `/verify` in the body.
 
 ### 7.6 Logging / metrics
-Only the anonymous line format from v9 §14.2 plus counters; no URLs, titles, IPs. Metrics on a separate internal listener (`METRICS_ADDR`, default off; Prometheus text at `/metrics`, labels are fixed enums): audits by input type and status, degraded audits, durations, rate limiting, replies, verifications, Telegram updates, and per-rule counts by code (`amba_floors_total`, `amba_scam_patterns_total`, `amba_link_reasons_total`). A failed upstream call (LLM gateway, Fact Check Tools, Safe Browsing) logs only the service, a reason (`timeout | transport | http_status | unreadable_response`) and the HTTP status: never the request URL, which carries keys and user queries.
+Only the anonymous line format from v9 §14.2 plus counters; no URLs, titles, IPs. Metrics on a separate internal listener (`METRICS_ADDR`, default off; Prometheus text at `/metrics`, labels are fixed enums): audits by input type and status, degraded audits, durations, rate limiting, replies, verifications, Telegram updates, and per-rule counts by code (`amba_floors_total`, `amba_link_reasons_total`). A failed upstream call (LLM gateway, Fact Check Tools, Safe Browsing) logs only the service, a reason (`timeout | transport | http_status | unreadable_response`) and the HTTP status: never the request URL, which carries keys and user queries.
 
 ---
 
@@ -392,7 +363,7 @@ Only the anonymous line format from v9 §14.2 plus counters; no URLs, titles, IP
 - **One component tree, two presentations.** Components do not fork content; modes differ only in decoration density, motion, character moments, type size and layout density (Essential: single column, base text ≥ 18 px, more spacing, plainer labels). Forbidden differences: any data, control, destination or capability.
 - **Parity contract:** every information item carries `data-info-key="<key>"` (e.g. `verdict.score`, `verdict.sentence`, `pillar.ela`, `pillar.fact`, `sources`, `tactics`, `reply`, `share`, `proofcard`, `readaloud`). Playwright renders the same Dossier in both modes and asserts identical key sets and equal text per key.
 - Mode switching never resets input, progress or result (state lives in `AuditSession`, outside mode components). Test it mid-SSE and after the verdict.
-- `explanation_simple` is produced **in Go by deterministic templates** (no LLM): `FACT_CONTRADICTED` → "Kabar ini dibantah sumber terpercaya. Jangan disebarkan."; `LINK_MALICIOUS` → "Tautan ini mirip penipuan. Jangan diklik."; `SCAM_PATTERN` → "Pesan ini memakai pola penipuan yang umum. Jangan transfer uang atau memberi kode."; `LINK_STRONG` → "Tautan ini punya tanda penipuan. Sebaiknya jangan diklik."; `ELA_CORROBORATED` → "Gambar ini terindikasi diedit. Jangan langsung percaya."; other `SUSPICIOUS` → "Belum jelas benar atau tidak. Cek dulu sebelum menyebarkan."; `INSUFFICIENT` → "Informasinya belum cukup untuk dipastikan."; `SAFE` → "Tidak ditemukan tanda bahaya, tapi tetap bijak sebelum menyebarkan." Unit-tested. It is the lead sentence of every result in both modes.
+- `explanation_simple` is produced **in Go by deterministic templates** (no LLM): `FACT_CONTRADICTED` → "Kabar ini dibantah sumber terpercaya. Jangan disebarkan."; `LINK_MALICIOUS` → "Tautan ini mirip penipuan. Jangan diklik."; `LINK_STRONG` → "Tautan ini punya tanda penipuan. Sebaiknya jangan diklik."; `ELA_CORROBORATED` → "Gambar ini terindikasi diedit. Jangan langsung percaya."; other `SUSPICIOUS` → "Belum jelas benar atau tidak. Cek dulu sebelum menyebarkan."; `INSUFFICIENT` → "Informasinya belum cukup untuk dipastikan."; `SAFE` → "Tidak ditemukan tanda bahaya, tapi tetap bijak sebelum menyebarkan." Unit-tested. It is the lead sentence of every result in both modes.
 - Read-aloud (and optional auto-read) is a setting independent of mode; it speaks `explanation_simple` first, then the explanation.
 
 ### 8.3 Tactic highlighter (F13)
@@ -400,12 +371,6 @@ Only the anonymous line format from v9 §14.2 plus counters; no URLs, titles, IP
 
 ### 8.4 Balas Sopan UI (F12)
 `ReplyCard`: tone chips (hormat/santai/singkat), editable preview, Copy and WhatsApp (`wa.me`) buttons. Fetch `/reply` on chip select; show template instantly while the LLM draft loads, then swap if valid. Demo/offline mode uses `reply-templates.json` only.
-
-### 8.5 Cek Cepat & Sandi Keluarga (F15, client-only)
-- `quickcheck.json`: six yes/no questions with weights — asked for money/transfer 3, urgent 2, keep secret 2, new number claiming to be someone you know 2, asked for OTP/PIN/password 4, could not verify via another channel 1 (max 14).
-- Levels: ≥ 6 **Tinggi**, 3–5 **Waspada**, ≤ 2 **Rendah**. Any "yes" to OTP/PIN forces **Tinggi**. Each level has 3 concrete Indonesian steps (e.g. "Hubungi nomor lama keluarga langsung", "Jangan kirim kode OTP/PIN ke siapa pun").
-- Sandi Keluarga: two words from an Indonesian word list of ≥ 256 common words using `crypto.getRandomValues`; printable card via print CSS (`@media print`), no network.
-- Unit tests: scoring thresholds, OTP override, word-list size/uniqueness, generator uses CSPRNG.
 
 ---
 
@@ -466,7 +431,5 @@ Frontend (build time): `VITE_API_BASE_URL`, `VITE_API_MODE=http|mock`.
 | Security | headers test | CSP/CORS values present on SPA + API |
 | Tactics & reply | `go test` | phrase-substring verification, unknown codes dropped, `/reply` requires valid token, URL stripping, template fallback, length cap |
 | Explanation templates | `go test` | each status/floor → exact simple sentence |
-| Scam rules | `go test` | documented scams caught, ordinary messages and warnings not flagged, every pattern in the contract and explained |
 | Share target | Vitest + manual | SW handler unit test (URL extraction, size/type rejection, delete-on-read, 5-min sweep); manual Android Chrome checklist |
 | Presentation modes | Playwright | link flow ≤ 3 taps in both modes; **parity test** (identical `data-info-key` sets/text in Explore and Essential); mode switch mid-flow keeps input/result; reduced-motion forces calm motion; `speechSynthesis` (mocked) speaks `explanation_simple` |
-| Cek Cepat | Vitest + Playwright | thresholds, OTP override, safe-word generator, works offline, print stylesheet present |

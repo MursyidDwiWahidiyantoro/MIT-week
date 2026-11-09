@@ -34,10 +34,11 @@
           <span class="head-note">{t('school.flagNote')}</span>
         </div>
 
+        <!-- The text of an edited news screenshot, with the three signs marked. -->
         <blockquote class="bubble">
-          {t('school.bubble.a')} <mark class="hl hl--yellow">{t('school.bubble.mark1')}</mark>{t('school.bubble.b').startsWith('.') ? '' : ' '}{t('school.bubble.b')}
-          <mark class="hl hl--coral">{t('school.bubble.mark2')}</mark>?
-          <mark class="hl hl--lime">{t('school.bubble.mark3')}</mark>{t('school.bubble.c')}
+          {t('school.bubble.a')} <mark class="hl hl--yellow">{t('school.bubble.mark1')}</mark>
+          <mark class="hl hl--coral">{t('school.bubble.mark2')}</mark>
+          <mark class="hl hl--lime">({t('school.bubble.mark3')})</mark>
         </blockquote>
 
         <ol class="explain">

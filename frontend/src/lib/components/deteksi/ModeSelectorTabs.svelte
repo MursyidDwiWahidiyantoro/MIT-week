@@ -2,7 +2,8 @@
   import { t } from '$lib/i18n/index.svelte';
   import Icon from '$lib/components/ui/Icon.svelte';
 
-  export type InputKind = 'url' | 'file' | 'text';
+  /** AMBA checks two kinds of input: a link and an image. */
+  export type InputKind = 'url' | 'file';
 
   interface Props {
     selected: InputKind;
@@ -11,10 +12,9 @@
 
   let { selected, onselect }: Props = $props();
 
-  const tabs: Array<{ value: InputKind; label: 'tabs.url' | 'tabs.file' | 'tabs.text'; icon: 'link' | 'image' | 'text' }> = [
+  const tabs: Array<{ value: InputKind; label: 'tabs.url' | 'tabs.file'; icon: 'link' | 'image' }> = [
     { value: 'url', label: 'tabs.url', icon: 'link' },
-    { value: 'file', label: 'tabs.file', icon: 'image' },
-    { value: 'text', label: 'tabs.text', icon: 'text' }
+    { value: 'file', label: 'tabs.file', icon: 'image' }
   ];
 </script>
 

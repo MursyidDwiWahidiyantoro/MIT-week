@@ -60,7 +60,6 @@ export class AuditSession {
   #aborted = false;
   /** Held only so the verdict handler can hand it to the result store. */
   #imageFile: File | null = null;
-  #inputText: string | null = null;
 
   get done(): boolean {
     return this.verdict !== null || this.error !== null;
@@ -74,14 +73,13 @@ export class AuditSession {
   }
 
   /** Runs an audit. Retries exactly once on a network error, never on 4xx. */
-  async start(kind: 'url' | 'text' | 'file', payload: { url?: string; text?: string; file?: File }): Promise<void> {
+  async start(kind: 'url' | 'file', payload: { url?: string; file?: File }): Promise<void> {
     this.abort();
     this.#aborted = false;
     this.verdict = null;
     this.error = null;
     this.running = true;
     this.#imageFile = payload.file ?? null;
-    this.#inputText = kind === 'text' ? (payload.text ?? null) : null;
     this.stages = { ela: 'idle', ai: 'idle', fact: 'idle', link: 'idle' };
     this.partials = {};
     void loadSchemas().catch(() => {
@@ -139,7 +137,7 @@ export class AuditSession {
     }
   }
 
-  async #run(kind: 'url' | 'text' | 'file', payload: { url?: string; text?: string; file?: File }): Promise<void> {
+  async #run(kind: 'url' | 'file', payload: { url?: string; file?: File }): Promise<void> {
     this.#controller = new AbortController();
     const { signal } = this.#controller;
 
@@ -165,7 +163,7 @@ export class AuditSession {
       init.body = form;
     } else {
       init.headers = { ...init.headers, 'Content-Type': 'application/json' };
-      init.body = JSON.stringify(kind === 'url' ? { url: payload.url } : { text: payload.text });
+      init.body = JSON.stringify({ url: payload.url });
     }
 
     const response = await fetch(`${API_BASE}/audit/${kind}`, init);
@@ -220,7 +218,7 @@ export class AuditSession {
       case 'verdict': {
         const { parseDossier } = await loadSchemas();
         this.verdict = parseDossier(event.data);
-        result.set(this.verdict, this.#imageFile, this.#inputText);
+        result.set(this.verdict, this.#imageFile);
         if (this.verdict.degraded) {
           this.announcement = t('announce.degraded');
         }

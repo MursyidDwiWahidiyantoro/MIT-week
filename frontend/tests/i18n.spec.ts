@@ -35,7 +35,7 @@ test('a result in English rebuilds the verdict copy from its codes', async ({ pa
   await expect(legal).toContainText('Berita Acara Pemeriksaan (BAP)');
 });
 
-for (const path of ['/', '/deteksi', '/edukasi', '/cek-cepat', '/tentang']) {
+for (const path of ['/', '/deteksi', '/edukasi', '/tentang']) {
   test(`axe in English: no serious or critical violations on ${path}`, async ({ page }) => {
     await page.addInitScript(() => localStorage.setItem('amba.lang', 'en'));
     await page.goto(path);

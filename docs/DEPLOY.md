@@ -212,8 +212,9 @@ Origin tambahan (domain kustom di samping `*.vercel.app`):
    `setWebhook` dengan secret tersebut; Telegram lalu mengirim header
    `X-Telegram-Bot-Api-Secret-Token` dan permintaan tanpa header yang cocok ditolak.
 4. Periksa: `curl -s "https://api.telegram.org/bot<TOKEN>/getWebhookInfo"`.
-5. Coba di Telegram: `/start`, `/cek https://contoh.tautan`, kirim teks yang
-   diteruskan, atau kirim foto tangkapan layar.
+5. Coba di Telegram: `/start`, `/cek https://contoh.tautan`, kirim tautan
+   langsung, atau kirim foto/tangkapan layar. Teks tanpa tautan dijawab bahwa
+   AMBA hanya memeriksa tautan dan gambar.
 
 Untuk menjalankan bot di laptop (tanpa URL https publik), pakai
 `TELEGRAM_MODE=polling`. Mode polling menghapus webhook yang terdaftar, jadi
@@ -229,13 +230,17 @@ APP=https://amba.vercel.app
 
 # API hidup dan CORS menerima origin aplikasi
 curl -s $API/healthz
-curl -s -o /dev/null -w "%{http_code}\n" -X OPTIONS $API/api/v1/audit/text \
+curl -s -o /dev/null -w "%{http_code}\n" -X OPTIONS $API/api/v1/audit/url \
   -H "Origin: $APP" -H "Access-Control-Request-Method: POST"
 
-# Audit teks, stream SSE: stage → partial → verdict → done
-curl -N -X POST $API/api/v1/audit/text \
+# Audit tautan, stream SSE: stage → partial → verdict → done
+curl -N -X POST $API/api/v1/audit/url \
   -H "Content-Type: application/json" -H "Origin: $APP" -H "Accept: text/event-stream" \
-  -d '{"text":"Bantuan Rp 500.000 cair hari ini, klik tautan dan isi data KTP"}'
+  -d '{"url":"https://bri-verifikasi.my.id/login"}'
+
+# Audit gambar (JPG/PNG/WebP, maksimal 10 MB)
+curl -N -X POST $API/api/v1/audit/file \
+  -H "Origin: $APP" -H "Accept: text/event-stream" -F "file=@foto.jpg"
 
 # Header keamanan frontend
 curl -sI $APP | grep -i -E "strict-transport|x-content-type|referrer-policy|content-security"
@@ -257,8 +262,7 @@ buka tautan bagikan di perangkat lain, dan bagikan dari menu Share Android ke AM
 - **Metrik** (penghitung anonim, opsional): set `METRICS_ADDR=0.0.0.0:9091` dan
   aktifkan blok `[metrics]` yang sudah disiapkan di `fly.toml`. Port metrik tidak publik.
   Selain jumlah audit per status, ada hitungan per kode aturan:
-  `amba_floors_total{floor}`, `amba_scam_patterns_total{pattern}`, dan
-  `amba_link_reasons_total{reason}`. Isinya hanya kode, tidak pernah teks atau
+  `amba_floors_total{floor}` dan `amba_link_reasons_total{reason}`. Isinya hanya kode, tidak pernah teks atau
   tautan. Pakai hitungan ini untuk melihat aturan mana yang sering memicu alarm
   palsu (laporan pengguna) dan aturan mana yang tidak pernah terpakai.
 - **Rate limit**: 15 permintaan per menit per pengguna (burst 5) dan 32 audit

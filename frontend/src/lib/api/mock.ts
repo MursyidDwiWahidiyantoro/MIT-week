@@ -9,14 +9,13 @@
  * the AuditSession already speaks the same SSE event shape.
  */
 import { parseDossier, type DossierParsed } from './schemas';
-import type { FactStatus, Status, Tactic, TacticCode } from './types';
+import type { FactStatus, Status, Tactic } from './types';
 import type { SSEEvent } from '../sse';
 
-export type MockKind = 'url' | 'text' | 'file';
+export type MockKind = 'url' | 'file';
 
 export interface MockPayload {
   url?: string;
-  text?: string;
   file?: File;
 }
 
@@ -85,37 +84,6 @@ function makeToken(dossier: Omit<DossierParsed, 'share_token'>): string {
 }
 
 /* ------------------------------------------------------------- heuristics */
-
-const TACTIC_PATTERNS: Array<{ code: TacticCode; pattern: RegExp }> = [
-  { code: 'URGENCY', pattern: /(hari ini saja|sekarang|segera|jangan sampai ketinggalan|batas waktu)/i },
-  { code: 'REWARD_BAIT', pattern: /(bantuan|hadiah|menang|gratis|Rp\s?[\d.]+)/i },
-  { code: 'FEAR', pattern: /(diblokir|denda|ditangkap|akun anda|akan dihapus)/i },
-  { code: 'SECRECY', pattern: /(jangan bilang|rahasia|jangan beri tahu)/i },
-  { code: 'IMPERSONATION', pattern: /(admin|petugas|pemerintah|bank resmi)/i },
-  { code: 'OUTRAGE_BAIT', pattern: /(memalukan|skandal|heboh|viral)/i },
-  { code: 'FAKE_SOCIAL_PROOF', pattern: /(sudah banyak|semua orang|sebarkan ke|10 grup)/i }
-];
-
-const TACTIC_INDICATORS: Record<TacticCode, string> = {
-  URGENCY: 'Tekanan waktu',
-  REWARD_BAIT: 'Iming-iming hadiah',
-  FALSE_AUTHORITY: 'Mengaku pihak berwenang',
-  FEAR: 'Ancaman atau rasa takut',
-  SECRECY: 'Meminta dirahasiakan',
-  OUTRAGE_BAIT: 'Membangkitkan kemarahan',
-  IMPERSONATION: 'Meniru pihak lain',
-  FAKE_SOCIAL_PROOF: 'Ajakan menyebarkan'
-};
-
-function detectTactics(text: string): Tactic[] {
-  const found: Tactic[] = [];
-  for (const { code, pattern } of TACTIC_PATTERNS) {
-    const match = text.match(pattern);
-    if (match?.[0]) found.push({ code, phrase: match[0], source: 'text' });
-    if (found.length >= 5) break;
-  }
-  return found;
-}
 
 const SHORTENERS = ['bit.ly', 'tinyurl.com', 't.co', 'is.gd', 'cutt.ly', 'shorturl.at', 's.id'];
 const LOOKALIKE_BRANDS = [
@@ -186,16 +154,6 @@ function analyzeUrl(raw: string): LinkSignals {
   };
 }
 
-const SCAM_MARKERS =
-  /(otp|pin|kata sandi|password|transfer|rekening|hadiah|menang|bantuan|diblokir|verifikasi|klik|sebarkan|grup|hari ini|segera)/i;
-const BENIGN_MARKERS = /(jadwal|posyandu|undangan|rapat|pengumuman|kerja bakti|gotong royong)/i;
-
-function firstSentence(text: string): string {
-  const trimmed = text.trim().replace(/\s+/g, ' ');
-  const end = trimmed.search(/[.!?]/);
-  return (end === -1 ? trimmed : trimmed.slice(0, end + 1)).slice(0, 200);
-}
-
 function basisFor(available: { ai: boolean; fact: boolean; link: boolean; ela: boolean }) {
   const basis: Array<'ela' | 'ai' | 'fact' | 'link'> = [];
   if (available.ela) basis.push('ela');
@@ -238,7 +196,7 @@ function explanationFor(status: Status, fact: FactStatus, tactics: Tactic[], lin
 }
 
 function baseDossier(
-  inputType: 'URL' | 'TEXT' | 'FILE',
+  inputType: 'URL' | 'FILE',
   sourceReference: string,
   overrides: {
     status: Status;
@@ -300,91 +258,6 @@ function unavailableLink() {
 }
 
 /* ------------------------------------------------------------- builders */
-
-function textDossier(payload: MockPayload): DossierParsed {
-  const text = (payload.text ?? '').trim();
-  const tactics = detectTactics(text);
-  const linkMatch = text.match(/https?:\/\/[^\s]+/i);
-  const link = linkMatch ? analyzeUrl(linkMatch[0]) : null;
-  const strong = SCAM_MARKERS.test(text);
-  // A benign announcement that carries a suspicious link is not benign.
-  const benign = BENIGN_MARKERS.test(text) && !strong && (!link || link.score < 21);
-
-  let status: Status;
-  let score: number | null;
-  let fact: FactStatus = 'UNVERIFIED';
-
-  if (strong) {
-    status = 'TAMPERED';
-    score = Math.min(90, 62 + tactics.length * 6 + (link ? 8 : 0));
-    fact = 'CONTRADICTS';
-  } else if (benign) {
-    status = 'SAFE';
-    score = 8;
-    fact = 'SUPPORTS';
-  } else if (tactics.length > 0 || link) {
-    status = 'SUSPICIOUS';
-    score = Math.min(60, 28 + tactics.length * 8 + (link ? 8 : 0));
-  } else {
-    status = 'INSUFFICIENT';
-    score = null;
-  }
-
-  const factAvailable = status === 'TAMPERED' || status === 'SAFE';
-  const aiScore = status === 'TAMPERED' ? 78 : status === 'SUSPICIOUS' ? 46 : status === 'SAFE' ? 8 : 22;
-  const indicators = tactics.map((tactic) => TACTIC_INDICATORS[tactic.code]);
-  if (link) indicators.push('Tautan menyembunyikan tujuan');
-
-  const available = { ela: false, ai: true, fact: factAvailable, link: !!link };
-  const floors: string[] = [];
-  if (fact === 'CONTRADICTS') floors.push('FACT_CONTRADICTED');
-  if (link && link.score >= 90) floors.push('LINK_MALICIOUS');
-
-  return baseDossier('TEXT', text, {
-    status,
-    score,
-    shortTitle: status === 'SAFE' ? 'Pesan tanpa tanda bahaya' : status === 'INSUFFICIENT' ? 'Pesan belum bisa dinilai' : 'Pesan memakai pola penipuan',
-    explanation: explanationFor(status, fact, tactics, link),
-    explanationSimple: simpleSentence(status, fact),
-    basis: basisFor(available),
-    notChecked: notCheckedFor(available),
-    floors,
-    pillars: {
-      ela: unavailablePillar(),
-      ai: {
-        available: true,
-        score: aiScore,
-        indicators,
-        caveat: 'Indikatif, bukan bukti pasti. Mode pratinjau memakai aturan kata kunci.'
-      },
-      fact: factAvailable
-        ? {
-            available: true,
-            claim: firstSentence(text),
-            status: fact,
-            sources: [
-              {
-                title: fact === 'CONTRADICTS' ? 'Contoh artikel pemeriksaan fakta' : 'Contoh pengumuman resmi',
-                publisher: 'Sumber Contoh',
-                url: fact === 'CONTRADICTS' ? 'https://example.org/contoh-cek-fakta' : 'https://example.org/contoh-pengumuman',
-                match: fact
-              }
-            ]
-          }
-        : unavailableFact(),
-      link: link
-        ? {
-            available: true,
-            score: link.score,
-            final_url: link.finalUrl,
-            redirect_chain: link.redirectChain,
-            reasons: link.reasons
-          }
-        : unavailableLink()
-    },
-    tactics
-  });
-}
 
 function urlDossier(payload: MockPayload): DossierParsed {
   const url = (payload.url ?? '').trim();
@@ -492,13 +365,11 @@ function fileDossier(payload: MockPayload): DossierParsed {
 /** Builds a deterministic-enough example dossier for any input. */
 export function buildMockDossier(kind: MockKind, payload: MockPayload): DossierParsed {
   switch (kind) {
-    case 'url':
-      return urlDossier(payload);
     case 'file':
       return fileDossier(payload);
-    case 'text':
+    case 'url':
     default:
-      return textDossier(payload);
+      return urlDossier(payload);
   }
 }
 

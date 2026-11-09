@@ -10,17 +10,15 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"unicode/utf8"
 
 	"github.com/amba/amba/backend/internal/models"
 	"github.com/amba/amba/backend/internal/pipeline"
 	"github.com/amba/amba/backend/internal/security"
 )
 
-// auditRequest is the JSON body for the url and text routes.
+// auditRequest is the JSON body for the url route.
 type auditRequest struct {
-	URL  string `json:"url"`
-	Text string `json:"text"`
+	URL string `json:"url"`
 }
 
 // auditURL handles POST /audit/url.
@@ -41,21 +39,6 @@ func (h *handlers) auditURL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.runAudit(w, r, pipeline.Request{InputType: models.InputURL, URL: raw})
-}
-
-// auditText handles POST /audit/text.
-func (h *handlers) auditText(w http.ResponseWriter, r *http.Request) {
-	var body auditRequest
-	if err := json.NewDecoder(io.LimitReader(r.Body, 64<<10)).Decode(&body); err != nil {
-		writeError(w, errInvalidText)
-		return
-	}
-	text := strings.TrimSpace(body.Text)
-	if text == "" || utf8.RuneCountInString(text) > 5000 {
-		writeError(w, errInvalidText)
-		return
-	}
-	h.runAudit(w, r, pipeline.Request{InputType: models.InputText, Text: text})
 }
 
 // auditFile handles POST /audit/file.
@@ -134,9 +117,6 @@ func (h *handlers) runAudit(w http.ResponseWriter, r *http.Request, req pipeline
 	// what tells a false alarm from a useful rule.
 	for _, floor := range dossier.Verdict.FloorsApplied {
 		h.metrics.Inc("amba_floors_total", "floor", floor)
-	}
-	if p := dossier.Verdict.ScamPattern; p != nil {
-		h.metrics.Inc("amba_scam_patterns_total", "pattern", *p)
 	}
 	for _, reason := range dossier.Pillars.Link.Reasons {
 		h.metrics.Inc("amba_link_reasons_total", "reason", reason.Code)
@@ -313,8 +293,6 @@ func sourceReference(req pipeline.Request) string {
 	switch req.InputType {
 	case models.InputURL:
 		ref = req.URL
-	case models.InputText:
-		ref = req.Text
 	default:
 		ref = "Gambar yang diunggah"
 	}
@@ -336,27 +314,11 @@ func shortTitle(s models.Status) string {
 
 // pillarNames is the plain-language name of each pillar code.
 var pillarNames = map[string]string{
-	"ela":           "analisis gambar",
-	"ai":            "penilaian AI",
+	"ela":           "teks ditimpa (ELA)",
+	"ai":            "jejak AI",
 	"fact":          "cek fakta",
 	"link":          "keamanan tautan",
 	"llm_untrusted": "catatan: jawaban AI tidak dipakai sebagai bukti",
-}
-
-// scamText explains each SCAM_PATTERN in plain Indonesian (TECH_SPEC §6.3);
-// the English interface rebuilds the same sentence from the code.
-var scamText = map[string]string{
-	"CREDENTIAL_REQUEST": "Pesan meminta kode OTP, PIN, atau data kartu. Bank dan layanan resmi tidak pernah memintanya.",
-	"APK_LURE":           "Pesan mengirim atau menyuruh memasang file aplikasi (APK), cara yang sering dipakai untuk mencuri data.",
-	"WRONG_TRANSFER":     "Pesan mengaku salah transfer dan meminta uang dikembalikan, modus yang sering dipakai menipu.",
-	"JOB_SCAM":           "Pesan menawarkan kerja mudah berbayar atau meminta biaya untuk mendapat pekerjaan.",
-	"INVESTMENT_SCAM":    "Pesan menjanjikan keuntungan yang terlalu tinggi atau tanpa risiko.",
-	"PRIZE_FEE":          "Pesan menjanjikan hadiah, bantuan, atau pengembalian dana lalu meminta biaya, data, atau membuka tautan.",
-	"LOAN_FEE":           "Pesan menawarkan pinjaman mudah yang meminta biaya di depan.",
-	"MONEY_PRESSURE":     "Pesan meminta uang sambil mengaku keluarga atau petugas, atau sambil mengancam.",
-	"ACCOUNT_THREAT":     "Pesan mengancam akun, kartu, atau nomor akan diblokir atau kena biaya, lalu mengarahkan ke tautan atau nomor yang tidak dikenal sebagai saluran resmi.",
-	"CALL_FORWARD":       "Pesan menyuruh menekan kode yang memuat nomor HP (misalnya *21*…#). Kode seperti itu bisa mengalihkan telepon dan SMS, termasuk kode OTP, ke nomor lain.",
-	"UNOFFICIAL_CONTACT": "Pesan memberi nomor yang bukan nomor resmi bank sebagai kontak bank. Hubungi bank hanya lewat nomor di kartu atau situs resminya.",
 }
 
 func names(codes []string) string {
@@ -379,11 +341,6 @@ func explanation(v models.Verdict, md *models.SourceMetadata) string {
 			parts = append(parts, "Platform tidak mengizinkan pembacaan otomatis, jadi isi unggahannya belum diperiksa. Unggah tangkapan layarnya untuk pemeriksaan lengkap.")
 		case models.MetadataUnavailable:
 			parts = append(parts, "Isi halaman tautan tidak dapat dibaca.")
-		}
-	}
-	if v.ScamPattern != nil {
-		if text, ok := scamText[*v.ScamPattern]; ok {
-			parts = append(parts, text)
 		}
 	}
 	basis := make([]string, 0, len(v.Basis))
