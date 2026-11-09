@@ -20,6 +20,7 @@ import (
 	"github.com/amba/amba/backend/internal/reply"
 	"github.com/amba/amba/backend/internal/security"
 	"github.com/amba/amba/backend/internal/token"
+	"github.com/amba/amba/backend/internal/video"
 )
 
 // handlers carries every dependency the routes need.
@@ -55,14 +56,24 @@ func NewDeps(cfg *config.Config) Deps {
 
 	client := llm.New(cfg.RouterBaseURL, cfg.RouterAPIKey, cfg.RouterModel, cfg.LLMMock)
 	client.Extra = cfg.LLMExtraBody
+	client.AudioInput = cfg.LLMAudioInput
 	if cfg.FallbackBaseURL != "" && !cfg.LLMMock {
 		fb := llm.New(cfg.FallbackBaseURL, cfg.FallbackAPIKey, cfg.FallbackModel, false)
 		fb.Extra = cfg.FallbackExtra
+		fb.AudioInput = cfg.FallbackAudioInput
 		client.Fallback = fb
 	}
 	grounder := grounding.New(grounding.DefaultAllowlist)
 	p := pipeline.New(client, grounder, cfg.CacheTTL)
 	p.LLMDeadline = cfg.LLMBudget()
+	// Social video links are downloaded when yt-dlp and ffmpeg are present.
+	// Mock mode never downloads: it is for UI work and tests.
+	if !cfg.LLMMock {
+		if vf := video.NewFromPath(); vf.Enabled() {
+			vf.Frames, vf.FrameMaxSide = 6, 640
+			p.Video = vf
+		}
+	}
 	p.SafeBrowsing = linkcheck.NewSafeBrowsing(cfg.SafeBrowsing)
 	if cfg.DomainAge {
 		p.RDAP = linkcheck.NewRDAP(security.NewSafeClient(2*time.Second, 2))
@@ -93,6 +104,8 @@ func LogReadiness(ctx context.Context, cfg *config.Config, d Deps) {
 		"llm_fallback", fallback,
 		"llm_fallback_reachable", fbReachable,
 		"llm_fallback_model_listed", fbListed,
+		"llm_audio", d.Pipeline.LLM.AudioInput,
+		"video", d.Pipeline.Video != nil && d.Pipeline.Video.Enabled(),
 		"fact_search", d.Pipeline.Searcher != nil && d.Pipeline.Searcher.Enabled(),
 		"safe_browsing", d.Pipeline.SafeBrowsing.Enabled(),
 		"ai_detector", d.Pipeline.Detector != nil && d.Pipeline.Detector.Enabled(),

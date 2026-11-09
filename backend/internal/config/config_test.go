@@ -179,6 +179,25 @@ func TestFallbackNeedsURLKeyAndModel(t *testing.T) {
 	}
 }
 
+func TestVideoSettings(t *testing.T) {
+	cfg, err := Load()
+	if err != nil || cfg.VideoTimeout != 60*time.Second || cfg.LLMAudioInput || cfg.FallbackAudioInput {
+		t.Fatalf("defaults: cfg = %+v err = %v", cfg, err)
+	}
+	setEnv(t, map[string]string{"VIDEO_TIMEOUT_MS": "5000"})
+	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "VIDEO_TIMEOUT_MS") {
+		t.Fatalf("want VIDEO_TIMEOUT_MS error, got %v", err)
+	}
+	setEnv(t, map[string]string{"VIDEO_TIMEOUT_MS": "90000", "LLM_AUDIO_INPUT": "true", "LLM_FALLBACK_AUDIO_INPUT": "maybe"})
+	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "LLM_FALLBACK_AUDIO_INPUT") {
+		t.Fatalf("want LLM_FALLBACK_AUDIO_INPUT error, got %v", err)
+	}
+	setEnv(t, map[string]string{"LLM_FALLBACK_AUDIO_INPUT": "false"})
+	if cfg, err := Load(); err != nil || cfg.VideoTimeout != 90*time.Second || !cfg.LLMAudioInput {
+		t.Fatalf("cfg = %+v err = %v", cfg, err)
+	}
+}
+
 func TestLLMBudgetFollowsHardTimeout(t *testing.T) {
 	for _, tc := range []struct{ hard, want time.Duration }{
 		{12 * time.Second, 9 * time.Second},

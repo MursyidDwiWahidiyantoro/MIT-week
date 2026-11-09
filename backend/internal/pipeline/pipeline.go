@@ -28,6 +28,7 @@ import (
 	"github.com/amba/amba/backend/internal/scoring"
 	"github.com/amba/amba/backend/internal/security"
 	"github.com/amba/amba/backend/internal/tactics"
+	"github.com/amba/amba/backend/internal/video"
 )
 
 // Request is one audit input: a link (URL) or an uploaded image (Image).
@@ -49,7 +50,9 @@ type Result struct {
 	Tactics   []models.Tactic
 	Metadata  *models.SourceMetadata
 	// OCRText is the model's reading of an uploaded image (FILE only).
-	OCRText  string
+	OCRText string
+	// Video is the downloaded social video's analysis (video links only).
+	Video    *models.VideoAnalysis
 	Degraded bool
 	// InjectionSuspected is set when the model output or the input was
 	// flagged, so the scorer raises INJECTION_GUARD (TECH_SPEC §3.3 floor 5).
@@ -109,6 +112,11 @@ type Pipeline struct {
 	DetectDeadline  time.Duration
 	PreviewDeadline time.Duration
 	TextDeadline    time.Duration
+	// Video downloads social video links (nil: video analysis off);
+	// VideoFetchDeadline bounds one download with its frame extraction.
+	Video              VideoSource
+	VideoFetchDeadline time.Duration
+	videoSlots         chan struct{}
 
 	mu    sync.Mutex
 	cache map[string]*list.Element
@@ -127,22 +135,24 @@ func New(client *llm.Client, g *grounding.Grounder, cacheTTL time.Duration) *Pip
 		cacheTTL = 10 * time.Minute
 	}
 	return &Pipeline{
-		LLM:              client,
-		Grounder:         g,
-		NewFetchClient:   func(timeout time.Duration) *http.Client { return security.NewSafeClient(timeout, 3) },
-		CacheTTL:         cacheTTL,
-		CacheMax:         500,
-		ELADeadline:      4 * time.Second,
-		LinkDeadline:     2500 * time.Millisecond,
-		MetaDeadline:     2500 * time.Millisecond,
-		LLMDeadline:      9 * time.Second,
-		SearchDeadline:   2500 * time.Millisecond,
-		ClassifyDeadline: 3 * time.Second,
-		DetectDeadline:   4 * time.Second,
-		PreviewDeadline:  1500 * time.Millisecond,
-		TextDeadline:     1500 * time.Millisecond,
-		cache:            make(map[string]*list.Element),
-		order:            list.New(),
+		LLM:                client,
+		Grounder:           g,
+		NewFetchClient:     func(timeout time.Duration) *http.Client { return security.NewSafeClient(timeout, 3) },
+		CacheTTL:           cacheTTL,
+		CacheMax:           500,
+		ELADeadline:        4 * time.Second,
+		LinkDeadline:       2500 * time.Millisecond,
+		MetaDeadline:       2500 * time.Millisecond,
+		LLMDeadline:        9 * time.Second,
+		SearchDeadline:     2500 * time.Millisecond,
+		ClassifyDeadline:   3 * time.Second,
+		DetectDeadline:     4 * time.Second,
+		PreviewDeadline:    1500 * time.Millisecond,
+		TextDeadline:       1500 * time.Millisecond,
+		VideoFetchDeadline: 25 * time.Second,
+		videoSlots:         make(chan struct{}, maxVideoDownloads),
+		cache:              make(map[string]*list.Element),
+		order:              list.New(),
 	}
 }
 
@@ -186,9 +196,9 @@ func (p *Pipeline) RunStream(ctx context.Context, req Request, emit func(Event))
 		mu  sync.Mutex // guards the fields below across goroutines
 		res Result
 
-		elaFailed, llmFailed, linkFailed, searchFailed bool
-		linkRan                                        bool
-		modelBoxes                                     []llm.Anomaly
+		elaFailed, llmFailed, linkFailed, searchFailed, videoFailed bool
+		linkRan                                                     bool
+		modelBoxes                                                  []llm.Anomaly
 		// textEvidence is TextEvidence for each model box (-1: unmeasured).
 		textEvidence []int
 	)
@@ -259,6 +269,7 @@ func (p *Pipeline) RunStream(ctx context.Context, req Request, emit func(Event))
 			judged   bool // an image the AI pillar can judge
 			prov     provenance.Result
 			detected <-chan detection
+			clip     *video.Clip // a downloaded social video, judged instead of the preview image
 		)
 
 		switch req.InputType {
@@ -272,8 +283,22 @@ func (p *Pipeline) RunStream(ctx context.Context, req Request, emit func(Event))
 			if tacticSource == "" {
 				tacticSource = req.URL
 			}
-			// The link's preview image is what people see when it is shared.
-			if md.image != "" {
+			// A social video link: download the video and judge its keyframes
+			// and soundtrack. When that fails, the preview image is judged.
+			c, va, transient := p.fetchVideo(gctx, req.URL)
+			if va != nil {
+				mu.Lock()
+				res.Video, videoFailed = va, transient
+				mu.Unlock()
+			}
+			if c != nil {
+				clip, judged = c, true
+				if c.AILabel {
+					// The platform's own AI label, visible on the post.
+					prov = provenance.Result{Kind: provenance.AIGenerated, Source: "watermark"}
+				}
+			} else if md.image != "" {
+				// The link's preview image is what people see when it is shared.
 				if img, format, ok := p.fetchPreview(gctx, md.image); ok {
 					judged, prov = true, provenance.Scan(img)
 					detected = p.startDetector(gctx, img, format)
@@ -295,9 +320,31 @@ func (p *Pipeline) RunStream(ctx context.Context, req Request, emit func(Event))
 			label = "ocr"
 		}
 
-		lctx, cancel := withBudget(gctx, p.LLMDeadline)
-		f, err := p.LLM.Analyze(lctx, in)
-		cancel()
+		var (
+			f   llm.Findings
+			err error
+		)
+		if clip != nil {
+			vctx, cancel := withBudget(gctx, p.videoModelBudget(gctx))
+			vf, verr := p.LLM.AnalyzeVideo(vctx, videoInput(clip))
+			cancel()
+			err = verr
+			mu.Lock()
+			if verr == nil {
+				fillVideo(res.Video, clip, &vf)
+			} else {
+				fillVideo(res.Video, clip, nil)
+			}
+			mu.Unlock()
+			if verr == nil {
+				f = videoFindings(vf)
+				tacticSource = videoTacticSource(clip, vf, tacticSource)
+			}
+		} else {
+			lctx, cancel := withBudget(gctx, p.LLMDeadline)
+			f, err = p.LLM.Analyze(lctx, in)
+			cancel()
+		}
 		modelOK := err == nil
 
 		if judged {
@@ -418,7 +465,7 @@ func (p *Pipeline) RunStream(ctx context.Context, req Request, emit func(Event))
 			res.Pillars.ELA.Anomalies = append(res.Pillars.ELA.Anomalies, anomaly)
 		}
 	}
-	res.Degraded = elaFailed || llmFailed || linkFailed || searchFailed
+	res.Degraded = elaFailed || llmFailed || linkFailed || searchFailed || videoFailed
 	// A degraded result is not cached: the model or a lookup failing once
 	// (a free model's rate limit, a timeout) must not answer the user's
 	// retry with the same incomplete result for the next ten minutes.
@@ -721,6 +768,10 @@ func Verdict(res Result, injectionSuspected bool) models.Verdict {
 		ELAHotspots:        res.ELAHotspots,
 		AIAnomalies:        res.AIAnomalies,
 		UploadedImage:      res.InputType == models.InputFile,
+	}
+	if v := res.Video; v != nil && v.Status == models.VideoOK {
+		in.Video = true
+		in.VideoManipulation, in.VideoContext = v.Manipulation.Score, v.Context.Score
 	}
 	switch res.Pillars.AI.Provenance.Kind {
 	case models.ProvenanceAIGenerated:

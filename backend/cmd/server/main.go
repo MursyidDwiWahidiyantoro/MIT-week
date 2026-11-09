@@ -71,7 +71,7 @@ func main() {
 		Handler:           root,
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       30 * time.Second,
-		WriteTimeout:      cfg.HardTimeout + 10*time.Second,
+		WriteTimeout:      max(cfg.HardTimeout, cfg.VideoTimeout) + 10*time.Second,
 		IdleTimeout:       60 * time.Second,
 		MaxHeaderBytes:    64 << 10,
 	}
