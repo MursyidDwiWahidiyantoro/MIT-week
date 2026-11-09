@@ -409,3 +409,12 @@ and measured once on first sight:
 All sets pass now and stay as regression tests; 3 messages are still left
 to the model (a fake OJK officer, a "finance department" transfer request,
 an English account notice).
+
+## One-sided ELA and the AI rubric (2026-11-09)
+
+- ELA counts only from 50 up; a low ELA no longer lowers a score or helps an
+  image reach SAFE, and SAFE needs a fact check (vectors 15-17).
+- The model's `ai_score` is a manipulation-risk rubric; the pillar is shown as
+  "Penilaian AI" / "AI assessment".
+- The demo news screenshot (ELA 3) now scores 90 instead of 85: its low ELA
+  no longer dilutes the fact check.

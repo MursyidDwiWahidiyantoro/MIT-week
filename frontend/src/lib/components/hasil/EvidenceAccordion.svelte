@@ -30,6 +30,10 @@
 
   const available = (k: Key) => pillars[k].available;
 
+  // scoring.ELAEvidenceMin: below it image analysis is reported as checked
+  // but is not evidence either way, so the card says so.
+  const ELA_EVIDENCE_MIN = 50;
+
   // The pillar union has no shared `score`; narrow by key instead of casting.
   function pillarScore(p: DossierParsed['pillars'], k: Key): number {
     switch (k) {
@@ -72,6 +76,7 @@
             {t('ev.reliability', { n: Math.round(pillars.ela.reliability * 100) })}
             {#if pillars.ela.reliability_note}{reliabilityNote(pillars.ela.reliability_note)}{/if}
           </p>
+          {#if pillars.ela.score < ELA_EVIDENCE_MIN}<p>{t('ev.elaInconclusive')}</p>{/if}
           {#if pillars.ela.anomalies.length}
             <p>{t('ev.areas', { n: pillars.ela.anomalies.length })}</p>
           {:else}
