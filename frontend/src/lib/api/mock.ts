@@ -210,6 +210,7 @@ function baseDossier(
     pillars: DossierParsed['pillars'];
     tactics: Tactic[];
     sourceMetadata?: DossierParsed['source_metadata'];
+    video?: DossierParsed['video'];
   }
 ): DossierParsed {
   const withoutToken: Omit<DossierParsed, 'share_token'> = {
@@ -234,7 +235,7 @@ function baseDossier(
     tactics: overrides.tactics,
     source_metadata: overrides.sourceMetadata ?? null,
     ocr_text: '',
-    video: null
+    video: overrides.video ?? null
   };
 
   return parseDossier({ ...withoutToken, share_token: makeToken(withoutToken) });
@@ -272,10 +273,160 @@ function unavailableLink() {
   };
 }
 
+/* ---------------------------------------------------------------- video */
+
+type VideoPlatform = 'tiktok' | 'youtube' | 'x';
+
+/** A TikTok, YouTube or X video link; any other link stays a plain link check. */
+export function videoPlatform(raw: string): VideoPlatform | null {
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    return null;
+  }
+  const host = url.hostname.toLowerCase().replace(/^(www|m|mobile)\./, '');
+  const path = url.pathname;
+  if (host === 'tiktok.com') return /^\/@[^/]+\/video\/\d+/.test(path) ? 'tiktok' : null;
+  if (host === 'vm.tiktok.com' || host === 'vt.tiktok.com') return path.length > 1 ? 'tiktok' : null;
+  if (host === 'youtube.com') {
+    return (path === '/watch' && url.searchParams.has('v')) || path.startsWith('/shorts/') ? 'youtube' : null;
+  }
+  if (host === 'youtu.be') return path.length > 1 ? 'youtube' : null;
+  if (host === 'x.com' || host === 'twitter.com') return /^\/\w+\/status\/\d+/.test(path) ? 'x' : null;
+  return null;
+}
+
+const JPEG_PREFIX = 'data:image/jpeg;base64,';
+/** A 16x9 muddy-brown JPEG for a runtime without a 2D canvas (tests, locked-down browsers). */
+const FALLBACK_FRAME = `${JPEG_PREFIX}/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDABALDA4MChAODQ4SERATGCgaGBYWGDEjJR0oOjM9PDkzODdASFxOQERXRTc4UG1RV19iZ2hnPk1xeXBkeFxlZ2P/2wBDARESEhgVGC8aGi9jQjhCY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2P/wAARCAAJABADASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAT/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAwT/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCMBMZ//9k=`;
+
+/**
+ * One example keyframe, drawn at runtime so no image ships with the app: a
+ * street under a grey sky, an on-screen caption, and flood water that rises
+ * with `rise` (0 to 1) from frame to frame.
+ */
+function drawFrame(width: number, height: number, rise: number): string {
+  try {
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return FALLBACK_FRAME;
+    ctx.fillStyle = '#9fb0bf';
+    ctx.fillRect(0, 0, width, height);
+    ctx.fillStyle = '#4f5965';
+    for (let i = 0; i < 5; i++) {
+      const top = height * (0.32 + 0.08 * ((i * 3) % 4));
+      ctx.fillRect((width / 5) * i + 2, top, width / 5 - 4, height - top);
+    }
+    const water = height * (0.82 - 0.36 * rise);
+    ctx.fillStyle = '#7a6544';
+    ctx.fillRect(0, water, width, height - water);
+    const size = Math.round(Math.min(width, height) * 0.08);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(width * 0.08, height * 0.07, width * 0.84, size * 1.8);
+    ctx.fillStyle = '#111111';
+    ctx.font = `bold ${size}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('JAKARTA PAGI INI', width / 2, height * 0.07 + size * 0.9, width * 0.8);
+    const url = canvas.toDataURL('image/jpeg', 0.7);
+    return url.startsWith(JPEG_PREFIX) ? url : FALLBACK_FRAME;
+  } catch {
+    return FALLBACK_FRAME;
+  }
+}
+
+const VIDEO_FRAME_TIMES = [0, 8, 16, 24, 32, 40];
+
+/**
+ * A social video link: an example flood clip whose frames look AI-made and
+ * whose footage only partly matches its caption, so the result page shows
+ * every part of the video card (AI label, frames, transcript, three levels).
+ */
+function videoDossier(url: string, platform: VideoPlatform): DossierParsed {
+  const link = analyzeUrl(url);
+  // TikTok and Shorts are portrait; the server's thumbnails keep the long side at 240 px.
+  const [width, height] = platform === 'tiktok' || url.includes('/shorts/') ? [135, 240] : [240, 135];
+  const available = { ela: false, ai: true, fact: false, link: true };
+  const last = VIDEO_FRAME_TIMES.length - 1;
+
+  return baseDossier('URL', url, {
+    status: 'SUSPICIOUS',
+    score: 52,
+    shortTitle: 'Video tampak buatan AI',
+    explanation:
+      'Beberapa frame memperlihatkan ciri video buatan AI, seperti tulisan berupa huruf acak dan benda yang berubah bentuk. Sebagian isi rekaman juga tidak cocok dengan keterangannya. Ini data contoh dari mode pratinjau.',
+    explanationSimple: 'Video ini tampak buatan AI. Cek dulu sebelum menyebarkan.',
+    basis: basisFor(available),
+    notChecked: notCheckedFor(available),
+    floors: ['AI_LIKELY'],
+    sourceMetadata: {
+      status: 'OK',
+      platform,
+      via: 'oembed',
+      title: 'Detik-detik banjir bandang menerjang Jakarta pagi ini!! Sebarkan ke keluarga',
+      author: 'contoh.simulasi',
+      description: '',
+      site_name: ''
+    },
+    pillars: {
+      ela: unavailablePillar(),
+      ai: {
+        available: true,
+        score: 82,
+        reliability: 0.6,
+        indicators: [
+          'Frame 2: tulisan di papan toko berupa huruf acak',
+          'Frame 4: mobil berubah bentuk saat terseret arus',
+          'Frame 6: gerak air terlalu mulus dan berulang'
+        ],
+        caveat: 'Indikatif, bukan bukti pasti. Mode pratinjau tidak menonton videonya.',
+        provenance: null,
+        detector: null
+      },
+      fact: unavailableFact(),
+      link: {
+        available: true,
+        score: link.score,
+        final_url: link.finalUrl,
+        redirect_chain: link.redirectChain,
+        reasons: link.reasons
+      }
+    },
+    tactics: [],
+    video: {
+      status: 'OK',
+      reason: '',
+      platform,
+      duration_sec: 47,
+      upload_date: '2026-11-07',
+      platform_ai_label: platform !== 'x',
+      frames: VIDEO_FRAME_TIMES.map((at_sec, i) => ({ at_sec, thumb: drawFrame(width, height, i / last) })),
+      audio_analyzed: true,
+      summary:
+        'Air keruh menerjang jalan kota dan menyeret beberapa mobil. Di layar ada teks "JAKARTA PAGI INI", dan seorang pria terdengar panik sambil meminta video ini disebarkan.',
+      transcript:
+        'Ya Allah, lihat ini, airnya sudah setinggi atap mobil. Ini Jakarta pagi ini, saudara-saudara. Tolong sebarkan ke keluarga supaya semua waspada.',
+      manipulation: { score: 14, indicators: [] },
+      context: {
+        score: 58,
+        indicators: [
+          'Frame 3: rambu jalan tidak berbahasa Indonesia, padahal keterangan menyebut Jakarta',
+          'Frame 5: bentuk bangunan dan kendaraan tidak seperti di Jakarta'
+        ]
+      }
+    }
+  });
+}
+
 /* ------------------------------------------------------------- builders */
 
 function urlDossier(payload: MockPayload): DossierParsed {
   const url = (payload.url ?? '').trim();
+  const platform = videoPlatform(url);
+  if (platform) return videoDossier(url, platform);
   const link = analyzeUrl(url);
   const status = link.status;
   // The browser preview cannot fetch the link's preview image, so there is
