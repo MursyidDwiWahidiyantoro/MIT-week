@@ -178,6 +178,12 @@ func (c *Client) AnalyzeVideo(ctx context.Context, in VideoInput) (VideoFindings
 	}
 	f = sanitizeVideo(f)
 	f.AudioHeard = len(in.Audio) > 0 && by != nil && by.AudioInput
+	// A transcript is only grounded in the soundtrack or the platform's
+	// subtitles. A gateway that received neither has been seen inventing one
+	// ("musik latar dan efek suara air"), so it is dropped.
+	if !f.AudioHeard && strings.TrimSpace(in.Subtitles) == "" {
+		f.Transcript = ""
+	}
 	if DetectInjection(in.Title + "\n" + in.Description + "\n" + in.Subtitles) {
 		f.InjectionSuspected = true
 	}

@@ -166,6 +166,20 @@ func TestVideoAudioHeardOnlyFromAnAudioGateway(t *testing.T) {
 	}
 }
 
+func TestTranscriptNeedsAudioOrSubtitles(t *testing.T) {
+	srv := gateway(t, validVideoAnswer, nil) // answers with transcript "Segera sebarkan."
+	defer srv.Close()
+	c := New(srv.URL, "k", "m", false) // no audio input
+	in := videoInput()
+	if f, err := c.AnalyzeVideo(context.Background(), in); err != nil || f.Transcript != "" {
+		t.Fatalf("heard nothing, read no subtitles, yet transcript = %q (%v)", f.Transcript, err)
+	}
+	in.Subtitles = "Segera sebarkan."
+	if f, _ := c.AnalyzeVideo(context.Background(), in); f.Transcript == "" {
+		t.Fatal("a transcript backed by the platform's subtitles was dropped")
+	}
+}
+
 func TestAnalyzeVideoNeedsFrames(t *testing.T) {
 	c := New("http://127.0.0.1:9", "k", "m", false)
 	in := videoInput()
