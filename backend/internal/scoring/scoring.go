@@ -47,6 +47,10 @@ const (
 	// 71-100 for clear signs (malformed hands, gibberish lettering, impossible
 	// objects, AI labels); a configured detector shares the score.
 	AILikelyMin = 80
+	// VideoSignalMin is the model's 0-100 video signal (edited to mislead, or a
+	// caption the footage does not support) from which a video is SUSPICIOUS.
+	// No outside source confirms these, so they never reach TAMPERED alone.
+	VideoSignalMin = 70
 
 	// weightEpsilon absorbs binary floating-point error in the weight sums.
 	// 0.35 + 0.15 is 0.49999999999999994, which must still count as 0.50.
@@ -61,11 +65,14 @@ const (
 	FloorLinkStrong       = "LINK_STRONG"
 	FloorELASoloCap       = "ELA_SOLO_CAP"
 	FloorInjectionGuard   = "INJECTION_GUARD"
-	// The AI floors apply to an uploaded image only: a link's preview image
-	// may be an honest illustration.
+	// The AI floors apply to an uploaded image or a downloaded social video
+	// only: a link's preview image may be an honest illustration.
 	FloorAIProvenance = "AI_PROVENANCE"
 	FloorAIEdited     = "AI_EDITED"
 	FloorAILikely     = "AI_LIKELY"
+	// Video floors, from the model's frame-by-frame findings.
+	FloorVideoManipulated     = "VIDEO_MANIPULATED"
+	FloorVideoContextMismatch = "VIDEO_CONTEXT_MISMATCH"
 )
 
 // AI origins an uploaded image can declare (Input.AIDeclared).
@@ -115,6 +122,15 @@ type Input struct {
 	// metadata or an AI label visible on it: DeclaredAIGenerated,
 	// DeclaredAIEdited or "".
 	AIDeclared string
+
+	// Video is true when the AI pillar judged the keyframes of a downloaded
+	// social video. The AI floors then apply as for an uploaded image (its
+	// AIDeclared comes from the platform's AI label or a visible AI mark).
+	Video bool
+	// VideoManipulation and VideoContext are the model's 0-100 signals for a
+	// video edited to mislead and for a caption the footage does not support.
+	VideoManipulation int
+	VideoContext      int
 }
 
 // Compute returns the verdict fields this package owns. ShortTitle and
@@ -194,7 +210,7 @@ func Compute(in Input) models.Verdict {
 	// event, whatever else it shows; one edited with AI is altered; one whose
 	// visible signs are clear deserves a check before it is shared. These
 	// come after LINK_STRONG so a risky link in the image keeps its score.
-	if in.UploadedImage && in.AI.Available {
+	if (in.UploadedImage || in.Video) && in.AI.Available {
 		switch {
 		case in.AIDeclared == DeclaredAIGenerated:
 			score = atLeast(score, 85)
@@ -205,6 +221,18 @@ func Compute(in Input) models.Verdict {
 		case in.AI.Score >= AILikelyMin:
 			score = atLeast(score, 45)
 			v.FloorsApplied = append(v.FloorsApplied, FloorAILikely)
+		}
+	}
+	// A video edited to mislead, or a caption its footage does not support:
+	// the model's own signals, so they stop at SUSPICIOUS.
+	if in.Video {
+		if in.VideoManipulation >= VideoSignalMin {
+			score = atLeast(score, 45)
+			v.FloorsApplied = append(v.FloorsApplied, FloorVideoManipulated)
+		}
+		if in.VideoContext >= VideoSignalMin {
+			score = atLeast(score, 45)
+			v.FloorsApplied = append(v.FloorsApplied, FloorVideoContextMismatch)
 		}
 	}
 	// The solo cap is recorded only when it actually lowers the score: it is a
@@ -249,13 +277,19 @@ func Compute(in Input) models.Verdict {
 	}
 
 	v.Score = score
-	v.ExplanationSimple = ExplanationSimple(v.Status, v.FloorsApplied)
+	v.ExplanationSimple = explanationSimple(v.Status, v.FloorsApplied, in.Video)
 	return v
 }
 
 // ExplanationSimple returns the deterministic lead sentence from TECH_SPEC
 // §8.2. Floor-specific sentences win over the generic status sentence.
 func ExplanationSimple(status models.Status, floors []string) string {
+	return explanationSimple(status, floors, false)
+}
+
+// explanationSimple names a video, not an image, when the AI pillar judged
+// a downloaded social video.
+func explanationSimple(status models.Status, floors []string, video bool) string {
 	switch {
 	case slices.Contains(floors, FloorFactContradicted):
 		return "Kabar ini dibantah sumber terpercaya. Jangan disebarkan."
@@ -264,13 +298,23 @@ func ExplanationSimple(status models.Status, floors []string) string {
 	case slices.Contains(floors, FloorLinkStrong):
 		return "Tautan ini punya tanda penipuan. Sebaiknya jangan diklik."
 	case slices.Contains(floors, FloorAIProvenance):
+		if video {
+			return "Ada tanda jelas video ini dibuat dengan AI. Jangan anggap sebagai rekaman asli."
+		}
 		return "Ada tanda jelas gambar ini dibuat dengan AI. Jangan anggap sebagai foto asli."
 	case slices.Contains(floors, FloorELACorroborated):
 		return "Gambar ini terindikasi diedit. Jangan langsung percaya."
 	case slices.Contains(floors, FloorAIEdited):
 		return "Ada tanda jelas gambar ini diedit dengan AI. Jangan langsung percaya."
 	case slices.Contains(floors, FloorAILikely):
+		if video {
+			return "Video ini tampak buatan AI. Cek dulu sebelum menyebarkan."
+		}
 		return "Gambar ini tampak buatan AI. Cek dulu sebelum menyebarkan."
+	case slices.Contains(floors, FloorVideoManipulated):
+		return "Video ini tampak disunting untuk menyesatkan. Cek dulu sebelum menyebarkan."
+	case slices.Contains(floors, FloorVideoContextMismatch):
+		return "Keterangan video ini tidak cocok dengan isi rekamannya. Cek dulu sebelum menyebarkan."
 	}
 
 	switch status {

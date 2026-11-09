@@ -149,6 +149,8 @@ Apply in this order, then clamp 0–100:
    - `AI_PROVENANCE`: the image declares AI generation (provenance `AI_GENERATED`, from metadata or a visible AI label) → `score = max(score, 85)`. Lead sentence: "Ada tanda jelas gambar ini dibuat dengan AI. Jangan anggap sebagai foto asli."
    - `AI_EDITED`: the image declares an AI edit (`AI_EDITED`) → `score = max(score, 70)`. "Ada tanda jelas gambar ini diedit dengan AI. Jangan langsung percaya."
    - `AI_LIKELY`: nothing declared, but `S_AI ≥ 80` (`scoring.AILikelyMin`; the prompt reserves 71–100 for clear visible signs, a detector shares the score) → `score = max(score, 45)`. "Gambar ini tampak buatan AI. Cek dulu sebelum menyebarkan."
+   - Since 2026-11-09 the same AI floors apply to a **downloaded social video** (`video` in the Dossier): its AI pillar is the model's judgement of the keyframes, and `AI_GENERATED` comes from the platform's AI label or a visible AI mark. The sentences say "video" and "rekaman asli" instead of "gambar" and "foto asli".
+3d. Video floors (added 2026-11-09), social videos only, from the model's frame-by-frame findings, so they stop at `SUSPICIOUS`: `VIDEO_MANIPULATED` (manipulation signal ≥ 70, `scoring.VideoSignalMin`) → `score = max(score, 45)`, "Video ini tampak disunting untuk menyesatkan. Cek dulu sebelum menyebarkan."; `VIDEO_CONTEXT_MISMATCH` (context-mismatch signal ≥ 70) → `score = max(score, 45)`, "Keterangan video ini tidak cocok dengan isi rekamannya. Cek dulu sebelum menyebarkan."
 4. `ELA_SOLO_CAP`: if **no** other pillar has score ≥ 50 and no floor 1–3c applied → `score = min(score, 60)`.
 5. `INJECTION_GUARD`: if LLM output was flagged by the injection detector → `score = max(score, 40)` and `basis` adds `"llm_untrusted"`.
 
