@@ -212,8 +212,8 @@ request ctx (12 s hard deadline)
  │    detector : 4 s    (optional, beside the model, same image) → Jejak AI
  │    llm      : 9 s    (HARD_TIMEOUT_MS - 3 s when that is larger; with LLM_FALLBACK_* the first gateway gets all but the last 9 s, never under half, and a failure hands the call to the fallback and skips the first gateway for 60 s; one structured call: claim, search_query, ai score, anomalies, OCR, tactics)
  │    text     : 1.5 s  (after the model, on its anomaly boxes: Timpa Teks evidence, §3.4)
- │    search   : 2.5 s  (Fact Check Tools `claims:search` with the model's `search_query`, allowlist-filtered)
- │    classify : 3 s    (second structured call: CONTRADICTS/SUPPORTS/UNVERIFIED per search result)
+ │    search   : 6 s    (Fact Check Tools `claims:search` with the model's `search_query`, or Tavily restricted to the allowlisted hosts when only TAVILY_API_KEY is set; allowlist-filtered)
+ │    classify : 10 s   (second structured call: CONTRADICTS/SUPPORTS/UNVERIFIED per search result; 3 s timed out on every gateway we use)
  ├─ every pillar emits exactly one terminal `stage` event; finished pillars → SSE `partial`; `: ping` heartbeat while waiting
  └─ scoring.Compute → sign token → SSE `verdict` → `done`
 ```

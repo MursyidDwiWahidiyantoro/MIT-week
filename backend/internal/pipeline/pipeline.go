@@ -135,17 +135,19 @@ func New(client *llm.Client, g *grounding.Grounder, cacheTTL time.Duration) *Pip
 		cacheTTL = 10 * time.Minute
 	}
 	return &Pipeline{
-		LLM:                client,
-		Grounder:           g,
-		NewFetchClient:     func(timeout time.Duration) *http.Client { return security.NewSafeClient(timeout, 3) },
-		CacheTTL:           cacheTTL,
-		CacheMax:           500,
-		ELADeadline:        4 * time.Second,
-		LinkDeadline:       2500 * time.Millisecond,
-		MetaDeadline:       2500 * time.Millisecond,
-		LLMDeadline:        9 * time.Second,
-		SearchDeadline:     2500 * time.Millisecond,
-		ClassifyDeadline:   3 * time.Second,
+		LLM:            client,
+		Grounder:       g,
+		NewFetchClient: func(timeout time.Duration) *http.Client { return security.NewSafeClient(timeout, 3) },
+		CacheTTL:       cacheTTL,
+		CacheMax:       500,
+		ELADeadline:    4 * time.Second,
+		LinkDeadline:   2500 * time.Millisecond,
+		MetaDeadline:   2500 * time.Millisecond,
+		LLMDeadline:    9 * time.Second,
+		// Measured 9 Nov: a text-only call takes 4-9 s on our gateways and a
+		// Tavily search 1-3 s; with 3 s the classifier timed out every time.
+		SearchDeadline:     6 * time.Second,
+		ClassifyDeadline:   10 * time.Second,
 		DetectDeadline:     4 * time.Second,
 		PreviewDeadline:    1500 * time.Millisecond,
 		TextDeadline:       1500 * time.Millisecond,

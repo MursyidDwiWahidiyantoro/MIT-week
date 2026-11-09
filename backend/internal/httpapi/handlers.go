@@ -81,8 +81,12 @@ func NewDeps(cfg *config.Config) Deps {
 	if cfg.SightengineUser != "" {
 		p.Detector = aidetect.NewSightengine(cfg.SightengineUser, cfg.SightengineSecret)
 	}
-	if cfg.FactCheckKey != "" {
+	switch {
+	case cfg.FactCheckKey != "":
 		p.Searcher = grounding.NewFactCheckSearcher(cfg.FactCheckKey, grounder)
+	case cfg.TavilyKey != "":
+		// Free alternative: web search restricted to the fact-checkers' sites.
+		p.Searcher = grounding.NewTavilySearcher(cfg.TavilyKey, grounder, grounding.DefaultAllowlist)
 	}
 	return Deps{Pipeline: p, Replies: reply.New(client), Metrics: metrics.New(), Key: key}
 }
