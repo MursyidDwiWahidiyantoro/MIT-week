@@ -126,7 +126,7 @@ Each pillar → `Signal{Available bool, Score int(0-100), Reliability float64(0-
 |---|---|---|---|
 | ELA | 0.30 | server ELA variance normalized 0–100 (see §3.4); **one-sided**: counts only from 50 (below that it is reported as checked but carries no weight) | 1.0 JPEG-origin; 0.5 PNG/WebP-lossless or screenshot-like; 0.0 if image < 64 px |
 | AI ("Jejak AI") | 0.15 | likelihood 0–100 that the image (the upload, or a link's preview image) was made with AI, computed in Go (§3.6) | from the strongest evidence (§3.6): 1.0 declared in the file, 0.9 visible AI label confirmed by OCR, 0.8 detector, 0.5 model only; unavailable for a link without a preview image |
-| Fact | 0.35 | CONTRADICTS=100, UNVERIFIED=40, SUPPORTS=0; **unavailable if no checkable claim** | 1.0 |
+| Fact | 0.35 | CONTRADICTS=100, UNVERIFIED=40, SUPPORTS=0; **unavailable if no checkable claim**. Since 2026-11-09 (team decision) an `UNVERIFIED` claim, one no fact-checker has ruled on, is shown but enters the score as unavailable (`pipeline.Verdict`): counted as 40 it made all 11 real news videos and 16/20 untouched graphics `SUSPICIOUS`. The vectors below keep testing the formula with 40. | 1.0 |
 | Link | 0.20 | `linkcheck` capped sum | 1.0 |
 
 ### 3.2 Formula

@@ -758,10 +758,14 @@ func Verdict(res Result, injectionSuspected bool) models.Verdict {
 	if res.InjectionSuspected {
 		injectionSuspected = true
 	}
+	// A claim no fact-checker has ruled on (UNVERIFIED) is shown, but it is not
+	// evidence either way (team decision, 9 Nov 2026): counted as risk it made
+	// every real news video and every untouched price graphic SUSPICIOUS.
+	factCounts := res.Pillars.Fact.Available && res.Pillars.Fact.Status != models.FactUnverified
 	in := scoring.Input{
 		ELA:                scoring.Signal{Available: res.Pillars.ELA.Available, Score: res.Pillars.ELA.Score, Reliability: res.Pillars.ELA.Reliability},
 		AI:                 scoring.Signal{Available: res.Pillars.AI.Available, Score: res.Pillars.AI.Score, Reliability: res.Pillars.AI.Reliability},
-		Fact:               scoring.Signal{Available: res.Pillars.Fact.Available, Score: factScore(res.Pillars.Fact.Status), Reliability: 1.0},
+		Fact:               scoring.Signal{Available: factCounts, Score: factScore(res.Pillars.Fact.Status), Reliability: 1.0},
 		Link:               scoring.Signal{Available: res.Pillars.Link.Available, Score: res.Pillars.Link.Score, Reliability: 1.0},
 		LinkMalicious:      res.LinkMalicious,
 		InjectionSuspected: injectionSuspected,
