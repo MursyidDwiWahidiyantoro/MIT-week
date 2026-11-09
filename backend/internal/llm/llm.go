@@ -97,14 +97,16 @@ type Client struct {
 }
 
 // New builds a client with a separate http.Client: the gateway may live on
-// localhost, so it must NOT be the SSRF-safe client.
+// localhost, so it must NOT be the SSRF-safe client. Its timeout is only a
+// backstop: every call carries the request's model budget (config.LLMBudget),
+// which can exceed 20 s for a slow gateway.
 func New(baseURL, apiKey, model string, mock bool) *Client {
 	return &Client{
 		BaseURL: strings.TrimRight(baseURL, "/"),
 		APIKey:  apiKey,
 		Model:   model,
 		Mock:    mock,
-		HTTP:    &http.Client{Timeout: 20 * time.Second},
+		HTTP:    &http.Client{Timeout: 60 * time.Second},
 	}
 }
 
