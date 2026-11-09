@@ -552,6 +552,10 @@ func (c *Client) call(ctx context.Context, messages []message, name, schema stri
 func logCallFailure(ctx context.Context, service string, status int) {
 	reason := "transport"
 	switch {
+	case errors.Is(ctx.Err(), context.Canceled):
+		// The caller gave up on this call, e.g. the other gateway of a
+		// hedged video call answered first: not this gateway's failure.
+		reason = "cancelled"
 	case ctx.Err() != nil:
 		reason = "timeout"
 	case status != 0:
