@@ -57,6 +57,7 @@ func NewDeps(cfg *config.Config) Deps {
 	client.Extra = cfg.LLMExtraBody
 	grounder := grounding.New(grounding.DefaultAllowlist)
 	p := pipeline.New(client, grounder, cfg.CacheTTL)
+	p.LLMDeadline = cfg.LLMBudget()
 	p.SafeBrowsing = linkcheck.NewSafeBrowsing(cfg.SafeBrowsing)
 	if cfg.DomainAge {
 		p.RDAP = linkcheck.NewRDAP(security.NewSafeClient(2*time.Second, 2))
