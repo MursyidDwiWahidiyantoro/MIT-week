@@ -27,7 +27,9 @@ export default defineConfig({
       url: 'http://localhost:8080/healthz',
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
-      env: { SERVER_PORT: '8080', LLM_MOCK: 'true', ENVIRONMENT: 'development' }
+      // The domain-age lookup would call real registries; it is tested
+      // against a fake one in Go, so e2e stays offline.
+      env: { SERVER_PORT: '8080', LLM_MOCK: 'true', ENVIRONMENT: 'development', DOMAIN_AGE_LOOKUP: 'false' }
     },
     {
       command: 'npm run preview -- --port 4173 --strictPort',
