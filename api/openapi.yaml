@@ -232,6 +232,16 @@ components:
           description: Normalized [ymin, xmin, ymax, xmax] on a 0-1000 scale
         extracted_text: { type: string }
         reason: { type: string }
+        evidence:
+          type: integer
+          nullable: true
+          minimum: 0
+          maximum: 100
+          description: >
+            Timpa Teks: how differently the text in the box reacts to JPEG
+            re-compression compared with the image's other text (0-100).
+            null when it could not be measured (no lettering in the box, too
+            little other text, WebP, or no time left).
       required: [bounding_box]
 
     Source:

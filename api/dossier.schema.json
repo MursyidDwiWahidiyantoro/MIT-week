@@ -48,6 +48,15 @@
         },
         "reason": {
           "type": "string"
+        },
+        "evidence": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Timpa Teks: how differently the text in the box reacts to JPEG re-compression compared with the image's other text (0-100); null when it could not be measured."
         }
       },
       "required": [

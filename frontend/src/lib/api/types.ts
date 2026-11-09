@@ -18,6 +18,8 @@ export interface Anomaly {
   bounding_box: [number, number, number, number];
   extracted_text?: string;
   reason?: string;
+  /** Timpa Teks: 0-100; null when it could not be measured. */
+  evidence?: number | null;
 }
 
 export interface Source {

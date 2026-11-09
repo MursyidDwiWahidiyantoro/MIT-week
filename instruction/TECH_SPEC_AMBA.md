@@ -97,7 +97,7 @@ Heartbeat comment `: ping` every 10 s. Frontend uses `fetch` + `ReadableStream` 
   },
   "pillars": {
     "ela":  {"available":true,"score":88,"reliability":1.0,"reliability_note":null,
-             "anomalies":[{"bounding_box":[ymin,xmin,ymax,xmax],"extracted_text":"","reason":""}]},
+             "anomalies":[{"bounding_box":[ymin,xmin,ymax,xmax],"extracted_text":"","reason":"","evidence":91}]},  // evidence: Timpa Teks 0-100, null if unmeasured
     "ai":   {"available":true,"score":95,"reliability":1.0,"indicators":["..."],"caveat":"Indikatif, bukan bukti pasti",
              "provenance":{"kind":"AI_GENERATED|AI_EDITED|CAMERA|NONE","source":"c2pa|xmp|png_text|exif|watermark|",
                            "generator":"OpenAI","camera":"","c2pa":true},
@@ -143,7 +143,7 @@ score    = round_half_up(raw)            # Go: int(math.Floor(raw + 0.5))
 Apply in this order, then clamp 0–100:
 1. `FACT_CONTRADICTED`: ≥1 source with `match=CONTRADICTS`, host on allowlist, URL came from search tool → `score = max(score, 85)`.
 2. `LINK_MALICIOUS`: Safe Browsing hit or `S_Link ≥ 90` → `score = max(score, 85)`.
-3. `ELA_CORROBORATED`: `S_ELA ≥ 70` **and** an LLM text anomaly box overlapping an ELA hotspot (IoU ≥ 0.1 or centre inside) → `score = max(score, 70)`.
+3. `ELA_CORROBORATED`: `S_ELA ≥ 70` **and** an LLM text anomaly box overlapping an ELA hotspot (IoU ≥ 0.1 or centre inside) → `score = max(score, 70)`. Since 2026-11-09 a model box whose Timpa Teks evidence (§3.4) is ≥ 70 is itself a hotspot and raises `S_ELA` to its evidence, so the model and the measurement pointing at the same text corroborate each other.
 3b. `LINK_STRONG` (added 2026-11-08, team decision "strong link evidence is enough"): if there is still **no** score (W < 0.30, e.g. a bare-URL audit) and the link pillar is available with `S_Link ≥ 45` → `score = min(S_Link, 85)`. 45 is a brand-impersonating host on its own; tuned on a public phishing feed on 2026-11-09 (was 50). The cap keeps a link-only verdict at or below the `LINK_MALICIOUS` floor, so a score never rises as evidence gets thinner. It can never produce `SAFE`. Lead sentence: "Tautan ini punya tanda penipuan. Sebaiknya jangan diklik."
 3c. AI floors (added 2026-11-09), **uploaded images only** (a link's preview image may be an honest illustration), applied after `LINK_STRONG` so a risky link in the image keeps its score, at most one of:
    - `AI_PROVENANCE`: the image declares AI generation (provenance `AI_GENERATED`, from metadata or a visible AI label) → `score = max(score, 85)`. Lead sentence: "Ada tanda jelas gambar ini dibuat dengan AI. Jangan anggap sebagai foto asli."
@@ -155,7 +155,9 @@ Apply in this order, then clamp 0–100:
 Status: 0–20 `SAFE`, 21–60 `SUSPICIOUS`, 61–100 `TAMPERED`. `SAFE` additionally requires coverage `W + eff_w` of an inconclusive ELA `≥ 0.50` (else downgrade to `INSUFFICIENT`) and an available `Fact` pillar — "no evidence of risk" ≠ "verified safe" (UI text: "Tidak ditemukan tanda bahaya", never "pasti asli"). Until 2026-11-09 `ELA`+`Link` could also reach `SAFE`; on real images the ELA mean was 0 for untouched and 0–14 for edited photos, so a low ELA cannot vouch for an image.
 
 ### 3.4 Server-side ELA (`internal/forensics`)
-Decode (limit dimensions via `image.DecodeConfig` first; reject > 4096 px side or > 16 MP) → re-encode JPEG q=90 → mean absolute RGB difference → `variance = mean * 3.5` → clamp 0–100. Also compute a coarse 16×16 grid of cell means for hotspot overlap. Mark `reliability` by source decoder format. Add a unit test with a synthetic image (flat gray + pasted noisy patch) asserting score ordering.
+Decode (limit dimensions via `image.DecodeConfig` first; reject > 4096 px side or > 16 MP) → re-encode JPEG q=90 → mean absolute RGB difference → `variance = mean * 3.5` → clamp 0–100. Also compute a coarse 16×16 grid of cell means for hotspot overlap. Mark `reliability` by source decoder format. Add a unit test with a synthetic image (flat gray + pasted noisy patch) asserting score ordering. WebP uploads skip ELA.
+
+**Timpa Teks (`forensics.TextEvidence`, 2026-11-09).** The global mean cannot see a retyped price: it is dominated by the photo. For each text box the model marks (at most 4, 1.5 s after the model answers, on the image the ELA step decoded), compare how the text inside reacts to one more JPEG compression with how the image's **other text** reacts: in a grid-aligned band of rows around the box (or the whole image up to 6 MP when the band holds too little text), re-encode at q75 and q90, take `Σ ELA / Σ |∇luma|` inside the box over the median of the same ratio on 16×16 "text-like" blocks outside it (strong edges, two-tone histogram), keep the larger ratio. Evidence = `(ratio − 1.2) / 0.5 × 100`, clamped; −1 (null) when the box holds no lettering or fewer than 4 reference blocks exist. `S_ELA = max(global, evidence)`; evidence ≥ 70 makes the box a hotspot (`pipeline.TextHotspotMin`). Benchmark (`tools/textbench/gen.py` on 34 real camera photos, two independently generated sets, `TEXTBENCH=… go test ./internal/forensics -run TestTextBenchmark`): no original line reached 50; retyped lines reached 50 in 65 % and 41 % of pairs (71 % and 50 % when not forwarded after the edit, 54 % and 31 % when forwarded). High evidence is a strong sign; low evidence says little.
 
 ### 3.5 Test vectors (must pass)
 | # | ELA (s,r) | AI (s,r) | Fact | Link | Expected score / status |
@@ -207,6 +209,7 @@ request ctx (12 s hard deadline)
  │    provenance       (FILE, or the preview image: metadata blocks only, synchronous) → Jejak AI
  │    detector : 4 s    (optional, beside the model, same image) → Jejak AI
  │    llm      : 9 s    (one structured call: claim, search_query, ai score, anomalies, OCR, tactics)
+ │    text     : 1.5 s  (after the model, on its anomaly boxes: Timpa Teks evidence, §3.4)
  │    search   : 2.5 s  (Fact Check Tools `claims:search` with the model's `search_query`, allowlist-filtered)
  │    classify : 3 s    (second structured call: CONTRADICTS/SUPPORTS/UNVERIFIED per search result)
  ├─ every pillar emits exactly one terminal `stage` event; finished pillars → SSE `partial`; `: ping` heartbeat while waiting

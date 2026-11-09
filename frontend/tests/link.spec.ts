@@ -39,5 +39,7 @@ test('the screenshot demo opens the ELA viewer and OCR tactics', async ({ page }
   await expect(page.getByLabel('Geser untuk membandingkan gambar asli dan hasil ELA')).toBeVisible({ timeout: 15_000 });
   await expect(page.getByText('Dibaca dari gambar')).toBeVisible();
   await expect(page.locator('mark.tactic')).toContainText('SEBARKAN SEBELUM DIHAPUS');
+  // Timpa Teks: the pasted price reacts to compression unlike the other text.
+  await expect(page.getByText('Kompresi teks ini berbeda dari teks lain di gambar').first()).toBeVisible();
   expect(apiCalls).toEqual([]);
 });

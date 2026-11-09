@@ -291,11 +291,28 @@ func beritaIG(img []byte, box [4]int) demoCase {
 	}
 	ocr := "BERITA.CONTOH HARGA BERAS TURUN JADI RP 2.000/KG SEBARKAN SEBELUM DIHAPUS! CONTOH / SIMULASI"
 
+	// Timpa Teks on the box the model would mark, exactly as the pipeline
+	// merges it: the evidence raises the ELA score and, from 70, the box is a
+	// hotspot ELA_CORROBORATED can match.
+	src, _, err := forensics.Decode(img)
+	if err != nil {
+		log.Fatal(err)
+	}
+	anomaly := models.Anomaly{BoundingBox: box, ExtractedText: "RP 2.000/KG",
+		Reason: "Angka harga punya tepi dan kompresi berbeda dari teks di sekitarnya"}
+	score := res.Score
+	if ev := forensics.TextEvidence(src, [][4]int{box})[0]; ev >= 0 {
+		anomaly.Evidence = &ev
+		score = max(score, ev)
+		if ev >= pipeline.TextHotspotMin {
+			hotspots = append(hotspots, scoring.Box(box))
+		}
+	}
+
 	d := base("AMBA-20261030-DMO2", "2026-10-30T07:23:40Z", models.InputFile, "Gambar yang diunggah")
 	d.Pillars.ELA = models.ELAPillar{
-		Available: true, Score: res.Score, Reliability: res.Reliability,
-		Anomalies: []models.Anomaly{{BoundingBox: box, ExtractedText: "RP 2.000/KG",
-			Reason: "Angka harga punya tepi dan kompresi berbeda dari teks di sekitarnya"}},
+		Available: true, Score: score, Reliability: res.Reliability,
+		Anomalies: []models.Anomaly{anomaly},
 	}
 	if res.Note != "" {
 		note := res.Note
@@ -311,7 +328,7 @@ func beritaIG(img []byte, box [4]int) demoCase {
 	d.OCRText = ocr
 	d = finish(d, pipeline.Result{ELAHotspots: hotspots, AIAnomalies: []scoring.Box{scoring.Box(box)}},
 		"Contoh: tangkapan layar berita diedit",
-		"Angka harga pada gambar ini tampak ditempel: kompresinya berbeda dari bagian lain. Sumber contoh juga membantah klaimnya. Geser penanda untuk membandingkan gambar asli dan hasil ELA. Ini data simulasi.")
+		"Angka harga pada gambar ini tampak ditempel: kompresinya berbeda dari teks lain di gambar. Sumber contoh juga membantah klaimnya. Geser penanda untuk membandingkan gambar asli dan hasil ELA. Ini data simulasi.")
 	return demoCase{ID: "demo-berita-ig", Caption: "Tangkapan layar berita: harga beras turun jadi Rp 2.000/kg", Image: imagePath, Dossier: d}
 }
 
