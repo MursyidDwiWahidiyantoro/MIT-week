@@ -122,11 +122,14 @@ func Platform(rawURL string) (platform string, ok bool) {
 	return "", false
 }
 
-// ExtractorForPlatform returns the yt-dlp extractor name corresponding to the platform.
+// ExtractorForPlatform returns the yt-dlp extractors (comma-separated, for
+// --use-extractors) that may handle the platform's links. Never the generic one.
 func ExtractorForPlatform(platform string) string {
 	switch platform {
 	case "tiktok":
-		return "TikTok"
+		// vm.tiktok resolves the short links people share (vm./vt.tiktok.com);
+		// TikTok alone rejects them as an unsupported URL.
+		return "TikTok,vm.tiktok"
 	case "youtube":
 		return "Youtube"
 	case "instagram":
@@ -134,7 +137,7 @@ func ExtractorForPlatform(platform string) string {
 	case "x":
 		return "Twitter"
 	case "facebook":
-		return "Facebook"
+		return "Facebook,facebook:reel"
 	default:
 		return ""
 	}
