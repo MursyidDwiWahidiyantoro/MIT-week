@@ -273,6 +273,26 @@ cd frontend && LH_URL=$APP npm run lighthouse
 Lalu coba manual di ponsel: periksa satu tautan, unggah satu tangkapan layar,
 buka tautan bagikan di perangkat lain, dan bagikan dari menu Share Android ke AMBA.
 
+### 6.1 Kalibrasi deteksi gambar dengan model sungguhan
+
+Ambang Jejak AI (`AI_LIKELY` mulai skor 80) ditetapkan tanpa kunci model. Setelah
+kunci terpasang, jalankan pipeline yang sama pada gambar berlabel, satu folder
+per label. Pakai gambar **tanpa** metadata (misalnya yang sudah lewat WhatsApp),
+karena gambar dengan metadata sudah terbaca tanpa model:
+
+```bash
+cd backend
+LLM_MOCK=false NINEROUTER_API_KEY=... NINEROUTER_MODEL=nvidia/nemotron-3.5-super-vl:free \
+  NINEROUTER_BASE_URL=https://openrouter.ai/api/v1 \
+  go run ./cmd/evalimages ./eval/ai ./eval/asli ./eval/teks-ditempel > hasil.tsv
+```
+
+Setiap baris berisi skor AI, asal-usul, skor detektor, bukti teks ditempel,
+status, dan floor. Ringkasan per folder muncul di stderr. Jika foto asli sering
+mencapai `AI_LIKELY`, naikkan `scoring.AILikelyMin`; jika gambar AI jarang
+mencapainya, turunkan, lalu catat angkanya di `docs/DECISIONS.md`. Benchmark
+teks ditempel bisa diulang dengan `tools/textbench/gen.py` (lihat isinya).
+
 ---
 
 ## 7. Operasional
