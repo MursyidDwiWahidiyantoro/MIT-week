@@ -84,6 +84,8 @@ type Pipeline struct {
 	Grounder     *grounding.Grounder
 	Searcher     grounding.Searcher
 	SafeBrowsing *linkcheck.SafeBrowsing
+	// RDAP looks up a link's domain age (nil: off).
+	RDAP *linkcheck.RDAP
 	// Detector is an optional dedicated AI-image detector (nil: none).
 	Detector AIDetector
 	// NewFetchClient returns the SSRF-safe client used for every request to a
@@ -518,6 +520,25 @@ func (p *Pipeline) runLink(ctx context.Context, target string) (models.LinkPilla
 	defer cancel()
 
 	analysis := linkcheck.Analyze(target)
+	// Domain age runs beside the redirect check: the first host now, the
+	// final host once the redirects are known.
+	var ages []<-chan time.Time
+	asked := map[string]bool{}
+	lookupAge := func(host string) {
+		reg := linkcheck.Registrable(host)
+		if !p.RDAP.Enabled() || host == "" || asked[reg] || linkcheck.IsOfficialHost(host) || linkcheck.IsShortener(host) {
+			return
+		}
+		asked[reg] = true
+		ch := make(chan time.Time, 1)
+		go func() {
+			t, _ := p.RDAP.Registered(lctx, host)
+			ch <- t
+		}()
+		ages = append(ages, ch)
+	}
+	lookupAge(analysis.Host)
+
 	chain := []string{target}
 	client := p.NewFetchClient(p.LinkDeadline)
 	reached := false
@@ -526,6 +547,7 @@ func (p *Pipeline) runLink(ctx context.Context, target string) (models.LinkPilla
 		reached = err == nil
 		if err == nil && final != target {
 			analysis = linkcheck.Combine(analysis, linkcheck.Analyze(final))
+			lookupAge(analysis.Host)
 		}
 	}
 	// What the destination page shows: a form asking for a password, PIN,
@@ -549,6 +571,20 @@ func (p *Pipeline) runLink(ctx context.Context, target string) (models.LinkPilla
 			analysis = linkcheck.WithSafeBrowsingHit(analysis)
 		}
 	}
+
+	// The youngest domain on the way counts: an old shortener or an old
+	// redirect host does not make a new destination trustworthy.
+	var youngest time.Time
+	for _, ch := range ages {
+		select {
+		case t := <-ch:
+			if !t.IsZero() && t.After(youngest) {
+				youngest = t
+			}
+		case <-lctx.Done():
+		}
+	}
+	analysis = linkcheck.WithDomainAge(analysis, youngest, time.Now())
 
 	reasons := make([]models.LinkReason, 0, len(analysis.Findings))
 	for _, f := range analysis.Findings {
@@ -748,6 +784,10 @@ func LinkReasonText(code string) string {
 		return "Halaman meminta kata sandi, PIN, OTP, atau nomor kartu"
 	case linkcheck.ReasonPageImpersonation:
 		return "Halaman memakai nama layanan populer dan meminta kata sandi atau kode"
+	case linkcheck.ReasonNewDomain:
+		return "Domain baru didaftarkan kurang dari sebulan lalu"
+	case linkcheck.ReasonYoungDomain:
+		return "Domain berumur kurang dari enam bulan"
 	default:
 		return "Tanda mencurigakan pada tautan"
 	}

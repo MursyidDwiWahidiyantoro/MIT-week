@@ -311,6 +311,7 @@ Daftar lengkap dengan komentar ada di [`.env.example`](.env.example).
 | `REPORT_SIGNING_KEY` | — | ≥ 32 bytes, required in production |
 | `GOOGLE_API_KEY` | — | Fact Check Tools + Safe Browsing (`GOOGLE_FACTCHECK_KEY` / `GOOGLE_SAFE_BROWSING_KEY` override) |
 | `SIGHTENGINE_API_USER` / `SIGHTENGINE_API_SECRET` | — | optional AI-image detector for Jejak AI; both or neither |
+| `DOMAIN_AGE_LOOKUP` | `true` | RDAP domain age for links (`NEW_DOMAIN`, `YOUNG_DOMAIN`); only the domain name is sent |
 | `TELEGRAM_BOT_TOKEN` | — | enables the bot; `TELEGRAM_MODE` = `webhook` / `polling` / `off` |
 | `METRICS_ADDR` | — | internal Prometheus listener, off when empty |
 | `MAX_UPLOAD_SIZE_MB` | `10` | |

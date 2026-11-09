@@ -36,6 +36,9 @@ const (
 	// that is not official, and the same under a brand's name.
 	ReasonPageAsksSecret    = "PAGE_ASKS_SECRET"
 	ReasonPageImpersonation = "PAGE_IMPERSONATION"
+	// The domain's registration date from RDAP (rdap.go).
+	ReasonNewDomain   = "NEW_DOMAIN"
+	ReasonYoungDomain = "YOUNG_DOMAIN"
 )
 
 // HighSeverity reports codes that on their own say "this link imitates or
@@ -538,6 +541,10 @@ func lastLabel(host string) string {
 
 // Registrable approximates the eTLD+1 for the TLDs this project cares about.
 func Registrable(host string) string { return registrable(strings.ToLower(host)) }
+
+// IsShortener reports a known link shortener: its own age says nothing
+// about where it leads.
+func IsShortener(host string) bool { return shorteners[Registrable(host)] }
 
 // IsOfficialHost reports a host on a reviewed official domain (a brand, an
 // agency or a reviewed publisher) or under a suffix only vetted institutions

@@ -238,6 +238,7 @@ Deterministic, each rule adds capped points; final `S_Link = min(100, Σ)`.
 | `SAFE_BROWSING` | Google Safe Browsing v4 Lookup hit (optional, env key) | → 100 |
 | `PAGE_ASKS_SECRET` | the destination page (not on an official domain) has a field for a password, PIN, OTP, card number or CVV | 20 |
 | `PAGE_IMPERSONATION` | the same form on a page whose title or site name names a brand from the list (as a word or inside a product name such as "KlikBCA") | 45 |
+| `NEW_DOMAIN` / `YOUNG_DOMAIN` | the youngest registrable domain on the redirect chain was registered ≤ 30 / ≤ 180 days ago (RDAP) | 25 / 10 |
 
 Redirect unrolling: max 3 hops through the SSRF-safe client, `HEAD` then `GET` with `Range: bytes=0-0` fallback, record chain. Official-domain allowlist (e.g. `kompas.com`, `antaranews.com`, `go.id`) reduces `LOOKALIKE_BRAND` false positives. Table tests with ≥ 25 URLs (good and bad).
 
@@ -250,6 +251,7 @@ Implementation notes (2026-11-08; the weights in `internal/linkcheck` and its ta
 - `SHORTENER_HIDES` (+15) is added when the unrolled final host is a different site rated ≥ 30; the score is computed on the final URL.
 - A Safe Browsing hit on any URL of the redirect chain sets `S_Link = 100` and the `LINK_MALICIOUS` floor. A failed lookup is not a hit and is not reported as one.
 - A URL found in the model's OCR of a screenshot gets the same link pillar as a pasted URL.
+- Domain age (2026-11-09, `DOMAIN_AGE_LOOKUP`, default on): the registrable domain of the first and of the final host (not shorteners, not official domains) is looked up over RDAP, using IANA's bootstrap file (`data.iana.org/rdap/dns.json`, fetched once a day) to find the registry, through the SSRF-safe client and beside the redirect check, inside the link budget. Only the registrable domain is sent; answers are not kept. A registry without RDAP, a missing registration event or a timeout adds nothing. A young domain is never enough on its own for a link-only verdict (25 < `LinkStrongMin`).
 - Page check (2026-11-09): when the redirect chain ends on a host that is not official, the destination page is read once through the SSRF-safe client (≤ 512 KB, inside the link budget) and only its title, site name and input fields are looked at. It catches phishing on hacked or free-hosting sites, whose address has no tell-tale. "dana", "pajak", "qris" and "permata" are ordinary words in titles and do not count as brands there; "bri" and "ovo" only count at the end of a word. `PAGE_IMPERSONATION` is high severity. Not measured on live phishing pages yet (the development environment cannot reach them).
 
 ---
@@ -427,6 +429,7 @@ REPORT_SIGNING_KEY=                # >=32 random bytes, base64
 GOOGLE_API_KEY=                    # Fact Check Tools + Safe Browsing
 GOOGLE_FACTCHECK_KEY=              # optional override
 GOOGLE_SAFE_BROWSING_KEY=          # optional override
+DOMAIN_AGE_LOOKUP=true             # RDAP domain age for links (NEW_DOMAIN / YOUNG_DOMAIN); false to switch off
 SIGHTENGINE_API_USER=              # optional AI-image detector (Jejak AI); set both or neither
 SIGHTENGINE_API_SECRET=            # the image is sent to Sightengine: say so in the privacy notice
 TELEGRAM_BOT_TOKEN=                # optional (PRD P2); empty = disabled
