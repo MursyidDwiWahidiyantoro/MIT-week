@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/base32"
 	"log/slog"
+	"sort"
 	"strings"
 	"time"
 
@@ -52,6 +53,7 @@ func NewDeps(cfg *config.Config) Deps {
 	}
 
 	client := llm.New(cfg.RouterBaseURL, cfg.RouterAPIKey, cfg.RouterModel, cfg.LLMMock)
+	client.Extra = cfg.LLMExtraBody
 	grounder := grounding.New(grounding.DefaultAllowlist)
 	p := pipeline.New(client, grounder, cfg.CacheTTL)
 	p.SafeBrowsing = linkcheck.NewSafeBrowsing(cfg.SafeBrowsing)
@@ -69,6 +71,7 @@ func LogReadiness(ctx context.Context, cfg *config.Config, d Deps) {
 		"llm", d.Pipeline.LLM.Describe(),
 		"llm_reachable", reachable,
 		"llm_model_listed", listed,
+		"llm_extra_fields", extraKeys(cfg.LLMExtraBody),
 		"fact_search", d.Pipeline.Searcher != nil && d.Pipeline.Searcher.Enabled(),
 		"safe_browsing", d.Pipeline.SafeBrowsing.Enabled(),
 		"telegram", cfg.TelegramToken != "" && cfg.TelegramMode != "off",
@@ -77,6 +80,17 @@ func LogReadiness(ctx context.Context, cfg *config.Config, d Deps) {
 	if !cfg.LLMMock && (!reachable || !listed) {
 		slog.Warn("llm gateway not ready: audits will be degraded until it answers and lists the configured model")
 	}
+}
+
+// extraKeys names the LLM_EXTRA_BODY fields in the readiness log. Only the
+// names are logged, never the values.
+func extraKeys(extra map[string]any) string {
+	keys := make([]string, 0, len(extra))
+	for k := range extra {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return strings.Join(keys, ",")
 }
 
 func newHandlers(cfg *config.Config, limiter *security.RateLimiter, d Deps) *handlers {

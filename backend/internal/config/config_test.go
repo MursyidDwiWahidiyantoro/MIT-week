@@ -154,3 +154,22 @@ func TestTrustedProxyParsing(t *testing.T) {
 		t.Fatalf("want 2 proxies, got %v", cfg.TrustedProxy)
 	}
 }
+
+func TestLLMExtraBody(t *testing.T) {
+	setEnv(t, map[string]string{"LLM_EXTRA_BODY": `{"reasoning":{"enabled":false},"models":["a:free","openrouter/free"]}`})
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if _, ok := cfg.LLMExtraBody["reasoning"]; !ok || len(cfg.LLMExtraBody) != 2 {
+		t.Fatalf("parsed %v", cfg.LLMExtraBody)
+	}
+	for _, bad := range []string{`not json`, `["a"]`, `null`, `"text"`} {
+		t.Run(bad, func(t *testing.T) {
+			setEnv(t, map[string]string{"LLM_EXTRA_BODY": bad})
+			if _, err := Load(); err == nil || !strings.Contains(err.Error(), "LLM_EXTRA_BODY") {
+				t.Fatalf("want LLM_EXTRA_BODY error, got %v", err)
+			}
+		})
+	}
+}
