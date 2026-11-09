@@ -221,10 +221,10 @@
           "explanation_simple": "Ada tanda jelas gambar ini dibuat dengan AI. Jangan anggap sebagai foto asli.",
           "basis": [
             "ela",
-            "ai",
-            "fact"
+            "ai"
           ],
           "not_checked": [
+            "fact",
             "link"
           ],
           "floors_applied": [
