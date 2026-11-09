@@ -98,7 +98,7 @@ Hasil terakhir (8 Nov 2026):
 | `internal/forensics` | ADA | ELA q90, grid 16×16, reliabilitas per format, `Hotspots`, gambar untuk model (JPEG ≤ 1600 px) |
 | `internal/linkcheck` | ADA | brand lookalike berbasis token, domain resmi, unroll redirect, `SHORTENER_HIDES`, Safe Browsing |
 | `internal/metadata` | ADA | oEmbed (YouTube, TikTok, X) dan OpenGraph lewat klien aman; BLOCKED/UNAVAILABLE jujur |
-| `internal/llm` | ADA | analisis + klasifikasi dengan `json_schema` strict, input gambar, deteksi injeksi, mock deterministik |
+| `internal/llm` | ADA | analisis + klasifikasi dengan `json_schema` strict, input gambar, deteksi injeksi, mock deterministik; bawaan deploy: OpenRouter `nvidia/nemotron-3.5-super-vl:free` + cadangan `openrouter/free` |
 | `internal/grounding` | ADA | Google Fact Check Tools + allowlist; hanya URL hasil pencarian AMBA yang bisa terverifikasi |
 | `internal/pipeline` | ADA | SSE progresif, anggaran per langkah, cache LRU 500, satu event akhir per pilar |
 | `internal/tactics` | ADA | NFKC + verifikasi substring (teks, caption, atau OCR) |
@@ -134,18 +134,22 @@ SSE: `stage → partial → verdict → done`, dengan heartbeat `: ping`.
 
 1. **Belum diuji dengan kunci sungguhan.** Model, Fact Check Tools, Safe
    Browsing, dan Telegram teruji dengan server palsu di unit test, tetapi belum
-   pernah dipanggil dengan kunci asli. Langkah uji ada di `docs/DEPLOY.md` §6.
-2. **Skor ELA adalah rata-rata global** (TECH_SPEC §3.4). Suntingan kecil
+   pernah dipanggil dengan kunci asli (lingkungan pengembangan ini tidak bisa
+   menjangkau OpenRouter). Langkah uji ada di `docs/DEPLOY.md` §6.
+2. **Kuota model gratis kecil.** OpenRouter gratis: 20 permintaan per menit
+   dan 50 per hari (1.000 per hari setelah top-up $10). Satu audit memakai
+   sampai dua panggilan model.
+3. **Skor ELA adalah rata-rata global** (TECH_SPEC §3.4). Suntingan kecil
    terlihat jelas di peta panas, tetapi skornya rendah, jadi `ELA_CORROBORATED`
    jarang terpicu. Opsi perbaikan di `docs/DECISIONS.md`.
-3. **Share target Android** belum dicek manual di ponsel (Playwright tidak bisa
+4. **Share target Android** belum dicek manual di ponsel (Playwright tidak bisa
    membuka menu Share OS).
-4. **`$lib` masih lewat `alias` di `vite.config.ts`**, yang sudah deprecated di
+5. **`$lib` masih lewat `alias` di `vite.config.ts`**, yang sudah deprecated di
    SvelteKit 3 (muncul peringatan saat build). Migrasi ke `#lib/*` sudah
    disiapkan di `package.json`, tetapi belum dijalankan.
-5. **Cache dan rate limit per mesin.** Sesuai aturan tanpa database; kalau
+6. **Cache dan rate limit per mesin.** Sesuai aturan tanpa database; kalau
    API diskalakan ke beberapa mesin, batasnya berlaku per mesin.
-6. **`instruction/CLAUDE.md` dan `.claude/` di-gitignore.** Rekan yang clone tidak
+7. **`instruction/CLAUDE.md` dan `.claude/` di-gitignore.** Rekan yang clone tidak
    mendapat playbook. Kalau disengaja, sebutkan di README.
 
 ---
@@ -197,7 +201,7 @@ Semua detail di `docs/DECISIONS.md`. Yang paling sering ditanya:
 ## 8. Rambu teknis
 
 - **`$lib` bawaan SvelteKit 3 sudah dihapus**; repo ini menjaganya lewat `alias`
-  (lihat risiko 4). Modul baru boleh memakai `#lib/...`.
+  (lihat risiko 5). Modul baru boleh memakai `#lib/...`.
 - **CSP `script-src 'self'` memblokir bootstrap** → halaman kosong. Jangan hardcode.
   Script pre-paint di `app.html` di-hash otomatis saat build.
 - **`tokens.css` wajib diimpor sebelum `app.css`.**
@@ -258,5 +262,5 @@ tools/               check-demo-diff.sh
 
 1. Deploy dengan kunci asli mengikuti `docs/DEPLOY.md`, lalu jalankan uji §6.
 2. Cek share target di Android Chrome (PWA terpasang) dan bot Telegram.
-3. Putuskan perbaikan skor ELA (risiko 2) sebelum mengandalkan `ELA_CORROBORATED`.
+3. Putuskan perbaikan skor ELA (risiko 3) sebelum mengandalkan `ELA_CORROBORATED`.
 4. Migrasi `$lib` → `#lib` dalam satu commit terpisah.

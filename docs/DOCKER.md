@@ -95,12 +95,20 @@ FRONTEND_PORT=3000
 BACKEND_PORT=8080
 ```
 
-Untuk menghubungkan ke LLM gateway lokal (misal NineRouter di host machine):
+Untuk memakai model sungguhan, matikan mock dan isi kunci OpenRouter di `.env`
+(alamat gateway, model gratis, dan `LLM_EXTRA_BODY` sudah terisi di `.env.example`):
+```env
+LLM_MOCK=false
+NINEROUTER_API_KEY=sk-or-...
+```
+
+Atau ke LLM gateway lokal (misal NineRouter di host machine), dengan `LLM_EXTRA_BODY` dikosongkan:
 ```env
 LLM_MOCK=false
 NINEROUTER_BASE_URL=http://host.docker.internal:20128/v1
 NINEROUTER_API_KEY=your_key_here
 NINEROUTER_MODEL=gemini-3.8-flash
+LLM_EXTRA_BODY=
 ```
 `extra_hosts: ["host.docker.internal:host-gateway"]` telah dikonfigurasi secara default sehingga container dapat berkomunikasi langsung ke host machine.
 

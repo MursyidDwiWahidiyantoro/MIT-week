@@ -13,7 +13,7 @@ services:
       - ENVIRONMENT=development
       - LLM_MOCK=${LLM_MOCK:-true}
       - PUBLIC_APP_URL=http://localhost:5173
-      - NINEROUTER_BASE_URL=${NINEROUTER_BASE_URL:-http://host.docker.internal:20128/v1}
+      - NINEROUTER_BASE_URL=${NINEROUTER_BASE_URL:-https://openrouter.ai/api/v1}
     ports:
       - "8080:8080"
     extra_hosts:
