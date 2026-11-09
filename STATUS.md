@@ -11,7 +11,7 @@
 
 | Hal | Kondisi |
 |---|---|
-| Backend Go | **Selesai & hijau**: 385 test lulus di 16 paket, `-race` |
+| Backend Go | **Selesai & hijau**: 419 test lulus di 17 paket, `-race` |
 | Frontend (6 halaman + alur hasil) | **Selesai**: audit nyata dengan SSE progresif, demo offline, EN/ID, mode, ukuran teks |
 | PRD | **P0, P1, P2 terpasang** (rincian di bagian 4) |
 | Kontrak API (OpenAPI ↔ JSON Schema ↔ Go ↔ Zod) | **Sinkron**, termasuk `source_metadata` dan `ocr_text` |
@@ -71,11 +71,11 @@ Hasil terakhir (8 Nov 2026):
 
 | Pemeriksaan | Hasil |
 |---|---|
-| `gofmt` + `go vet` + `go test -race` | bersih; 385 test lulus, 16 paket |
+| `gofmt` + `go vet` + `go test -race` | bersih; 419 test lulus, 17 paket |
 | `gendemo` | deterministik, nol diff |
 | `svelte-check` | 0 error, 0 warning |
 | `eslint` | bersih |
-| `vitest` | 60 test lulus di 10 file |
+| `vitest` | 61 test lulus di 10 file |
 | `vite build` | sukses, adapter-static |
 | bundle | 142,0 KB gz / batas 250 KB |
 | contrast | 82 pasang, dua tema |
@@ -266,5 +266,9 @@ tools/               check-demo-diff.sh
 
 1. Deploy dengan kunci asli mengikuti `docs/DEPLOY.md`, lalu jalankan uji §6.
 2. Cek share target di Android Chrome (PWA terpasang) dan bot Telegram.
-3. Putuskan perbaikan skor ELA (risiko 3) sebelum mengandalkan `ELA_CORROBORATED`.
-4. Migrasi `$lib` → `#lib` dalam satu commit terpisah.
+3. Skor ELA lokal (risiko 3) baru bisa diputuskan dengan kumpulan gambar berlabel;
+   sampai itu ELA hanya dihitung sebagai bukti suntingan (≥ 50).
+4. Setelah seminggu di produksi, baca `amba_scam_patterns_total` dan
+   `amba_link_reasons_total` bersama laporan pengguna: aturan yang memicu alarm
+   palsu diperbaiki dengan menambah pesannya ke test lebih dulu.
+5. Migrasi `$lib` → `#lib` dalam satu commit terpisah.
