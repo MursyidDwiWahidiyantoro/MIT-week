@@ -16,18 +16,34 @@ import (
 
 const tiktokURL = "https://www.tiktok.com/@akun/video/7300000000000000000"
 
-// fakeVideo stands in for yt-dlp and ffmpeg.
+// fakeVideo stands in for yt-dlp and ffmpeg. firstErr, when set, is
+// returned by the first call only.
 type fakeVideo struct {
-	clip  *video.Clip
-	err   error
-	calls int32
+	clip     *video.Clip
+	err      error
+	firstErr error
+	calls    int32
 }
 
 func (f *fakeVideo) Enabled() bool { return true }
 
 func (f *fakeVideo) Fetch(context.Context, string) (*video.Clip, error) {
-	atomic.AddInt32(&f.calls, 1)
+	if atomic.AddInt32(&f.calls, 1) == 1 && f.firstErr != nil {
+		return nil, f.firstErr
+	}
 	return f.clip, f.err
+}
+
+func TestStalledDownloadIsRetriedOnce(t *testing.T) {
+	p, srv := pipelineWithFetch(t, true, ogPage)
+	defer srv.Close()
+	fv := &fakeVideo{clip: testClip(t), firstErr: video.ErrTimeout}
+	p.Video = fv
+
+	res := p.Run(context.Background(), Request{InputType: models.InputURL, URL: tiktokURL})
+	if res.Video == nil || res.Video.Status != models.VideoOK || atomic.LoadInt32(&fv.calls) != 2 {
+		t.Fatalf("video %+v after %d fetches", res.Video, fv.calls)
+	}
 }
 
 func testClip(t *testing.T) *video.Clip {
