@@ -7,7 +7,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"strings"
+	"time"
 )
 
 // VideoInput is a downloaded social video as the model sees it: public
@@ -44,7 +46,16 @@ type VideoFindings struct {
 	OCRText                string   `json:"ocr_text"`
 	Tactics                []Tactic `json:"tactics"`
 	InjectionSuspected     bool     `json:"injection_suspected"`
+	// AudioHeard is set by AnalyzeVideo, not the model: the answer came from
+	// a gateway that received the soundtrack.
+	AudioHeard bool `json:"-"`
 }
+
+// videoHedge is how long the first gateway has a video alone before the
+// fallback starts beside it. Measured on 9 Nov: Gemini behind 9router took
+// 23 s for six frames and over 29 s with the soundtrack; OpenRouter's free
+// vision model answered in 11-13 s. The first good answer wins.
+var videoHedge = 18 * time.Second
 
 var videoRequired = []string{
 	"summary", "transcript", "claim", "search_query", "ai_score", "ai_indicators", "ai_watermark",
@@ -158,21 +169,96 @@ func (c *Client) AnalyzeVideo(ctx context.Context, in VideoInput) (VideoFindings
 		}})
 	}
 
-	var f VideoFindings
-	if err := c.complete(ctx, []message{
+	f, by, err := c.hedgedVideo(ctx, []message{
 		{Role: "system", Content: videoPrompt},
 		{Role: "user", Content: parts},
-	}, "VideoFindings", videoSchema, 0.2, func(s string) error {
-		f = VideoFindings{}
-		return decodeRequired(s, &f, videoRequired...)
-	}); err != nil {
+	})
+	if err != nil {
 		return VideoFindings{}, err
 	}
 	f = sanitizeVideo(f)
+	f.AudioHeard = len(in.Audio) > 0 && by != nil && by.AudioInput
 	if DetectInjection(in.Title + "\n" + in.Description + "\n" + in.Subtitles) {
 		f.InjectionSuspected = true
 	}
 	return f, nil
+}
+
+type videoAnswer struct {
+	f   VideoFindings
+	by  *Client
+	err error
+}
+
+// tryVideo is one gateway's attempt; an answer missing a required key fails.
+func (c *Client) tryVideo(ctx context.Context, g *Client, messages []message) videoAnswer {
+	content, err := g.call(ctx, messages, "VideoFindings", videoSchema, 0.2)
+	if err != nil {
+		return videoAnswer{by: g, err: err}
+	}
+	var f VideoFindings
+	if err := decodeRequired(content, &f, videoRequired...); err != nil {
+		slog.Warn("llm gateway call failed", "reason", "invalid_answer", "status", 0)
+		return videoAnswer{by: g, err: ErrUnavailable}
+	}
+	return videoAnswer{f: f, by: g}
+}
+
+// hedgedVideo asks the first gateway, and the fallback beside it once the
+// first has had videoHedge alone, has failed, or is in its cooldown. The
+// first good answer wins and the other call is cancelled. Only a failure,
+// not a lost race, puts the first gateway in its cooldown.
+func (c *Client) hedgedVideo(ctx context.Context, messages []message) (VideoFindings, *Client, error) {
+	if c.Fallback == nil {
+		a := c.tryVideo(ctx, c, messages)
+		return a.f, a.by, a.err
+	}
+	hctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	results := make(chan videoAnswer, 2)
+	running, fallbackStarted := 0, false
+	start := func(g *Client) {
+		running++
+		go func() { results <- c.tryVideo(hctx, g, messages) }()
+	}
+	startFallback := func() {
+		if !fallbackStarted {
+			fallbackStarted = true
+			start(c.Fallback)
+		}
+	}
+	if c.skipping() {
+		startFallback()
+	} else {
+		start(c)
+	}
+	hedge := time.NewTimer(videoHedge)
+	defer hedge.Stop()
+	for {
+		select {
+		case a := <-results:
+			running--
+			if a.err == nil {
+				if a.by == c {
+					c.setDown(time.Time{})
+				} else {
+					slog.Info("llm fallback answered", "model", c.Fallback.Model)
+				}
+				return a.f, a.by, nil
+			}
+			if a.by == c && ctx.Err() == nil {
+				c.setDown(time.Now().Add(breakerCooldown))
+				startFallback()
+			}
+			if running == 0 && fallbackStarted {
+				return VideoFindings{}, nil, ErrUnavailable
+			}
+		case <-hedge.C:
+			startFallback()
+		case <-ctx.Done():
+			return VideoFindings{}, nil, ErrUnavailable
+		}
+	}
 }
 
 // videoContext is the untrusted text block: public metadata only.
