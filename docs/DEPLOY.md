@@ -22,7 +22,7 @@ uji. Semua perintah di bawah aman diulang.
 | Variabel | Wajib | Cara mendapatkan |
 |---|---|---|
 | `REPORT_SIGNING_KEY` | ya | `openssl rand -base64 48`. Mengganti kunci membatalkan semua tautan bagikan yang sudah beredar. |
-| `NINEROUTER_BASE_URL`, `NINEROUTER_API_KEY`, `NINEROUTER_MODEL` | ya | Gateway model apa pun yang kompatibel OpenAI. Lihat 1.1. |
+| `NINEROUTER_API_KEY` | ya | Kunci OpenRouter (`sk-or-...`). Alamat gateway dan nama model sudah diisi di `fly.toml`. Lihat 1.1. |
 | `GOOGLE_API_KEY` | sangat disarankan | Satu kunci Google Cloud untuk Fact Check Tools dan Safe Browsing. Lihat 1.2. |
 | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET` | opsional | Lihat bagian 5. |
 
@@ -31,23 +31,66 @@ Simpan semua nilai ini sebagai *secret* di hosting, jangan di repo.
 ### 1.1 Model (LLM gateway)
 
 Model harus menerima **gambar** (`image_url` berisi data URI) dan **keluaran
-terstruktur** (`response_format: json_schema`). Dua pilihan:
+terstruktur** (`response_format: json_schema`).
 
-- **NineRouter milik tim**: isi `NINEROUTER_BASE_URL` dengan alamat publiknya
-  (bukan `localhost`, karena server di cloud tidak bisa menjangkau laptop).
-- **Gemini langsung**: buat API key di Google AI Studio, lalu
-  `NINEROUTER_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai`
-  dan `NINEROUTER_API_KEY=<kunci Gemini>`.
+**Bawaan repo: OpenRouter, model gratis `nvidia/nemotron-3.5-super-vl:free`.**
+Model ini menerima gambar, mendukung `structured_outputs`, konteks 1M token,
+dan tercatat sekitar 1,6 detik latensi di OpenRouter (November 2026).
+`fly.toml` sudah mengisi:
 
-Nama model berubah dari waktu ke waktu, jadi ambil dari daftar gateway sendiri:
-
-```bash
-curl -s "$NINEROUTER_BASE_URL/models" -H "Authorization: Bearer $NINEROUTER_API_KEY" | jq -r '.data[].id'
+```
+NINEROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+NINEROUTER_MODEL    = "nvidia/nemotron-3.5-super-vl:free"
+LLM_EXTRA_BODY      = '{"models":["nvidia/nemotron-3.5-super-vl:free","openrouter/free"],"reasoning":{"enabled":false}}'
 ```
 
-Saat boot, log `readiness` menulis `llm_reachable` dan `llm_model_listed`.
-Keduanya harus `true`. Kalau salah satu `false`, audit tetap berjalan tetapi
-pilar AI dan cek fakta ditandai tidak tersedia (degraded).
+- `models` adalah daftar cadangan OpenRouter. Kalau model utama sibuk atau
+  kena batas, OpenRouter mencoba `openrouter/free`, router yang memilih model
+  gratis lain yang mendukung gambar dan keluaran terstruktur. Isi daftar ini
+  hanya dengan model gratis supaya tidak pernah tertagih.
+- `reasoning.enabled=false` mematikan "berpikir panjang" model ini supaya
+  jawabannya muat di anggaran 9 detik.
+- Satu-satunya rahasia adalah `NINEROUTER_API_KEY` (kunci OpenRouter). Jangan
+  pernah menaruhnya di repo: repo ini publik dan kunci yang bocor akan
+  disalahgunakan. Kalau kunci pernah ditempel di chat atau dokumen, buat kunci
+  baru di dashboard OpenRouter dan hapus yang lama.
+
+Batas pemakaian model gratis OpenRouter (dokumentasi OpenRouter, 2026):
+**20 permintaan per menit** dan **50 permintaan per hari**; naik menjadi
+**1.000 per hari** setelah akun pernah membeli kredit minimal $10 (kreditnya
+tidak terpakai oleh model gratis). Satu audit memakai sampai dua panggilan
+model (analisis dan klasifikasi sumber), Balas Sopan satu lagi. Jadi tanpa
+top-up, kapasitasnya kira-kira 20–25 audit per hari: cukup untuk mencoba,
+kurang untuk dinilai juri atau dipakai umum.
+
+Privasi: OpenRouter punya setelan privasi terpisah untuk model gratis. Kalau
+akun melarang penyedia yang mencatat atau melatih model dengan prompt, permintaan
+ke model gratis tertentu bisa ditolak (log `status=404`). Periksa kebijakan
+data penyedia di halaman model sebelum memakainya untuk konten pengguna, dan
+sesuaikan teks privasi di `/tentang` kalau penyedia menyimpan prompt.
+
+Model gratis bisa ditarik kapan saja. Kalau log menunjukkan
+`llm_model_listed=false`, pilih model gratis lain di openrouter.ai yang
+mendukung input gambar dan structured outputs, lalu ganti `NINEROUTER_MODEL`
+dan isi `models` di `LLM_EXTRA_BODY`.
+
+**Alternatif:**
+
+- **NineRouter milik tim**: isi `NINEROUTER_BASE_URL` dengan alamat publiknya
+  (bukan `localhost`) dan kosongkan `LLM_EXTRA_BODY`.
+- **Gemini langsung**: `NINEROUTER_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai`,
+  kunci dari Google AI Studio, `LLM_EXTRA_BODY` kosong.
+
+Nama model berubah dari waktu ke waktu, jadi cocokkan dengan daftar gateway:
+
+```bash
+curl -s "$NINEROUTER_BASE_URL/models" -H "Authorization: Bearer $NINEROUTER_API_KEY" | jq -r '.data[].id' | grep ':free'
+```
+
+Saat boot, log `readiness` menulis `llm_reachable`, `llm_model_listed`, dan
+`llm_extra_fields`. Dua yang pertama harus `true`. Kalau salah satu `false`,
+audit tetap berjalan tetapi pilar AI dan cek fakta ditandai tidak tersedia
+(degraded).
 
 ### 1.2 Google Cloud (cek fakta dan reputasi tautan)
 
@@ -79,11 +122,10 @@ cd backend
 fly launch --no-deploy --copy-config
 
 # 2. Rahasia. PUBLIC_APP_URL = origin frontend di Vercel (https, tanpa garis miring di akhir).
+#    Alamat gateway dan model OpenRouter sudah ada di fly.toml; cukup kuncinya.
 fly secrets set \
   REPORT_SIGNING_KEY="$(openssl rand -base64 48)" \
-  NINEROUTER_BASE_URL="https://..." \
-  NINEROUTER_API_KEY="..." \
-  NINEROUTER_MODEL="..." \
+  NINEROUTER_API_KEY="sk-or-..." \
   GOOGLE_API_KEY="..." \
   PUBLIC_APP_URL="https://amba.vercel.app"
 
@@ -114,9 +156,10 @@ Origin tambahan (domain kustom di samping `*.vercel.app`):
    CLIENT_IP_HEADER=X-Real-IP
    PUBLIC_APP_URL=https://amba.vercel.app
    REPORT_SIGNING_KEY=...
-   NINEROUTER_BASE_URL=...
-   NINEROUTER_API_KEY=...
-   NINEROUTER_MODEL=...
+   NINEROUTER_BASE_URL=https://openrouter.ai/api/v1
+   NINEROUTER_API_KEY=sk-or-...
+   NINEROUTER_MODEL=nvidia/nemotron-3.5-super-vl:free
+   LLM_EXTRA_BODY={"models":["nvidia/nemotron-3.5-super-vl:free","openrouter/free"],"reasoning":{"enabled":false}}
    GOOGLE_API_KEY=...
    ```
 
@@ -230,5 +273,6 @@ buka tautan bagikan di perangkat lain, dan bagikan dari menu Share Android ke AM
 | Semua pengguna kena rate limit bersamaan | `TRUSTED_PROXY_CIDRS` atau `CLIENT_IP_HEADER` belum diisi. |
 | Log `llm gateway call failed ... status=400` | Model atau gateway tidak mendukung `json_schema` atau gambar. Pilih model lain. |
 | Log `status=401` atau `status=403` | Kunci salah, atau API belum diaktifkan untuk kunci tersebut. |
-| Log `status=429` | Kuota habis. Naikkan kuota atau tunggu. |
+| Log `llm gateway ... status=404` | OpenRouter: model gratis ditarik, atau setelan privasi akun untuk model gratis menolak penyedianya. |
+| Log `status=429` | Kuota habis. OpenRouter gratis: 50 permintaan per hari tanpa top-up, 1.000 per hari setelah top-up $10. |
 | Hasil selalu "Belum cukup data" | Periksa log `readiness`: kemungkinan model atau `GOOGLE_API_KEY` belum siap. |

@@ -304,8 +304,9 @@ Daftar lengkap dengan komentar ada di [`.env.example`](.env.example).
 | `CORS_EXTRA_ORIGINS` | — | more exact origins, comma-separated |
 | `TRUSTED_PROXY_CIDRS` / `CLIENT_IP_HEADER` | — | `*` + `Fly-Client-IP` (Fly.io) or `X-Real-IP` (Railway) |
 | `LLM_MOCK` | `true` | deterministic fake findings; refused in production |
-| `NINEROUTER_BASE_URL` | `http://localhost:20128/v1` | OpenAI-compatible gateway (NineRouter, Gemini, …) |
-| `NINEROUTER_API_KEY` / `NINEROUTER_MODEL` | — | required when `LLM_MOCK=false` |
+| `NINEROUTER_BASE_URL` | `http://localhost:20128/v1` | OpenAI-compatible gateway; deployments use OpenRouter (`https://openrouter.ai/api/v1`) |
+| `NINEROUTER_API_KEY` / `NINEROUTER_MODEL` | — | required when `LLM_MOCK=false`; default model `nvidia/nemotron-3.5-super-vl:free` (free, vision) |
+| `LLM_EXTRA_BODY` | — | JSON object merged into every model request, e.g. OpenRouter fallbacks and `reasoning` off |
 | `REPORT_SIGNING_KEY` | — | ≥ 32 bytes, required in production |
 | `GOOGLE_API_KEY` | — | Fact Check Tools + Safe Browsing (`GOOGLE_FACTCHECK_KEY` / `GOOGLE_SAFE_BROWSING_KEY` override) |
 | `TELEGRAM_BOT_TOKEN` | — | enables the bot; `TELEGRAM_MODE` = `webhook` / `polling` / `off` |

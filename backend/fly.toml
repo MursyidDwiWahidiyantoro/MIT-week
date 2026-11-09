@@ -1,6 +1,6 @@
 # Fly.io config for the AMBA API. Change `app` to your own app name, then:
 #   fly launch --no-deploy --copy-config   (first time only)
-#   fly secrets set REPORT_SIGNING_KEY=... NINEROUTER_API_KEY=... (see docs/DEPLOY.md)
+#   fly secrets set REPORT_SIGNING_KEY=... NINEROUTER_API_KEY=... GOOGLE_API_KEY=... (see docs/DEPLOY.md)
 #   fly deploy
 app = "amba-api"
 primary_region = "sin" # Singapore: the closest Fly region to Indonesia
@@ -15,6 +15,12 @@ primary_region = "sin" # Singapore: the closest Fly region to Indonesia
   SERVER_PORT = "8080"
   ENVIRONMENT = "production"
   LLM_MOCK = "false"
+  # Model gateway: OpenRouter's free vision model (docs/DEPLOY.md §1.1). Only
+  # NINEROUTER_API_KEY is a secret. The fallback list keeps every request on
+  # free models; reasoning is off so answers fit the 9 s model budget.
+  NINEROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+  NINEROUTER_MODEL = "nvidia/nemotron-3.5-super-vl:free"
+  LLM_EXTRA_BODY = '{"models":["nvidia/nemotron-3.5-super-vl:free","openrouter/free"],"reasoning":{"enabled":false}}'
   # Every request reaches the machine through Fly's proxy, which writes the
   # real client address to Fly-Client-IP. Without these two lines all users
   # would share one rate-limit bucket.

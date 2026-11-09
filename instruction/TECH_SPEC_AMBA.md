@@ -222,7 +222,7 @@ Implementation notes (2026-11-08; the weights in `internal/linkcheck` and its ta
 
 ## 6. LLM integration (`internal/llm`)
 
-- Client speaks OpenAI-compatible API to `NINEROUTER_BASE_URL` using a **separate** `http.Client` (it must reach localhost/tunnel, so it is NOT the SSRF client). Model from `NINEROUTER_MODEL`; at startup call `GET /models` and log (without secrets) whether the model exists.
+- Client speaks OpenAI-compatible API to `NINEROUTER_BASE_URL` using a **separate** `http.Client` (it must reach localhost/tunnel, so it is NOT the SSRF client). Model from `NINEROUTER_MODEL`; at startup call `GET /models` and log (without secrets) whether the model exists. Deployments default to OpenRouter's free vision model `nvidia/nemotron-3.5-super-vl:free`; `LLM_EXTRA_BODY` (a JSON object) adds gateway-specific fields to every request, such as OpenRouter's `models` fallback list and `reasoning: {enabled: false}`, and can never replace `model`, `messages`, `response_format` or `temperature`.
 - **Analyze** call per audit, `response_format` = strict JSON schema `LLMFindings`:
   `{claim, search_query, ai_score, ai_indicators[], text_anomalies[{bounding_box, extracted_text, reason}], ocr_text, tactics[{code, phrase}], injection_suspected}`. Images are sent as an `image_url` data URI: a small JPEG as is, anything larger or PNG re-encoded as JPEG q85 with the longest side ≤ 1600 px (normalised 0–1000 boxes are unaffected), WebP passed through. The model never returns a fact status or sources.
 - Go runs the "tools" itself, before and after the model, instead of model-driven tool rounds: the link's public metadata (oEmbed/OG via the SSRF client, ≤ 2 KB) is fetched first and passed inside `<untrusted_content>`; the model's `search_query` goes to the search provider (Google Fact Check Tools `claims:search`, `languageCode=id`, max 5 allowlisted results); a second **Classify** call labels each returned result `CONTRADICTS | SUPPORTS | UNVERIFIED` against the claim. In mock mode Classify maps the fact-checker's own rating.
@@ -390,9 +390,10 @@ PUBLIC_APP_URL=http://localhost:5173
 CORS_EXTRA_ORIGINS=                # optional exact origins, comma-separated
 TRUSTED_PROXY_CIDRS=               # "*" on Fly.io/Railway
 CLIENT_IP_HEADER=                  # Fly-Client-IP (Fly.io), X-Real-IP (Railway); empty = rightmost X-Forwarded-For
-NINEROUTER_BASE_URL=http://localhost:20128/v1
-NINEROUTER_API_KEY=changeme
-NINEROUTER_MODEL=gemini-3.8-flash  # verify against /models at boot
+NINEROUTER_BASE_URL=https://openrouter.ai/api/v1   # any OpenAI-compatible gateway (NineRouter, Gemini)
+NINEROUTER_API_KEY=                # secret: host secret or .env, never in git
+NINEROUTER_MODEL=nvidia/nemotron-3.5-super-vl:free  # verify against /models at boot
+LLM_EXTRA_BODY=                    # JSON object merged into model requests, e.g. OpenRouter {"models":[...],"reasoning":{"enabled":false}}
 LLM_MOCK=true                      # refused in production: the mock invents findings
 REPORT_SIGNING_KEY=                # >=32 random bytes, base64
 GOOGLE_API_KEY=                    # Fact Check Tools + Safe Browsing

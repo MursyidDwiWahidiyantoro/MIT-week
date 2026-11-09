@@ -397,3 +397,27 @@ grid cells and the image's typical cells, or weight hotspots that overlap
 model anomaly boxes. Either changes §3.4 and needs new forensics tests with
 false-positive cases (text on flat backgrounds, PNG screenshots) before it
 ships.
+
+## 2026-11-09 · Default model: OpenRouter's free Nemotron 3.5 Super VL
+
+Team request: a free multimodal model through OpenRouter. Chosen:
+`nvidia/nemotron-3.5-super-vl:free` (released 15 Oct 2026): it takes images,
+lists `structured_outputs`/`response_format`, has a 1M-token context and showed
+about 1.6 s median latency and 99.8 % availability on OpenRouter. The free
+Gemma 4 endpoints also take images, but a third-party benchmark saw them
+answer none of its free-tier requests.
+
+`LLM_EXTRA_BODY` (a JSON object merged into every request; the contract
+fields always win) carries the OpenRouter specifics instead of hard-coding a
+provider: `models: [primary, "openrouter/free"]` falls back to OpenRouter's
+free router, which picks another free model with the needed features, and
+`reasoning: {enabled: false}` keeps answers inside the 9 s model budget. Only
+`:free` models are listed, so a fallback can never be billed.
+
+Limits to know: 20 requests per minute and 50 per day on free models (1,000
+per day once the account has bought $10 of credit); one audit uses up to two
+calls. Not verified against the live API: this development environment
+cannot reach openrouter.ai, so the first real check is the boot readiness log
+and the smoke tests in `docs/DEPLOY.md` §6. Revisit: when the free model is
+retired, when the quota is too small, or if the free provider's data policy
+conflicts with the privacy copy on `/tentang`.
