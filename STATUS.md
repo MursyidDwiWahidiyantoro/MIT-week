@@ -96,7 +96,7 @@ Hasil terakhir (8 Nov 2026):
 | `internal/security` | ADA | SSRF `Dialer.Control` + penolakan target internal, upload, rate limit dengan identitas dari edge host, header, CORS |
 | `internal/token` | ADA | HMAC share token, tamper, rotasi |
 | `internal/forensics` | ADA | ELA q90, grid 16×16, reliabilitas per format, `Hotspots`, gambar untuk model (JPEG ≤ 1600 px) |
-| `internal/linkcheck` | ADA | brand lookalike berbasis token, domain resmi, unroll redirect, `SHORTENER_HIDES`, Safe Browsing; diuji pada data phishing nyata (83,6 % tautan phishing bertema Indonesia diberi peringatan, 4 dari 10.060 situs sah salah ditandai) |
+| `internal/linkcheck` | ADA | brand lookalike berbasis token, domain resmi, unroll redirect, `SHORTENER_HIDES`, Safe Browsing, cek halaman tujuan (form sandi/PIN/OTP, nama bank di judul); diuji pada data phishing nyata (83,6 % tautan phishing bertema Indonesia diberi peringatan, 4 dari 10.060 situs sah salah ditandai) |
 | `internal/metadata` | ADA | oEmbed (YouTube, TikTok, X) dan OpenGraph lewat klien aman; BLOCKED/UNAVAILABLE jujur |
 | `internal/llm` | ADA | analisis + klasifikasi dengan `json_schema` strict, input gambar, deteksi injeksi, mock deterministik; bawaan deploy: OpenRouter `nvidia/nemotron-3.5-super-vl:free` + cadangan `openrouter/free` |
 | `internal/grounding` | ADA | Google Fact Check Tools + allowlist; hanya URL hasil pencarian AMBA yang bisa terverifikasi |

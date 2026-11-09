@@ -32,6 +32,10 @@ const (
 	ReasonShortenerHides  = "SHORTENER_HIDES"
 	ReasonSafeBrowsing    = "SAFE_BROWSING"
 	ReasonUnparseable     = "UNPARSEABLE"
+	// The page itself (TECH_SPEC §5): a form asking for a secret on a host
+	// that is not official, and the same under a brand's name.
+	ReasonPageAsksSecret    = "PAGE_ASKS_SECRET"
+	ReasonPageImpersonation = "PAGE_IMPERSONATION"
 )
 
 // HighSeverity reports codes that on their own say "this link imitates or
@@ -39,7 +43,8 @@ const (
 func HighSeverity(code string) bool {
 	switch code {
 	case ReasonLookalikeBrand, ReasonPunycode, ReasonIPHost, ReasonCredentials,
-		ReasonAtSymbol, ReasonShortenerHides, ReasonSafeBrowsing, ReasonUnparseable:
+		ReasonAtSymbol, ReasonShortenerHides, ReasonSafeBrowsing, ReasonUnparseable,
+		ReasonPageImpersonation:
 		return true
 	}
 	return false
@@ -277,6 +282,59 @@ func WithSafeBrowsingHit(r Result) Result {
 	r.Findings = append([]Finding{{Code: ReasonSafeBrowsing, Weight: 100}}, r.Findings...)
 	r.Score = 100
 	return r
+}
+
+// WithPage adds what the page itself shows. A form that asks for a password,
+// PIN, OTP or card number on a host that is not official is worth knowing
+// (PAGE_ASKS_SECRET, 20); the same form on a page that names a bank, wallet
+// or agency in its title is how phishing on hacked and free-hosting sites
+// looks, which the address alone cannot show (PAGE_IMPERSONATION, 45, as
+// strong as a lookalike domain).
+func WithPage(r Result, title, siteName string, asksSecret bool) Result {
+	if !asksSecret || r.Host == "" || IsOfficialHost(r.Host) {
+		return r
+	}
+	f := Finding{Code: ReasonPageAsksSecret, Weight: 20}
+	if brand, ok := titleBrand(title + " " + siteName); ok {
+		f = Finding{Code: ReasonPageImpersonation, Weight: 45, Detail: brand}
+	}
+	for _, have := range r.Findings {
+		if have.Code == f.Code {
+			return r
+		}
+	}
+	r.Findings = append(r.Findings, f)
+	r.Score = capScore(r.Score + f.Weight)
+	return r
+}
+
+// titleBrand finds a brand named in a page title, as a word or inside a
+// product name ("KlikBCA", "myBCA", "BNIDirect"). "dana", "pajak", "qris"
+// and "permata" are ordinary words in titles ("dana pensiun", "konsultan
+// pajak", "toko permata"), so they do not count, and "bri" and "ovo" only
+// count at the end of a word because ordinary words start with them
+// ("bridge", "oval").
+func titleBrand(text string) (string, bool) {
+	words := strings.FieldsFunc(strings.ToLower(text), func(r rune) bool {
+		return !unicode.IsLetter(r) && !unicode.IsDigit(r)
+	})
+	for _, w := range words {
+		for _, b := range brands {
+			switch {
+			case b == "dana" || b == "pajak" || b == "qris" || b == "permata":
+				continue
+			case w == b:
+				return b, true
+			case len(w) > len(b)+6:
+				continue
+			case strings.HasSuffix(w, b):
+				return b, true
+			case strings.HasPrefix(w, b) && b != "bri" && b != "ovo":
+				return b, true
+			}
+		}
+	}
+	return "", false
 }
 
 // hasMisleadingAt reports an "@" outside the authority that is not a social

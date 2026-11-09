@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 )
@@ -295,5 +296,46 @@ func TestRealWorldShapes(t *testing.T) {
 		if c.absent != "" && has[c.absent] {
 			t.Errorf("%s: %s must not fire, got %+v", c.url, c.absent, r.Findings)
 		}
+	}
+}
+
+// The page check adds a finding only for a secret-asking form on a host that
+// is not official, and names impersonation only when the title names a brand.
+func TestWithPage(t *testing.T) {
+	codes := func(r Result) string {
+		var out []string
+		for _, f := range r.Findings {
+			out = append(out, f.Code)
+		}
+		return strings.Join(out, ",")
+	}
+
+	hacked := Analyze("https://wisata-kita.example/wp-content/klik/")
+	got := WithPage(hacked, "KlikBCA Individual", "", true)
+	if !strings.Contains(codes(got), ReasonPageImpersonation) || got.Score != hacked.Score+45 || !HighSeverity(ReasonPageImpersonation) {
+		t.Fatalf("impersonation: %+v", got)
+	}
+	if again := WithPage(got, "KlikBCA Individual", "", true); again.Score != got.Score || len(again.Findings) != len(got.Findings) {
+		t.Fatalf("applied twice: %+v", again)
+	}
+	if got := WithPage(hacked, "Portal Siswa", "SMA Harapan", true); !strings.Contains(codes(got), ReasonPageAsksSecret) || got.Score != hacked.Score+20 {
+		t.Fatalf("secret form: %+v", got)
+	}
+	for _, title := range []string{"Dana Pensiun Guru", "Bridge Club Login", "Toko Permata Online", "Konsultan Pajak"} {
+		if got := WithPage(hacked, title, "", true); strings.Contains(codes(got), ReasonPageImpersonation) {
+			t.Errorf("%q does not name a brand: %+v", title, got)
+		}
+	}
+	for _, title := range []string{"BRImo", "Login myBCA", "BNIDirect", "Livin by Mandiri", "Masuk ke Shopee"} {
+		if got := WithPage(hacked, title, "", true); !strings.Contains(codes(got), ReasonPageImpersonation) {
+			t.Errorf("%q names a brand: %+v", title, got)
+		}
+	}
+	if got := WithPage(hacked, "KlikBCA Individual", "", false); got.Score != hacked.Score {
+		t.Fatalf("no form, no finding: %+v", got)
+	}
+	official := Analyze("https://ib.bri.co.id/login")
+	if got := WithPage(official, "BRI Internet Banking", "", true); got.Score != official.Score {
+		t.Fatalf("the bank's own login page: %+v", got)
 	}
 }

@@ -531,3 +531,23 @@ reliabilities are unchanged, and it never produces a verdict on its own.
 
 Vectors 15-17 (TECH_SPEC §3.5) pin the new behaviour. Revisit: with a
 labelled image set, or if the rubric scores drift on real traffic.
+
+## 2026-11-09 · The link check reads the destination page
+
+The phishing feed showed that phishing on hacked or free-hosting sites has
+nothing suspicious in its address. The page gives it away: a bank's name
+over a password field. When the redirect chain ends on a host that is not
+official, the pipeline now reads that page once (SSRF-safe client, at most
+512 KB, inside the 2.5 s link budget) and looks only at its title, site name
+and input fields. A field for a password, PIN, OTP, card number or CVV adds
+`PAGE_ASKS_SECRET` (20); with a brand named in the title it is
+`PAGE_IMPERSONATION` (45, high severity, as strong as a lookalike domain).
+Official domains are never fetched for this, and nothing of the page is
+kept. "dana", "pajak", "qris" and "permata" are ordinary words in titles, so
+they are not brands there.
+
+Trade-off: the server now loads a phishing page the user has not opened.
+Unrolling the link already requested it, so a scammer could already see a
+visit; the page is never rendered or stored. Not measured on live phishing
+pages: this environment cannot reach them. Revisit: after the first
+production week, with the reason counts from the metrics endpoint.

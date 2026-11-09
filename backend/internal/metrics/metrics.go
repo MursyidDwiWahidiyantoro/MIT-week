@@ -44,6 +44,9 @@ func New() *Registry {
 	r.help["amba_replies_total"] = "Balas Sopan replies by source (llm or template)."
 	r.help["amba_verifications_total"] = "Share-token verifications by result."
 	r.help["amba_telegram_updates_total"] = "Telegram updates handled, by kind."
+	r.help["amba_floors_total"] = "Verdict floors applied, by floor code."
+	r.help["amba_scam_patterns_total"] = "Scam patterns found by the deterministic rules, by pattern code."
+	r.help["amba_link_reasons_total"] = "Link reasons reported, by reason code."
 	r.durations["amba_audit_duration_seconds"] = &histogram{buckets: []float64{0.5, 1, 2, 3.5, 5, 8, 12}}
 	return r
 }

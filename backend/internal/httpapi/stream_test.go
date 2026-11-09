@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/amba/amba/backend/internal/config"
 	"github.com/amba/amba/backend/internal/models"
 	"github.com/amba/amba/backend/internal/scam"
 )
@@ -180,5 +181,34 @@ func TestScamMessageExplainsThePattern(t *testing.T) {
 	}
 	if !strings.Contains(d.Verdict.Explanation, scamText["ACCOUNT_THREAT"]) {
 		t.Fatalf("explanation = %q", d.Verdict.Explanation)
+	}
+}
+
+// The metrics endpoint counts which rules fired, by code only.
+func TestRuleCountersUseCodesOnly(t *testing.T) {
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	deps := NewDeps(cfg)
+	router := NewRouterWith(cfg, deps, nil)
+	text := "Akun BRImo Anda akan diblokir dalam 24 jam. Segera verifikasi data di brimo-verifikasi.my.id"
+	if rec := postJSONTo(t, router, "/api/v1/audit/text", `{"text":"`+text+`"}`, ""); rec.Code != http.StatusOK {
+		t.Fatalf("status = %d", rec.Code)
+	}
+	var out strings.Builder
+	deps.Metrics.Render(&out)
+	body := out.String()
+	for _, want := range []string{
+		`amba_scam_patterns_total{pattern="ACCOUNT_THREAT"} 1`,
+		`amba_floors_total{floor="SCAM_PATTERN"} 1`,
+		`amba_link_reasons_total{reason="LOOKALIKE_BRAND"} 1`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("missing %s in\n%s", want, body)
+		}
+	}
+	if strings.Contains(body, "brimo-verifikasi") || strings.Contains(body, "diblokir") {
+		t.Fatal("user content reached the metrics")
 	}
 }

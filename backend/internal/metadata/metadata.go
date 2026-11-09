@@ -262,11 +262,24 @@ func (r *Resolver) opengraph(ctx context.Context, rawURL, platform string) (Meta
 	if err != nil && len(raw) == 0 {
 		return Metadata{}, err
 	}
-	doc := strings.ToValidUTF8(string(raw), "")
-	if i := strings.Index(strings.ToLower(doc), "</head>"); i > 0 {
-		doc = doc[:i]
+	m := readHead(head(strings.ToValidUTF8(string(raw), "")))
+	if isSocial(platform) && genericSocialTitle(m.Title) && m.Description == "" {
+		// "Instagram", "Log in • Instagram": the login page, not the post.
+		return Metadata{}, errBlocked
 	}
+	return m, nil
+}
 
+// head returns the document up to </head>, where the tags live.
+func head(doc string) string {
+	if i := strings.Index(strings.ToLower(doc), "</head>"); i > 0 {
+		return doc[:i]
+	}
+	return doc
+}
+
+// readHead reads the OpenGraph, Twitter and plain tags of a page head.
+func readHead(doc string) Metadata {
 	meta := map[string]string{}
 	for _, tag := range metaTag.FindAllString(doc, 200) {
 		key := strings.ToLower(attr(tag, "property"))
@@ -286,24 +299,66 @@ func (r *Resolver) opengraph(ctx context.Context, rawURL, platform string) (Meta
 			title = t[1]
 		}
 	}
-	m := Metadata{
+	return Metadata{
 		Title:       clean(title, maxTitle),
 		Description: clean(first(meta["og:description"], meta["twitter:description"], meta["description"]), maxDescription),
 		SiteName:    clean(meta["og:site_name"], maxSite),
 		Author:      clean(first(meta["author"], meta["article:author"]), maxAuthor),
 	}
-	if isSocial(platform) && genericSocialTitle(m.Title) && m.Description == "" {
-		// "Instagram", "Log in • Instagram": the login page, not the post.
-		return Metadata{}, errBlocked
+}
+
+// Page is what a web page shows a visitor, as far as the link check needs
+// it: its name and whether it asks for a secret.
+type Page struct {
+	Title    string
+	SiteName string
+	// AsksSecret is true when the page has a field for a password, PIN,
+	// OTP, card number or CVV.
+	AsksSecret bool
+}
+
+// Inspect reads a web page (at most 512 KB) the way a visitor's browser
+// would receive it and reports its name and whether it asks for a secret.
+// Nothing else of the page is kept.
+func (r *Resolver) Inspect(ctx context.Context, rawURL string) (Page, error) {
+	resp, err := r.get(ctx, rawURL)
+	if err != nil {
+		return Page{}, err
 	}
-	return m, nil
+	defer func() { _ = resp.Body.Close() }()
+	ct := strings.ToLower(resp.Header.Get("Content-Type"))
+	if ct != "" && !strings.Contains(ct, "html") {
+		return Page{}, errors.New("not a web page")
+	}
+	raw, err := io.ReadAll(io.LimitReader(resp.Body, maxHeadScan))
+	if err != nil && len(raw) == 0 {
+		return Page{}, err
+	}
+	doc := strings.ToValidUTF8(string(raw), "")
+	m := readHead(head(doc))
+	return Page{Title: m.Title, SiteName: m.SiteName, AsksSecret: asksSecret(doc)}, nil
+}
+
+// asksSecret finds an input for a password, PIN, OTP, card number or CVV:
+// by its type, its autocomplete hint, or its name, id, placeholder or label.
+func asksSecret(doc string) bool {
+	for _, tag := range inputTag.FindAllString(doc, 200) {
+		if secretInput.MatchString(tag) {
+			return true
+		}
+	}
+	return false
 }
 
 var (
-	metaTag   = regexp.MustCompile(`(?is)<meta\s[^>]*>`)
-	titleTag  = regexp.MustCompile(`(?is)<title[^>]*>(.*?)</title>`)
-	paragraph = regexp.MustCompile(`(?is)<p[^>]*>(.*?)</p>`)
-	anyTag    = regexp.MustCompile(`(?s)<[^>]*>`)
+	metaTag  = regexp.MustCompile(`(?is)<meta\s[^>]*>`)
+	inputTag = regexp.MustCompile(`(?is)<input\b[^>]*>`)
+	// A secret field: type=password, autocomplete one-time-code or cc-*, or
+	// a name, id, placeholder or label naming the secret.
+	secretInput = regexp.MustCompile(`(?is)\btype\s*=\s*["']?password\b|\bautocomplete\s*=\s*["']?(?:one-time-code|cc-number|cc-csc|current-password)\b|\b(?:name|id|placeholder|aria-label)\s*=\s*["']?[^"'>]*?(?:password|passwd|kata\s*sandi|\bpin\b|\bmpin\b|\botp\b|kode\s*(?:otp|verifikasi|aktivasi|rahasia)|\bcvv\b|\bcvc\b|card.?number|nomor\s*kartu|no\.?\s*kartu)`)
+	titleTag    = regexp.MustCompile(`(?is)<title[^>]*>(.*?)</title>`)
+	paragraph   = regexp.MustCompile(`(?is)<p[^>]*>(.*?)</p>`)
+	anyTag      = regexp.MustCompile(`(?s)<[^>]*>`)
 )
 
 var attrPatterns = map[string]*regexp.Regexp{}
