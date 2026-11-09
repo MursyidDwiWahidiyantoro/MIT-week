@@ -323,6 +323,8 @@ export const en: Record<MessageKey, string> = {
   "reason.MANY_SUBDOMAINS": "Too many subdomains",
   "reason.NONSTANDARD_PORT": "The link uses an unusual port",
   "reason.NO_HTTPS": "The link does not use a secure connection",
+  "reason.PAGE_ASKS_SECRET": "The page asks for a password, PIN, OTP or card number",
+  "reason.PAGE_IMPERSONATION": "The page uses a popular service's name and asks for a password or code",
   "reason.PUNYCODE": "The domain uses characters that look like normal letters",
   "reason.SAFE_BROWSING": "Listed as dangerous by Google Safe Browsing",
   "reason.SCAM_KEYWORDS": "The site name contains bait words such as prize or aid",

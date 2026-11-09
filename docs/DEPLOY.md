@@ -256,6 +256,11 @@ buka tautan bagikan di perangkat lain, dan bagikan dari menu Share Android ke AM
   misalnya `fact check search call failed reason=http_status status=403`.
 - **Metrik** (penghitung anonim, opsional): set `METRICS_ADDR=0.0.0.0:9091` dan
   aktifkan blok `[metrics]` yang sudah disiapkan di `fly.toml`. Port metrik tidak publik.
+  Selain jumlah audit per status, ada hitungan per kode aturan:
+  `amba_floors_total{floor}`, `amba_scam_patterns_total{pattern}`, dan
+  `amba_link_reasons_total{reason}`. Isinya hanya kode, tidak pernah teks atau
+  tautan. Pakai hitungan ini untuk melihat aturan mana yang sering memicu alarm
+  palsu (laporan pengguna) dan aturan mana yang tidak pernah terpakai.
 - **Rate limit**: 15 permintaan per menit per pengguna (burst 5) dan 32 audit
   bersamaan per server (TECH_SPEC §7.3).
 - **Skala**: satu mesin `shared-cpu-1x` 512 MB cukup untuk demo. Untuk beban

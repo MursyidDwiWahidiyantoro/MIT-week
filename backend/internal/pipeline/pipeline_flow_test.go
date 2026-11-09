@@ -308,3 +308,31 @@ func tinyPNG(t *testing.T) []byte {
 	// 2x2 PNG, generated once with image/png.
 	return []byte{0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x02, 0x08, 0x02, 0x00, 0x00, 0x00, 0xfd, 0xd4, 0x9a, 0x73, 0x00, 0x00, 0x00, 0x16, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9c, 0x62, 0xf8, 0xcf, 0xc0, 0xc0, 0xf0, 0x9f, 0x81, 0x81, 0x01, 0x10, 0x00, 0x00, 0xff, 0xff, 0x1d, 0xec, 0x03, 0xfd, 0x7e, 0x3f, 0x8b, 0x28, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82}
 }
+
+// Phishing on a hacked or free-hosting site has no tell-tale in its address;
+// the page itself (a bank's name over a password field) gives it away.
+func TestPhishingPageOnAnOrdinaryHost(t *testing.T) {
+	p, srv := pipelineWithFetch(t, true, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		if r.Method == http.MethodHead {
+			return
+		}
+		_, _ = w.Write([]byte(`<html><head><title>KlikBCA Individual</title></head><body><form><input name="user_id"><input type="password" name="pin"></form></body></html>`))
+	})
+	defer srv.Close()
+
+	res := p.Run(context.Background(), Request{InputType: models.InputText, Text: "Cek mutasi di https://wisata-kita.example/wp-content/klik/"})
+	link := res.Pillars.Link
+	found := false
+	for _, r := range link.Reasons {
+		if r.Code == linkcheck.ReasonPageImpersonation && r.Text != "" {
+			found = true
+		}
+	}
+	if !found || link.Score < 45 {
+		t.Fatalf("link = %+v", link)
+	}
+	if v := Verdict(res, false); v.Status == models.StatusSafe || v.Status == models.StatusInsufficient {
+		t.Fatalf("verdict = %+v", v)
+	}
+}

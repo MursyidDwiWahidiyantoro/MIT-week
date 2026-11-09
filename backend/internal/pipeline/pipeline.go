@@ -416,10 +416,21 @@ func (p *Pipeline) runLink(ctx context.Context, target string) (models.LinkPilla
 
 	analysis := linkcheck.Analyze(target)
 	chain := []string{target}
-	if hops, final, err := linkcheck.Unroll(lctx, p.NewFetchClient(p.LinkDeadline), target, 3); len(hops) > 0 {
+	client := p.NewFetchClient(p.LinkDeadline)
+	reached := false
+	if hops, final, err := linkcheck.Unroll(lctx, client, target, 3); len(hops) > 0 {
 		chain = hops
+		reached = err == nil
 		if err == nil && final != target {
 			analysis = linkcheck.Combine(analysis, linkcheck.Analyze(final))
+		}
+	}
+	// What the destination page shows: a form asking for a password, PIN,
+	// OTP or card number, perhaps under a bank's name. Official sites are
+	// not fetched; the page read stays inside the link budget.
+	if reached && !linkcheck.IsOfficialHost(analysis.Host) {
+		if page, err := metadata.New(client).Inspect(lctx, chain[len(chain)-1]); err == nil {
+			analysis = linkcheck.WithPage(analysis, page.Title, page.SiteName, page.AsksSecret)
 		}
 	}
 
@@ -631,6 +642,10 @@ func LinkReasonText(code string) string {
 		return "Tercatat sebagai situs berbahaya oleh Google Safe Browsing"
 	case linkcheck.ReasonUnparseable:
 		return "Alamat tautan tidak dapat dibaca"
+	case linkcheck.ReasonPageAsksSecret:
+		return "Halaman meminta kata sandi, PIN, OTP, atau nomor kartu"
+	case linkcheck.ReasonPageImpersonation:
+		return "Halaman memakai nama layanan populer dan meminta kata sandi atau kode"
 	default:
 		return "Tanda mencurigakan pada tautan"
 	}

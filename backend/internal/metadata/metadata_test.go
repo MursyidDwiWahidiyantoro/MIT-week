@@ -214,3 +214,45 @@ func rewriteTo(srv *httptest.Server) *http.Client {
 type roundTripper func(*http.Request) (*http.Response, error)
 
 func (f roundTripper) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+// Inspect reports a field for a password, PIN, OTP, card number or CVV, and
+// nothing for ordinary inputs.
+func TestInspectFindsSecretFields(t *testing.T) {
+	pages := map[string]struct {
+		html  string
+		asks  bool
+		title string
+	}{
+		"/password": {`<html><head><title>Login BRImo</title></head><body><form><input type="text" name="user"><input type="password" name="pw"></form></body></html>`, true, "Login BRImo"},
+		"/otp":      {`<html><head><meta property="og:title" content="Verifikasi"></head><body><input name="kode" placeholder="Masukkan kode OTP"></body></html>`, true, "Verifikasi"},
+		"/ac":       {`<html><body><input autocomplete="one-time-code"></body></html>`, true, ""},
+		"/card":     {`<html><body><input id="cardNumber" placeholder="Nomor kartu"><input name="cvv"></body></html>`, true, ""},
+		"/pin":      {`<html><body><label>PIN</label><input type=tel name=pin maxlength=6></body></html>`, true, ""},
+		"/loan":     {`<html><head><title>Simulasi pinjaman</title></head><body><input name="pinjaman" placeholder="Jumlah pinjaman"></body></html>`, false, "Simulasi pinjaman"},
+		"/news":     {`<html><head><title>Berita</title></head><body><input type="email" name="newsletter" placeholder="Email Anda"><input type="search" name="q"></body></html>`, false, "Berita"},
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/image" {
+			w.Header().Set("Content-Type", "image/png")
+			_, _ = w.Write([]byte("png"))
+			return
+		}
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = w.Write([]byte(pages[r.URL.Path].html))
+	}))
+	defer srv.Close()
+	r := testResolver(srv)
+
+	for path, want := range pages {
+		page, err := r.Inspect(context.Background(), srv.URL+path)
+		if err != nil {
+			t.Fatalf("%s: %v", path, err)
+		}
+		if page.AsksSecret != want.asks || page.Title != want.title {
+			t.Errorf("%s: %+v, want asks=%v title=%q", path, page, want.asks, want.title)
+		}
+	}
+	if _, err := r.Inspect(context.Background(), srv.URL+"/image"); err == nil {
+		t.Error("an image is not a web page")
+	}
+}

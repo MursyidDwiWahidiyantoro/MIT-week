@@ -324,6 +324,8 @@ export const id = {
   "reason.MANY_SUBDOMAINS": "Terlalu banyak subdomain",
   "reason.NONSTANDARD_PORT": "Tautan memakai port tidak biasa",
   "reason.NO_HTTPS": "Tautan tidak memakai koneksi aman",
+  "reason.PAGE_ASKS_SECRET": "Halaman meminta kata sandi, PIN, OTP, atau nomor kartu",
+  "reason.PAGE_IMPERSONATION": "Halaman memakai nama layanan populer dan meminta kata sandi atau kode",
   "reason.PUNYCODE": "Nama domain memakai karakter yang mirip huruf biasa",
   "reason.SAFE_BROWSING": "Tercatat sebagai situs berbahaya oleh Google Safe Browsing",
   "reason.SCAM_KEYWORDS": "Nama situs memuat kata umpan seperti hadiah atau bansos",

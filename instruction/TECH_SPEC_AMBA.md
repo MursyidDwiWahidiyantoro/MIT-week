@@ -218,6 +218,8 @@ Deterministic, each rule adds capped points; final `S_Link = min(100, Σ)`.
 | `AT_SIGN` / `DEEP_SUBDOMAIN` | `@` in authority; > 4 labels | 20 / 10 |
 | `NO_HTTPS` | scheme http | 10 |
 | `SAFE_BROWSING` | Google Safe Browsing v4 Lookup hit (optional, env key) | → 100 |
+| `PAGE_ASKS_SECRET` | the destination page (not on an official domain) has a field for a password, PIN, OTP, card number or CVV | 20 |
+| `PAGE_IMPERSONATION` | the same form on a page whose title or site name names a brand from the list (as a word or inside a product name such as "KlikBCA") | 45 |
 
 Redirect unrolling: max 3 hops through the SSRF-safe client, `HEAD` then `GET` with `Range: bytes=0-0` fallback, record chain. Official-domain allowlist (e.g. `kompas.com`, `antaranews.com`, `go.id`) reduces `LOOKALIKE_BRAND` false positives. Table tests with ≥ 25 URLs (good and bad).
 
@@ -230,6 +232,7 @@ Implementation notes (2026-11-08; the weights in `internal/linkcheck` and its ta
 - `SHORTENER_HIDES` (+15) is added when the unrolled final host is a different site rated ≥ 30; the score is computed on the final URL.
 - A Safe Browsing hit on any URL of the redirect chain sets `S_Link = 100` and the `LINK_MALICIOUS` floor. A failed lookup is not a hit and is not reported as one.
 - A URL found in the model's OCR of a screenshot gets the same link pillar as a pasted URL.
+- Page check (2026-11-09): when the redirect chain ends on a host that is not official, the destination page is read once through the SSRF-safe client (≤ 512 KB, inside the link budget) and only its title, site name and input fields are looked at. It catches phishing on hacked or free-hosting sites, whose address has no tell-tale. "dana", "pajak", "qris" and "permata" are ordinary words in titles and do not count as brands there; "bri" and "ovo" only count at the end of a word. `PAGE_IMPERSONATION` is high severity. Not measured on live phishing pages yet (the development environment cannot reach them).
 
 ---
 
@@ -344,7 +347,7 @@ Read at most 10 MB + 1; verify magic bytes (JPEG `FFD8FF`, PNG `89504E47`, WebP 
 Frontend puts token in the **URL fragment** (`/hasil#t=…`) so servers/CDNs never see it; it POSTs to `/verify` in the body.
 
 ### 7.6 Logging / metrics
-Only the anonymous line format from v9 §14.2 plus counters; no URLs, titles, IPs. Metrics on a separate internal listener (`METRICS_ADDR`, default off; Prometheus text at `/metrics`, labels are fixed enums). A failed upstream call (LLM gateway, Fact Check Tools, Safe Browsing) logs only the service, a reason (`timeout | transport | http_status | unreadable_response`) and the HTTP status: never the request URL, which carries keys and user queries.
+Only the anonymous line format from v9 §14.2 plus counters; no URLs, titles, IPs. Metrics on a separate internal listener (`METRICS_ADDR`, default off; Prometheus text at `/metrics`, labels are fixed enums): audits by input type and status, degraded audits, durations, rate limiting, replies, verifications, Telegram updates, and per-rule counts by code (`amba_floors_total`, `amba_scam_patterns_total`, `amba_link_reasons_total`). A failed upstream call (LLM gateway, Fact Check Tools, Safe Browsing) logs only the service, a reason (`timeout | transport | http_status | unreadable_response`) and the HTTP status: never the request URL, which carries keys and user queries.
 
 ---
 

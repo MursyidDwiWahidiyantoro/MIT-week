@@ -130,6 +130,17 @@ func (h *handlers) runAudit(w http.ResponseWriter, r *http.Request, req pipeline
 		writeJSON(w, http.StatusOK, dossier)
 	}
 	h.metrics.Inc("amba_audits_total", "input_type", string(req.InputType), "status", string(dossier.Verdict.Status))
+	// Codes only, never content: how often each rule fires in production is
+	// what tells a false alarm from a useful rule.
+	for _, floor := range dossier.Verdict.FloorsApplied {
+		h.metrics.Inc("amba_floors_total", "floor", floor)
+	}
+	if p := dossier.Verdict.ScamPattern; p != nil {
+		h.metrics.Inc("amba_scam_patterns_total", "pattern", *p)
+	}
+	for _, reason := range dossier.Pillars.Link.Reasons {
+		h.metrics.Inc("amba_link_reasons_total", "reason", reason.Code)
+	}
 	if dossier.Degraded {
 		h.metrics.Inc("amba_audits_degraded_total")
 	}
