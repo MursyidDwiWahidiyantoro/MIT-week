@@ -14,6 +14,7 @@ import (
 	"github.com/amba/amba/backend/internal/models"
 	"github.com/amba/amba/backend/internal/pipeline"
 	"github.com/amba/amba/backend/internal/security"
+	"github.com/amba/amba/backend/internal/video"
 )
 
 // auditRequest is the JSON body for the url route.
@@ -95,7 +96,15 @@ func (h *handlers) runAudit(w http.ResponseWriter, r *http.Request, req pipeline
 	}
 	defer h.limiter.ReleaseInFlight()
 
-	ctx, cancel := context.WithTimeout(r.Context(), h.cfg.HardTimeout)
+	// A social video link is downloaded and analysed frame by frame: it gets
+	// its own, longer budget.
+	timeout := h.cfg.HardTimeout
+	if req.InputType == models.InputURL && h.pipeline.Video != nil && h.pipeline.Video.Enabled() {
+		if _, ok := video.Platform(req.URL); ok && h.cfg.VideoTimeout > timeout {
+			timeout = h.cfg.VideoTimeout
+		}
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), timeout)
 	defer cancel()
 	started := time.Now()
 
@@ -264,6 +273,7 @@ func BuildDossier(key []byte, res pipeline.Result, req pipeline.Request) models.
 		Tactics:         res.Tactics,
 		SourceMetadata:  res.Metadata,
 		OCRText:         res.OCRText,
+		Video:           res.Video,
 	}
 	// The wire contract says these are arrays. Go marshals a nil slice as
 	// null, which every strict client rejects; normalise before signing.

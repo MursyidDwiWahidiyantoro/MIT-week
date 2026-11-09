@@ -36,8 +36,15 @@ type Config struct {
 	DomainAge   bool
 	MaxUploadMB int64
 	HardTimeout time.Duration
-	CacheTTL    time.Duration
-	MetricsAddr string
+	// VideoTimeout is the budget of a social video link audit (download,
+	// keyframes, model): VIDEO_TIMEOUT_MS, default 60 s.
+	VideoTimeout time.Duration
+	// LLMAudioInput / FallbackAudioInput: the gateway takes audio parts
+	// (LLM_AUDIO_INPUT, LLM_FALLBACK_AUDIO_INPUT; Gemini via 9router does).
+	LLMAudioInput      bool
+	FallbackAudioInput bool
+	CacheTTL           time.Duration
+	MetricsAddr        string
 	// ClientIPHeader names the header a trusted proxy puts the client address
 	// in (Fly-Client-IP on Fly.io, X-Real-IP on Railway).
 	ClientIPHeader string
@@ -134,6 +141,20 @@ func Load() (*Config, error) {
 		errs = append(errs, errors.New("HARD_TIMEOUT_MS: must be an integer between 1000 and 60000"))
 	}
 	c.HardTimeout = time.Duration(ms) * time.Millisecond
+
+	vms, err := strconv.Atoi(env("VIDEO_TIMEOUT_MS", "60000"))
+	if err != nil || vms < 10000 || vms > 120000 {
+		errs = append(errs, errors.New("VIDEO_TIMEOUT_MS: must be an integer between 10000 and 120000"))
+	}
+	c.VideoTimeout = time.Duration(vms) * time.Millisecond
+	c.LLMAudioInput, err = strconv.ParseBool(env("LLM_AUDIO_INPUT", "false"))
+	if err != nil {
+		errs = append(errs, errors.New("LLM_AUDIO_INPUT: must be true or false"))
+	}
+	c.FallbackAudioInput, err = strconv.ParseBool(env("LLM_FALLBACK_AUDIO_INPUT", "false"))
+	if err != nil {
+		errs = append(errs, errors.New("LLM_FALLBACK_AUDIO_INPUT: must be true or false"))
+	}
 
 	ttl, err := strconv.Atoi(env("CACHE_TTL_SECONDS", "600"))
 	if err != nil || ttl < 0 {
