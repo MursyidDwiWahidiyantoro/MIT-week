@@ -3,10 +3,13 @@ package llm
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
 )
 
 func textInput(s string) Input { return Input{Type: "URL", Content: s} }
@@ -263,6 +266,67 @@ func TestMissingCredentialsReturnsUnavailable(t *testing.T) {
 	c := New("http://localhost:1", "", "", false)
 	if _, err := c.Analyze(context.Background(), textInput("x")); err == nil {
 		t.Fatal("expected an error without credentials")
+	}
+}
+
+func TestFallbackAnswersAndTheFailedGatewayIsSkipped(t *testing.T) {
+	var primaryHits int32
+	primary := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		atomic.AddInt32(&primaryHits, 1)
+		w.WriteHeader(530) // the tunnel's origin is down
+	}))
+	defer primary.Close()
+	fb := gateway(t, "from fallback", nil)
+	defer fb.Close()
+
+	c := New(primary.URL, "k", "m", false)
+	c.Fallback = New(fb.URL, "k", "m2", false)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	for i := 0; i < 2; i++ {
+		out, err := c.complete(ctx, nil, "x", `{}`, 0)
+		if err != nil || out != "from fallback" {
+			t.Fatalf("call %d: got %q, %v", i, out, err)
+		}
+	}
+	if n := atomic.LoadInt32(&primaryHits); n != 1 {
+		t.Fatalf("failed gateway called %d times, want 1 and then skipped", n)
+	}
+}
+
+func TestSlowGatewayLeavesTimeForTheFallback(t *testing.T) {
+	primary := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		_, _ = io.Copy(io.Discard, r.Body) // lets the server notice the client giving up
+		select {
+		case <-r.Context().Done():
+		case <-time.After(5 * time.Second):
+		}
+	}))
+	defer primary.Close()
+	fb := gateway(t, "from fallback", nil)
+	defer fb.Close()
+
+	c := New(primary.URL, "k", "m", false)
+	c.Fallback = New(fb.URL, "k", "m2", false)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	if out, err := c.complete(ctx, nil, "x", `{}`, 0); err != nil || out != "from fallback" {
+		t.Fatalf("got %q, %v", out, err)
+	}
+}
+
+func TestHealthyGatewayNeverCallsTheFallback(t *testing.T) {
+	primary := gateway(t, "from primary", nil)
+	defer primary.Close()
+	var fbHits int32
+	fb := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) { atomic.AddInt32(&fbHits, 1) }))
+	defer fb.Close()
+
+	c := New(primary.URL, "k", "m", false)
+	c.Fallback = New(fb.URL, "k", "m2", false)
+	out, err := c.complete(context.Background(), nil, "x", `{}`, 0)
+	if err != nil || out != "from primary" || atomic.LoadInt32(&fbHits) != 0 {
+		t.Fatalf("got %q, %v, fallback calls %d", out, err, atomic.LoadInt32(&fbHits))
 	}
 }
 

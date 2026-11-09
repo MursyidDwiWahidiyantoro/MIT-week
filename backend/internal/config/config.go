@@ -47,6 +47,12 @@ type Config struct {
 	// LLMExtraBody holds gateway-specific fields merged into every model
 	// request (LLM_EXTRA_BODY, a JSON object), e.g. OpenRouter fallbacks.
 	LLMExtraBody map[string]any
+	// Fallback gateway (LLM_FALLBACK_*), tried when the first one fails:
+	// base URL, key and model together, or none.
+	FallbackBaseURL string
+	FallbackAPIKey  string
+	FallbackModel   string
+	FallbackExtra   map[string]any
 	// Telegram bot (PRD P2). Empty token disables it.
 	TelegramToken      string
 	TelegramSecret     string
@@ -177,6 +183,19 @@ func Load() (*Config, error) {
 	if raw := strings.TrimSpace(os.Getenv("LLM_EXTRA_BODY")); raw != "" {
 		if err := json.Unmarshal([]byte(raw), &c.LLMExtraBody); err != nil || c.LLMExtraBody == nil {
 			errs = append(errs, errors.New("LLM_EXTRA_BODY: must be a JSON object, e.g. {\"reasoning\":{\"enabled\":false}}"))
+		}
+	}
+	c.FallbackBaseURL = strings.TrimRight(strings.TrimSpace(os.Getenv("LLM_FALLBACK_BASE_URL")), "/")
+	c.FallbackAPIKey = os.Getenv("LLM_FALLBACK_API_KEY")
+	c.FallbackModel = strings.TrimSpace(os.Getenv("LLM_FALLBACK_MODEL"))
+	someSet := c.FallbackBaseURL != "" || c.FallbackAPIKey != "" || c.FallbackModel != ""
+	allSet := c.FallbackBaseURL != "" && c.FallbackAPIKey != "" && c.FallbackModel != ""
+	if someSet && !allSet {
+		errs = append(errs, errors.New("LLM_FALLBACK_BASE_URL, LLM_FALLBACK_API_KEY, LLM_FALLBACK_MODEL: set all three or none"))
+	}
+	if raw := strings.TrimSpace(os.Getenv("LLM_FALLBACK_EXTRA_BODY")); raw != "" {
+		if err := json.Unmarshal([]byte(raw), &c.FallbackExtra); err != nil || c.FallbackExtra == nil {
+			errs = append(errs, errors.New("LLM_FALLBACK_EXTRA_BODY: must be a JSON object"))
 		}
 	}
 

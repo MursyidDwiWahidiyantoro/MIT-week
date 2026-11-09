@@ -208,7 +208,7 @@ request ctx (12 s hard deadline)
  │    preview  : 1.5 s  (URL only; the og:image/twitter:image/oEmbed thumbnail, ≤ 5 MB, via the SSRF client, validated like an upload) → Jejak AI of the preview image
  │    provenance       (FILE, or the preview image: metadata blocks only, synchronous) → Jejak AI
  │    detector : 4 s    (optional, beside the model, same image) → Jejak AI
- │    llm      : 9 s    (HARD_TIMEOUT_MS - 3 s when that is larger; one structured call: claim, search_query, ai score, anomalies, OCR, tactics)
+ │    llm      : 9 s    (HARD_TIMEOUT_MS - 3 s when that is larger; with LLM_FALLBACK_* the first gateway gets all but the last 9 s, never under half, and a failure hands the call to the fallback and skips the first gateway for 60 s; one structured call: claim, search_query, ai score, anomalies, OCR, tactics)
  │    text     : 1.5 s  (after the model, on its anomaly boxes: Timpa Teks evidence, §3.4)
  │    search   : 2.5 s  (Fact Check Tools `claims:search` with the model's `search_query`, allowlist-filtered)
  │    classify : 3 s    (second structured call: CONTRADICTS/SUPPORTS/UNVERIFIED per search result)

@@ -167,6 +167,18 @@ func TestTrustedProxyParsing(t *testing.T) {
 	}
 }
 
+func TestFallbackNeedsURLKeyAndModel(t *testing.T) {
+	setEnv(t, map[string]string{"LLM_FALLBACK_BASE_URL": "https://openrouter.ai/api/v1/", "LLM_FALLBACK_MODEL": "m"})
+	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "LLM_FALLBACK") {
+		t.Fatalf("want LLM_FALLBACK error, got %v", err)
+	}
+	setEnv(t, map[string]string{"LLM_FALLBACK_API_KEY": "k", "LLM_FALLBACK_EXTRA_BODY": `{"reasoning":{"enabled":false}}`})
+	cfg, err := Load()
+	if err != nil || cfg.FallbackBaseURL != "https://openrouter.ai/api/v1" || cfg.FallbackModel != "m" || cfg.FallbackExtra["reasoning"] == nil {
+		t.Fatalf("cfg = %+v err = %v", cfg, err)
+	}
+}
+
 func TestLLMBudgetFollowsHardTimeout(t *testing.T) {
 	for _, tc := range []struct{ hard, want time.Duration }{
 		{12 * time.Second, 9 * time.Second},
