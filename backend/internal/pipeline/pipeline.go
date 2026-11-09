@@ -10,6 +10,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"net/http"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -22,6 +23,7 @@ import (
 	"github.com/amba/amba/backend/internal/llm"
 	"github.com/amba/amba/backend/internal/metadata"
 	"github.com/amba/amba/backend/internal/models"
+	"github.com/amba/amba/backend/internal/scam"
 	"github.com/amba/amba/backend/internal/scoring"
 	"github.com/amba/amba/backend/internal/security"
 	"github.com/amba/amba/backend/internal/tactics"
@@ -52,6 +54,9 @@ type Result struct {
 	InjectionSuspected bool
 	// LinkMalicious is set on a Safe Browsing hit (floor 2).
 	LinkMalicious bool
+	// ScamPattern is the deterministic scam pattern found in the message,
+	// the link's caption or the image's text (floor 2b, internal/scam).
+	ScamPattern string
 	// ELAHotspots and AIAnomalies are the evidence the ELA_CORROBORATED floor
 	// compares; they are not serialised to the client.
 	ELAHotspots []scoring.Box
@@ -252,6 +257,19 @@ func (p *Pipeline) RunStream(ctx context.Context, req Request, emit func(Event))
 		}
 		in.Content = content
 
+		// The scam rules need no model, so they run first and their result
+		// survives a model that is down or out of quota: the message, the
+		// link's caption, or the text the client read from the image.
+		label := "text"
+		if req.InputType == models.InputFile {
+			label = "ocr"
+		}
+		rules := scam.Analyze(tacticSource)
+		mu.Lock()
+		res.ScamPattern = rules.Pattern
+		res.Tactics = tactics.Verify(rules.Tactics(label), tacticSource)
+		mu.Unlock()
+
 		lctx, cancel := withBudget(gctx, p.LLMDeadline)
 		f, err := p.LLM.Analyze(lctx, in)
 		cancel()
@@ -276,12 +294,16 @@ func (p *Pipeline) RunStream(ctx context.Context, req Request, emit func(Event))
 		}
 
 		// Tactics are verified against the text the user can see: the
-		// message, the link's caption, or the model's own OCR of the image.
-		candidates := make([]models.Tactic, 0, len(f.Tactics))
-		source, label := tacticSource, "text"
+		// message, the link's caption, or the model's own OCR of the image,
+		// which is also where the scam rules look once the model has read it.
+		source := tacticSource
 		if req.InputType == models.InputFile && f.OCRText != "" {
-			source, label = f.OCRText, "ocr"
+			source = f.OCRText
+			if ocrRules := scam.Analyze(f.OCRText); ocrRules.Pattern != "" || len(ocrRules.Hits) > 0 {
+				rules = ocrRules
+			}
 		}
+		candidates := rules.Tactics(label)
 		for _, t := range f.Tactics {
 			candidates = append(candidates, models.Tactic{Code: t.Code, Phrase: t.Phrase, Source: label})
 		}
@@ -292,6 +314,9 @@ func (p *Pipeline) RunStream(ctx context.Context, req Request, emit func(Event))
 		res.AIAnomalies = anomalies
 		modelBoxes = f.TextAnomalies
 		res.Tactics = found
+		if rules.Pattern != "" {
+			res.ScamPattern = rules.Pattern
+		}
 		res.InjectionSuspected = f.InjectionSuspected
 		if req.InputType == models.InputFile {
 			res.OCRText = f.OCRText
@@ -537,6 +562,7 @@ func Verdict(res Result, injectionSuspected bool) models.Verdict {
 		InjectionSuspected: injectionSuspected,
 		ELAHotspots:        res.ELAHotspots,
 		AIAnomalies:        res.AIAnomalies,
+		ScamPattern:        res.ScamPattern,
 	}
 	if res.Pillars.Fact.Available && res.Pillars.Fact.Status == models.FactContradicts {
 		for _, s := range res.Pillars.Fact.Sources {
@@ -686,10 +712,11 @@ func (p *Pipeline) CacheLen() int {
 	return p.order.Len()
 }
 
-// firstURL returns the first http(s) URL in a message, so a forwarded text
-// audit can still exercise the link-safety pillar (PRD F4). It deliberately
-// stops at whitespace or a quote: a partial URL is better than none, and the
-// heuristics treat an unparseable string as maximally suspicious.
+// firstURL returns the first link in a message, so a forwarded text gets the
+// link pillar too (PRD F4). Scam SMS usually write links without a scheme
+// ("klik bri-verifikasi.my.id", "bit.ly/abc"); those are read as https, so
+// the missing scheme is not counted against the link. An e-mail address is
+// not a link.
 func firstURL(text string) string {
 	for _, field := range strings.Fields(text) {
 		field = strings.Trim(field, "\"'()[]<>,.;!?")
@@ -698,8 +725,18 @@ func firstURL(text string) string {
 			return field
 		}
 	}
+	for _, loc := range bareLink.FindAllStringIndex(text, 8) {
+		if loc[0] > 0 && (text[loc[0]-1] == '@' || text[loc[0]-1] == '.' || text[loc[0]-1] == '/') {
+			continue
+		}
+		return "https://" + strings.TrimRight(text[loc[0]:loc[1]], ".,;:!?")
+	}
 	return ""
 }
+
+// bareLink is a host name with a common or abused top-level domain, with an
+// optional path, written without a scheme.
+var bareLink = regexp.MustCompile(`(?i)\b(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+(?:com|net|org|id|co|io|me|ly|xyz|top|site|online|link|info|shop|store|click|icu|live|cc|app|vip|biz|website|space|fun|tk|ml|ga|cf|gq|pw|cfd|sbs|cyou|lol|bond|buzz|rest|cam|monster|club|pro|asia|win|work|life|tech)\b(?:/[^\s"'<>()\[\]]*)?`)
 
 // tracker turns pillar work into ordered progress events and guarantees that
 // every pillar ends with exactly one terminal event.

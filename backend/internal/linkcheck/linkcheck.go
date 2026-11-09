@@ -481,6 +481,22 @@ func lastLabel(host string) string {
 // Registrable approximates the eTLD+1 for the TLDs this project cares about.
 func Registrable(host string) string { return registrable(strings.ToLower(host)) }
 
+// IsOfficialHost reports a host on a reviewed official domain (a brand, an
+// agency or a reviewed publisher) or under a suffix only vetted institutions
+// can register (.go.id, .ac.id, ...).
+func IsOfficialHost(host string) bool {
+	host = strings.ToLower(strings.TrimSuffix(host, "."))
+	if officialDomains[registrable(host)] {
+		return true
+	}
+	for _, suffix := range restrictedSuffixes {
+		if strings.HasSuffix(host, suffix) {
+			return true
+		}
+	}
+	return false
+}
+
 // registrable approximates the eTLD+1 for the TLDs this project cares about.
 // It is deliberately simple: a full public-suffix list is out of scope, and
 // every caller only needs a stable comparison key.

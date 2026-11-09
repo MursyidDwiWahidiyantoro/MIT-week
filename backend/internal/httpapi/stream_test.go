@@ -3,10 +3,13 @@ package httpapi
 import (
 	"encoding/json"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/amba/amba/backend/internal/models"
+	"github.com/amba/amba/backend/internal/scam"
 )
 
 type sseEvent struct {
@@ -119,5 +122,63 @@ func TestInvalidTextSaysWhatIsWrong(t *testing.T) {
 	rec := postJSON(t, "/api/v1/audit/text", `{"text":""}`, "")
 	if !strings.Contains(rec.Body.String(), "Teks kosong") {
 		t.Fatalf("body = %s", rec.Body.String())
+	}
+}
+
+// Every scam pattern the rules can return has an explanation sentence and is
+// in the published contract.
+func TestScamPatternsAreInTheContract(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Clean("../../../api/dossier.schema.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var schema struct {
+		Defs struct {
+			Verdict struct {
+				Properties struct {
+					ScamPattern struct {
+						Enum []any `json:"enum"`
+					} `json:"scam_pattern"`
+				} `json:"properties"`
+			} `json:"Verdict"`
+		} `json:"$defs"`
+	}
+	if err := json.Unmarshal(raw, &schema); err != nil {
+		t.Fatal(err)
+	}
+	inSchema := map[string]bool{}
+	for _, v := range schema.Defs.Verdict.Properties.ScamPattern.Enum {
+		if s, ok := v.(string); ok {
+			inSchema[s] = true
+		}
+	}
+	if len(inSchema) != len(scam.Patterns) {
+		t.Errorf("schema lists %d patterns, the rules %d", len(inSchema), len(scam.Patterns))
+	}
+	for _, p := range scam.Patterns {
+		if !inSchema[p] {
+			t.Errorf("%s is missing from dossier.schema.json", p)
+		}
+		if scamText[p] == "" {
+			t.Errorf("%s has no explanation sentence", p)
+		}
+	}
+}
+
+// A scam message gets the pattern, the floor and the plain sentence.
+func TestScamMessageExplainsThePattern(t *testing.T) {
+	rec := postJSON(t, "/api/v1/audit/text", `{"text":"Akun BRImo Anda akan diblokir dalam 24 jam. Segera verifikasi data di brimo-verifikasi.my.id"}`, "")
+	var d models.Dossier
+	if err := json.Unmarshal(rec.Body.Bytes(), &d); err != nil {
+		t.Fatalf("%v: %s", err, rec.Body.String())
+	}
+	if d.Verdict.ScamPattern == nil || *d.Verdict.ScamPattern != "ACCOUNT_THREAT" {
+		t.Fatalf("scam pattern = %v", d.Verdict.ScamPattern)
+	}
+	if d.Verdict.Status != models.StatusTampered {
+		t.Fatalf("status = %s", d.Verdict.Status)
+	}
+	if !strings.Contains(d.Verdict.Explanation, scamText["ACCOUNT_THREAT"]) {
+		t.Fatalf("explanation = %q", d.Verdict.Explanation)
 	}
 }

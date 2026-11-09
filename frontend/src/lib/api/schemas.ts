@@ -61,7 +61,22 @@ export const verdictSchema = z.object({
   explanation_simple: z.string().max(140),
   basis: z.array(z.enum(['ela', 'ai', 'fact', 'link', 'llm_untrusted'])),
   not_checked: z.array(z.enum(['ela', 'ai', 'fact', 'link'])),
-  floors_applied: z.array(z.string())
+  floors_applied: z.array(z.string()),
+  scam_pattern: z
+    .enum([
+      'CREDENTIAL_REQUEST',
+      'APK_LURE',
+      'WRONG_TRANSFER',
+      'JOB_SCAM',
+      'INVESTMENT_SCAM',
+      'PRIZE_FEE',
+      'LOAN_FEE',
+      'MONEY_PRESSURE',
+      'ACCOUNT_THREAT',
+      'UNOFFICIAL_CONTACT'
+    ])
+    .nullable()
+    .optional()
 });
 
 export const dossierSchema = z.object({

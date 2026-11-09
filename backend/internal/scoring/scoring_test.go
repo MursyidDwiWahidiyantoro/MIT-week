@@ -147,6 +147,28 @@ func TestVectors(t *testing.T) {
 			wantMissed: []string{"ela", "ai", "fact"},
 		},
 		{
+			// A scam pattern in the text is enough even when the model alone
+			// would be too thin a basis (W = .075).
+			name:       "13 scam pattern with weak ai",
+			in:         Input{AI: sig(20, 0.5), ScamPattern: "CREDENTIAL_REQUEST"},
+			wantScore:  ptr0(80),
+			wantStatus: models.StatusTampered,
+			wantFloors: []string{FloorScamPattern},
+			wantBasis:  []string{"ai"},
+			wantMissed: []string{"ela", "fact", "link"},
+		},
+		{
+			// The scam floor gives the score first, so LINK_STRONG (which only
+			// rescues a missing score) does not stack on top.
+			name:       "14 scam pattern with a lookalike link",
+			in:         Input{Link: sig(45, 1.0), ScamPattern: "PRIZE_FEE"},
+			wantScore:  ptr0(80),
+			wantStatus: models.StatusTampered,
+			wantFloors: []string{FloorScamPattern},
+			wantBasis:  []string{"link"},
+			wantMissed: []string{"ela", "ai", "fact"},
+		},
+		{
 			// 89 would otherwise exceed the 85 a link >= 90 gets: cap keeps the
 			// score monotonic in the evidence.
 			name:       "12 link-only score capped at the malicious floor",
@@ -445,6 +467,12 @@ func TestExplanationSimple(t *testing.T) {
 			status: models.StatusTampered,
 			floors: []string{FloorLinkMalicious},
 			want:   "Tautan ini mirip penipuan. Jangan diklik.",
+		},
+		{
+			name:   "scam pattern",
+			status: models.StatusTampered,
+			floors: []string{FloorScamPattern},
+			want:   "Pesan ini memakai pola penipuan yang umum. Jangan transfer uang atau memberi kode.",
 		},
 		{
 			name:   "link strong",

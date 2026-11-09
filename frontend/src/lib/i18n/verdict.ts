@@ -18,7 +18,7 @@ export function shortTitle(d: DossierParsed): string {
 export function simpleSentence(d: DossierParsed): string {
   if (locale.value === 'id') return d.verdict.explanation_simple;
   const floors = d.verdict.floors_applied;
-  for (const floor of ['FACT_CONTRADICTED', 'LINK_MALICIOUS', 'LINK_STRONG', 'ELA_CORROBORATED']) {
+  for (const floor of ['FACT_CONTRADICTED', 'LINK_MALICIOUS', 'SCAM_PATTERN', 'LINK_STRONG', 'ELA_CORROBORATED']) {
     if (floors.includes(floor)) return t(`simple.${floor}` as MessageKey);
   }
   return t(`simple.${d.verdict.status}` as MessageKey);
@@ -31,6 +31,8 @@ export function explanation(d: DossierParsed): string {
   const md = d.source_metadata;
   if (md?.status === 'BLOCKED') parts.push(t('expl.blocked'));
   if (md?.status === 'UNAVAILABLE') parts.push(t('expl.unavailable'));
+  const scam = d.verdict.scam_pattern;
+  if (scam && has(`scam.${scam}`)) parts.push(t(`scam.${scam}` as MessageKey));
   const basis = d.verdict.basis.filter((b) => b !== 'llm_untrusted');
   if (basis.length) parts.push(t('expl.checked', { list: basis.map((b) => t(`expl.pillar.${b}` as MessageKey)).join(', ') }));
   if (d.verdict.not_checked.length) {

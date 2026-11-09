@@ -457,3 +457,49 @@ repositories (2 authentic, 5 edited, CASIA and TruFor samples). Scores were
 0 and 0 for the authentic images and 0-14 for the edited ones, so the global
 mean does not separate them (see the OPEN ELA entry above); the heat map lit
 the edited region of one CASIA sample fully, the other only at chance level.
+
+## 2026-11-09 · Deterministic scam rules and the `SCAM_PATTERN` floor
+
+A scam message has no claim to fact-check, so only the model read its
+wording, and the model scored "AI-generated likelihood". When the free
+gateway was down or out of its 50 daily requests, "kirimkan kode OTP itu ke
+saya" came back as "belum cukup data". `internal/scam` (TECH_SPEC §6.3) now
+recognises ten patterns of the scams sent most often to Indonesian phones,
+without the model: OTP/PIN/card requests, APK lures, wrong-transfer refunds,
+task jobs and job fees, implausible returns, prizes or aid with a fee or an
+unofficial link, loans with a fee up front, money requests from a "relative"
+or "officer", account-blocking notices pointing to an unofficial link or
+number, and a bank service line on a number the bank does not use.
+
+- Floor 2b `SCAM_PATTERN` = 80: inside `TAMPERED`, below the 85 of a fact
+  checker's verdict or a malicious link, because wording is weaker evidence.
+  It also applies when no weighted score exists. `verdict.scam_pattern`
+  (contract change) names the pattern; each has one plain sentence in the
+  explanation (Indonesian from the server, English rebuilt from the code).
+- The rules run before the model and again on the model's OCR; their cues
+  become highlighted tactics, so a scam still gets a verdict and highlights
+  during an outage.
+- Links written without `https://` (`bit.ly/x`, `bri-verifikasi.my.id`) were
+  never checked in text audits; they now get the link pillar, read as https.
+  An e-mail address is not a link.
+- Banks' own WhatsApp numbers look like ordinary mobile numbers, so they are
+  listed and checked (November 2026): Halo BCA 0811-1500-998 (bca.co.id),
+  BRI Sabrina 0812-1214-017 (Bisnis.com, 14 August 2024), Mandiri MITA
+  0811-8414-000 (bankmandiri.co.id). Only these three banks' service lines
+  are checked for `UNOFFICIAL_CONTACT`.
+
+Measured honestly: each new set of messages was written before the rule
+changes it led to and measured once on first sight. Set 3 (account threats,
+new fees, customs) caught 0 of 15 and raised 5 false alarms in 25 ordinary
+messages (registration fees, a utility reminder), which led to the
+account-threat pattern and to the rule that a threat with a payment needs an
+unofficial destination. Sets 4-6 then caught 11/20, 10/20 and 14/25 on first
+sight, with 0, 0 and 1 false alarms (a stand job paid per day). Everyday
+probes found code requests that were not secrets: a location pin, a Wi-Fi or
+Zoom password, a card-data warning. All sets are regression tests now
+(`internal/scam/scam_test.go`).
+
+So the rules catch about half of the scams they have not seen, with about 1
+false alarm in 65 ordinary messages; the model and the link check have to do
+the rest. Revisit: when real user reports show a pattern the rules miss or a
+false alarm, add the message to the tests first.

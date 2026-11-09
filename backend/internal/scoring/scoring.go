@@ -36,6 +36,10 @@ const (
 	// LinkOnlyCap keeps a link-only verdict at or below the LINK_MALICIOUS
 	// floor, so the score never rises as the evidence gets thinner.
 	LinkOnlyCap = 85
+	// ScamFloor is the score a message carrying a known scam pattern starts
+	// from (internal/scam): an OTP request, an APK lure, a prize that needs a
+	// fee. Below the 85 of a fact checker's verdict, inside TAMPERED.
+	ScamFloor = 80
 
 	// weightEpsilon absorbs binary floating-point error in the weight sums.
 	// 0.35 + 0.15 is 0.49999999999999994, which must still count as 0.50.
@@ -46,6 +50,7 @@ const (
 const (
 	FloorFactContradicted = "FACT_CONTRADICTED"
 	FloorLinkMalicious    = "LINK_MALICIOUS"
+	FloorScamPattern      = "SCAM_PATTERN"
 	FloorELACorroborated  = "ELA_CORROBORATED"
 	FloorLinkStrong       = "LINK_STRONG"
 	FloorELASoloCap       = "ELA_SOLO_CAP"
@@ -85,6 +90,9 @@ type Input struct {
 	// InjectionSuspected is true when the LLM output was flagged by the
 	// injection detector.
 	InjectionSuspected bool
+	// ScamPattern is the deterministic scam pattern found in the message,
+	// the link's caption or the image's text (internal/scam), "" if none.
+	ScamPattern string
 }
 
 // Compute returns the verdict fields this package owns. ShortTitle and
@@ -142,6 +150,15 @@ func Compute(in Input) models.Verdict {
 	if in.LinkMalicious || (in.Link.Available && in.Link.Score >= 90) {
 		score = atLeast(score, 85)
 		v.FloorsApplied = append(v.FloorsApplied, FloorLinkMalicious)
+	}
+	// SCAM_PATTERN: a message that asks for an OTP, sends an APK, wants a fee
+	// for a prize and the like (TECH_SPEC §3.3 floor 2b). The rules only fire
+	// on combinations ordinary messages do not use.
+	if in.ScamPattern != "" {
+		score = atLeast(score, ScamFloor)
+		v.FloorsApplied = append(v.FloorsApplied, FloorScamPattern)
+		pattern := in.ScamPattern
+		v.ScamPattern = &pattern
 	}
 	if in.ELA.Available && in.ELA.Score >= 70 && boxesOverlap(in.ELAHotspots, in.AIAnomalies) {
 		score = atLeast(score, 70)
@@ -209,6 +226,8 @@ func ExplanationSimple(status models.Status, floors []string) string {
 		return "Kabar ini dibantah sumber terpercaya. Jangan disebarkan."
 	case slices.Contains(floors, FloorLinkMalicious):
 		return "Tautan ini mirip penipuan. Jangan diklik."
+	case slices.Contains(floors, FloorScamPattern):
+		return "Pesan ini memakai pola penipuan yang umum. Jangan transfer uang atau memberi kode."
 	case slices.Contains(floors, FloorLinkStrong):
 		return "Tautan ini punya tanda penipuan. Sebaiknya jangan diklik."
 	case slices.Contains(floors, FloorELACorroborated):
