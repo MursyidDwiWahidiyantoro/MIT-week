@@ -31,10 +31,13 @@ type Config struct {
 	// empty: no detector (the AI pillar uses metadata and the model).
 	SightengineUser   string
 	SightengineSecret string
-	MaxUploadMB       int64
-	HardTimeout       time.Duration
-	CacheTTL          time.Duration
-	MetricsAddr       string
+	// DomainAge turns the RDAP domain-age lookup on (DOMAIN_AGE_LOOKUP,
+	// default true).
+	DomainAge   bool
+	MaxUploadMB int64
+	HardTimeout time.Duration
+	CacheTTL    time.Duration
+	MetricsAddr string
 	// ClientIPHeader names the header a trusted proxy puts the client address
 	// in (Fly-Client-IP on Fly.io, X-Real-IP on Railway).
 	ClientIPHeader string
@@ -96,6 +99,10 @@ func Load() (*Config, error) {
 	c.LLMMock, err = strconv.ParseBool(env("LLM_MOCK", "true"))
 	if err != nil {
 		errs = append(errs, errors.New("LLM_MOCK: must be true or false"))
+	}
+	c.DomainAge, err = strconv.ParseBool(env("DOMAIN_AGE_LOOKUP", "true"))
+	if err != nil {
+		errs = append(errs, errors.New("DOMAIN_AGE_LOOKUP: must be true or false"))
 	}
 
 	mb, err := strconv.ParseInt(env("MAX_UPLOAD_SIZE_MB", "10"), 10, 64)

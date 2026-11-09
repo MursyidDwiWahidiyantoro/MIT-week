@@ -682,3 +682,25 @@ the ELA weight; low evidence says little, because a forward or a resize after
 the edit can erase the difference. The demo screenshot's pasted price now
 measures 100, and its verdict carries `ELA_CORROBORATED`. Revisit with real
 hoax images from fact-checkers once there is a labelled set.
+
+## 2026-11-09 · Domain age from RDAP
+
+Throwaway phishing and hoax sites are typically registered days or weeks
+before they are used; the sites people trust are years old. The link check
+now asks the domain's registry over RDAP (no key, IANA's bootstrap file finds
+the registry) when the registrable domain was registered, for the first and
+the final host of the redirect chain, beside the redirect check and inside
+the link budget. `NEW_DOMAIN` (≤ 30 days, 25 points) and `YOUNG_DOMAIN`
+(≤ 180 days, 10) take the youngest domain on the chain, so an old shortener
+or redirector does not vouch for a new destination. Official domains and
+shorteners are not looked up.
+
+A young domain alone never reaches `LINK_STRONG` (45): new shops and campaign
+sites exist. With a lookalike brand (45) it adds up to a clear warning.
+
+Privacy: only the registrable domain goes to the registry (never the path,
+query or the user's text), answers are not kept, failures are logged with a
+status code only, and `DOMAIN_AGE_LOOKUP=false` switches it off. The privacy
+notice on /tentang says so. Tested with a fake registry; the development
+environment cannot reach real RDAP servers, so live coverage per TLD (.id in
+particular) still has to be checked after deploy.

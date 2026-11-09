@@ -58,6 +58,9 @@ func NewDeps(cfg *config.Config) Deps {
 	grounder := grounding.New(grounding.DefaultAllowlist)
 	p := pipeline.New(client, grounder, cfg.CacheTTL)
 	p.SafeBrowsing = linkcheck.NewSafeBrowsing(cfg.SafeBrowsing)
+	if cfg.DomainAge {
+		p.RDAP = linkcheck.NewRDAP(security.NewSafeClient(2*time.Second, 2))
+	}
 	if cfg.SightengineUser != "" {
 		p.Detector = aidetect.NewSightengine(cfg.SightengineUser, cfg.SightengineSecret)
 	}
@@ -79,6 +82,7 @@ func LogReadiness(ctx context.Context, cfg *config.Config, d Deps) {
 		"fact_search", d.Pipeline.Searcher != nil && d.Pipeline.Searcher.Enabled(),
 		"safe_browsing", d.Pipeline.SafeBrowsing.Enabled(),
 		"ai_detector", d.Pipeline.Detector != nil && d.Pipeline.Detector.Enabled(),
+		"domain_age", d.Pipeline.RDAP.Enabled(),
 		"telegram", cfg.TelegramToken != "" && cfg.TelegramMode != "off",
 		"metrics", cfg.MetricsAddr != "",
 	)

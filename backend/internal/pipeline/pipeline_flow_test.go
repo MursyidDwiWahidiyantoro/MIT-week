@@ -342,3 +342,54 @@ func TestPhishingPageOnAnOrdinaryHost(t *testing.T) {
 		t.Fatalf("verdict = %+v", v)
 	}
 }
+
+// A days-old domain is a sign of a throwaway phishing or hoax site; the age
+// comes from the registry's RDAP answer about the registrable domain only.
+func TestNewDomainIsReported(t *testing.T) {
+	var asked []string
+	var mu sync.Mutex
+	var registry *httptest.Server
+	registry = httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/bootstrap.json" {
+			_, _ = w.Write([]byte(`{"services":[[["xyz","com"],["` + registry.URL + `/"]]]}`))
+			return
+		}
+		mu.Lock()
+		asked = append(asked, r.URL.Path)
+		mu.Unlock()
+		date := "2009-01-01T00:00:00Z"
+		if strings.HasSuffix(r.URL.Path, "/promo-hadiah.xyz") {
+			date = time.Now().AddDate(0, 0, -5).UTC().Format(time.RFC3339)
+		}
+		_, _ = w.Write([]byte(`{"events":[{"eventAction":"registration","eventDate":"` + date + `"}]}`))
+	}))
+	defer registry.Close()
+
+	p, srv := pipelineWithFetch(t, true, func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
+	defer srv.Close()
+	p.RDAP = linkcheck.NewRDAP(registry.Client())
+	p.RDAP.Bootstrap = registry.URL + "/bootstrap.json"
+
+	res := p.Run(context.Background(), Request{InputType: models.InputURL, URL: "https://www.promo-hadiah.xyz/klaim?id=1"})
+	codes := ""
+	for _, r := range res.Pillars.Link.Reasons {
+		codes += r.Code + " "
+	}
+	if !strings.Contains(codes, linkcheck.ReasonNewDomain) {
+		t.Fatalf("reasons = %s", codes)
+	}
+	mu.Lock()
+	first := append([]string{}, asked...)
+	mu.Unlock()
+	if len(first) != 1 || first[0] != "/domain/promo-hadiah.xyz" {
+		t.Fatalf("registry was asked %v: only the registrable domain may be sent", first)
+	}
+
+	// An old domain adds nothing.
+	res = p.Run(context.Background(), Request{InputType: models.InputURL, URL: "https://toko-lama.com/"})
+	for _, r := range res.Pillars.Link.Reasons {
+		if r.Code == linkcheck.ReasonNewDomain || r.Code == linkcheck.ReasonYoungDomain {
+			t.Fatalf("old domain flagged: %+v", res.Pillars.Link.Reasons)
+		}
+	}
+}

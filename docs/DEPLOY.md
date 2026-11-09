@@ -25,6 +25,7 @@ uji. Semua perintah di bawah aman diulang.
 | `NINEROUTER_API_KEY` | ya | Kunci OpenRouter (`sk-or-...`). Alamat gateway dan nama model sudah diisi di `fly.toml`. Lihat 1.1. |
 | `GOOGLE_API_KEY` | sangat disarankan | Satu kunci Google Cloud untuk Fact Check Tools dan Safe Browsing. Lihat 1.2. |
 | `SIGHTENGINE_API_USER`, `SIGHTENGINE_API_SECRET` | opsional | Pemeriksa khusus gambar AI untuk Jejak AI. Lihat 1.3. |
+| `DOMAIN_AGE_LOOKUP` | tidak (bawaan `true`) | Umur domain tautan lewat RDAP, tanpa kunci. Isi `false` untuk mematikan. |
 | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET` | opsional | Lihat bagian 5. |
 
 Simpan semua nilai ini sebagai *secret* di hosting, jangan di repo.
