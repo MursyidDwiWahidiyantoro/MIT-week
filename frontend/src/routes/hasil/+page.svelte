@@ -13,6 +13,7 @@
   import ReadAloud from '$lib/components/a11y/ReadAloud.svelte';
   import ElaViewer from '$lib/components/hasil/ElaViewer.svelte';
   import LinkPreview from '$lib/components/hasil/LinkPreview.svelte';
+  import VideoAnalysis from '$lib/components/hasil/VideoAnalysis.svelte';
   import { autoRead, speak, speechAvailable } from '$lib/a11y.svelte';
   import { t, locale, type MessageKey } from '$lib/i18n/index.svelte';
   import { shortTitle, simpleSentence, explanation } from '$lib/i18n/verdict';
@@ -202,6 +203,10 @@
     </Panel>
   {/if}
 
+  {#if dossier.video}
+    <VideoAnalysis video={dossier.video} ai={dossier.pillars.ai} />
+  {/if}
+
   {#if imageFile && dossier.input_type === 'FILE'}
     <Panel title={t('res.panelImage')}>
       <ElaViewer file={imageFile} anomalies={elaAnomalies} />
@@ -222,7 +227,11 @@
   {/if}
 
   <Panel title={t('res.panelDetails')}>
-    <EvidenceAccordion pillars={dossier.pillars} inputType={dossier.input_type} />
+    <EvidenceAccordion
+      pillars={dossier.pillars}
+      inputType={dossier.input_type}
+      fromVideo={dossier.video?.status === 'OK'}
+    />
   </Panel>
 
   <Panel title={t('res.panelLimits')} tone="soft">

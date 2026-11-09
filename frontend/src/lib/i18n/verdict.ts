@@ -25,9 +25,14 @@ export function simpleSentence(d: DossierParsed): string {
     'AI_PROVENANCE',
     'ELA_CORROBORATED',
     'AI_EDITED',
-    'AI_LIKELY'
+    'AI_LIKELY',
+    'VIDEO_MANIPULATED',
+    'VIDEO_CONTEXT_MISMATCH'
   ]) {
-    if (floors.includes(floor)) return t(`simple.${floor}` as MessageKey);
+    if (!floors.includes(floor)) continue;
+    // A social video link reaches AI_LIKELY through its frames, not an image.
+    if (floor === 'AI_LIKELY' && d.video) return t('simple.AI_LIKELY_VIDEO');
+    return t(`simple.${floor}` as MessageKey);
   }
   return t(`simple.${d.verdict.status}` as MessageKey);
 }
@@ -74,11 +79,12 @@ export function aiLevel(score: number): 'high' | 'medium' | 'low' {
  * The Jejak AI card in plain words: which image was checked, what the file
  * declares about its origin (or how likely it looks AI-made), and the
  * dedicated detector's answer when one ran. Built from codes, so both
- * languages say the same thing.
+ * languages say the same thing. `fromVideo`: the score came from the frames
+ * of an analysed social video, not from the link's preview image.
  */
-export function aiLines(ai: AIPillar, inputType: DossierParsed['input_type']): string[] {
+export function aiLines(ai: AIPillar, inputType: DossierParsed['input_type'], fromVideo = false): string[] {
   const lines: string[] = [];
-  if (inputType === 'URL') lines.push(t('ai.preview'));
+  if (inputType === 'URL') lines.push(t(fromVideo ? 'video.aiChecked' : 'ai.preview'));
   const p = ai.provenance;
   if (p && (p.kind === 'AI_GENERATED' || p.kind === 'AI_EDITED')) {
     const made = p.kind === 'AI_EDITED' ? 'edited' : 'generated';

@@ -9,10 +9,12 @@
     pillars: DossierParsed['pillars'];
     /** URL input: the AI card judged the link's preview image. */
     inputType?: DossierParsed['input_type'];
+    /** The AI card judged the frames of an analysed social video instead. */
+    fromVideo?: boolean;
     pending?: boolean;
   }
 
-  let { pillars, inputType = 'FILE', pending = false }: Props = $props();
+  let { pillars, inputType = 'FILE', fromVideo = false, pending = false }: Props = $props();
 
   const LABELS = {
     ela: 'ev.ela',
@@ -90,7 +92,7 @@
             <p>{t('ev.noAreas')}</p>
           {/if}
         {:else if key === 'ai'}
-          {#each aiLines(pillars.ai, inputType) as line (line)}<p>{line}</p>{/each}
+          {#each aiLines(pillars.ai, inputType, fromVideo) as line (line)}<p>{line}</p>{/each}
           <p class="note">{caveat(pillars.ai.caveat ?? '')}</p>
           {#if (pillars.ai.indicators ?? []).length}
             <ul>

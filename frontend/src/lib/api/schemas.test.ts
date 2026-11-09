@@ -106,6 +106,48 @@ describe('parseDossier', () => {
     expect(() => parseDossier(bad)).toThrow();
   });
 
+  const video = (frames: Array<{ at_sec: number; thumb: string }>) => ({
+    status: 'OK',
+    reason: '',
+    platform: 'tiktok',
+    duration_sec: 47.5,
+    upload_date: '2026-11-07',
+    platform_ai_label: true,
+    frames,
+    audio_analyzed: true,
+    summary: 'Air keruh menerjang jalan kota.',
+    transcript: 'Ini Jakarta pagi ini.',
+    // The server serialises an empty Go slice as null.
+    manipulation: { score: 14, indicators: null },
+    context: { score: 58, indicators: ['Frame 3: rambu jalan tidak berbahasa Indonesia'] }
+  });
+
+  it('reads the video analysis of a social video link', () => {
+    const d = parseDossier(minimalDossier({ video: video([{ at_sec: 8, thumb: 'data:image/jpeg;base64,/9j/4AAQ' }]) }));
+    expect(d.video?.status).toBe('OK');
+    expect(d.video?.frames).toEqual([{ at_sec: 8, thumb: 'data:image/jpeg;base64,/9j/4AAQ' }]);
+    expect(d.video?.manipulation.indicators).toEqual([]);
+    expect(d.video?.context.score).toBe(58);
+    const unavailable = { ...video([]), status: 'UNAVAILABLE', reason: 'private', frames: null };
+    expect(parseDossier(minimalDossier({ video: unavailable })).video?.frames).toEqual([]);
+  });
+
+  it('maps a missing video to null, as for every result made before videos', () => {
+    expect(parseDossier(minimalDossier()).video).toBeNull();
+    expect(parseDossier(minimalDossier({ video: null })).video).toBeNull();
+  });
+
+  it('rejects a frame thumbnail that is not a JPEG data URL', () => {
+    for (const thumb of [
+      'https://cdn.example/frame.jpg',
+      'data:image/png;base64,iVBORw0KGgo',
+      'data:image/svg+xml;base64,PHN2Zz4=',
+      ' data:image/jpeg;base64,/9j/'
+    ]) {
+      expect(() => parseDossier(minimalDossier({ video: video([{ at_sec: 0, thumb }]) })), thumb).toThrow();
+    }
+  });
+
   it('raises SchemaVersionError for a newer contract', () => {
     expect(() => parseDossier(minimalDossier({ schema_version: 3 }))).toThrow(SchemaVersionError);
   });

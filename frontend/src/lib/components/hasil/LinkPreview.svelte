@@ -2,6 +2,7 @@
   import { t } from '$lib/i18n/index.svelte';
   import { resolve } from '$app/paths';
   import Icon from '$lib/components/ui/Icon.svelte';
+  import { platformName } from '$lib/format';
   import type { SourceMetadata } from '$lib/api/types';
 
   interface Props {
@@ -10,16 +11,7 @@
 
   let { metadata }: Props = $props();
 
-  const PLATFORM: Record<string, string> = {
-    youtube: 'YouTube',
-    tiktok: 'TikTok',
-    x: 'X (Twitter)',
-    instagram: 'Instagram',
-    facebook: 'Facebook',
-    threads: 'Threads',
-    web: ''
-  };
-  const platform = $derived(PLATFORM[metadata.platform] || t('lp.web'));
+  const platform = $derived(platformName(metadata.platform) || t('lp.web'));
 </script>
 
 {#if metadata.status === 'OK'}
