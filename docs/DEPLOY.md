@@ -288,7 +288,9 @@ LLM_MOCK=false NINEROUTER_API_KEY=... NINEROUTER_MODEL=nvidia/nemotron-3.5-super
 ```
 
 Setiap baris berisi skor AI, asal-usul, skor detektor, bukti teks ditempel,
-status, dan floor. Ringkasan per folder muncul di stderr. Jika foto asli sering
+status, dan floor. Ringkasan per folder muncul di stderr. Untuk membandingkan
+beberapa model gratis sekaligus dan menghitung AUC serta alarm palsu per
+ambang, pakai `tools/eval/compare.py` (lihat `tools/eval/README.md`). Jika foto asli sering
 mencapai `AI_LIKELY`, naikkan `scoring.AILikelyMin`; jika gambar AI jarang
 mencapainya, turunkan, lalu catat angkanya di `docs/DECISIONS.md`. Benchmark
 teks ditempel bisa diulang dengan `tools/textbench/gen.py` (lihat isinya).

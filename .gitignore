@@ -32,6 +32,8 @@ playwright-report/
 # test/tool artifacts
 frontend/.vitest/
 tmp_*.go
+__pycache__/
+eval-results/
 
 # ---- AI tooling (local only, never committed) ----
 # Project skills, MCP server registrations and the agent playbook are local
