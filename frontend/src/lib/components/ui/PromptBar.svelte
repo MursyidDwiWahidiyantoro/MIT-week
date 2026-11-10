@@ -22,6 +22,9 @@
     onlink: (url: string) => void;
     onfile: (file: File) => void;
     onstop?: () => void;
+    /** 'plus': Gemini's + in the pill. 'button': a labelled "Pilih foto"
+     * button under the pill, plainer for older readers (Sir, 10 Nov 2026). */
+    photo?: 'plus' | 'button';
   }
 
   let {
@@ -33,7 +36,8 @@
     autofocus = false,
     onlink,
     onfile,
-    onstop
+    onstop,
+    photo = 'plus'
   }: Props = $props();
 
   let input: HTMLInputElement | undefined = $state();
@@ -123,17 +127,19 @@
 </script>
 
 <form class="prompt-wrap" onsubmit={submit} novalidate aria-label={t('det.form')}>
-  <div class="prompt" class:has-error={!!errorText} class:busy>
-    <button
-      type="button"
-      class="icon-btn"
-      aria-label={t('prompt.upload')}
-      title={t('prompt.upload')}
-      disabled={busy || disabled}
-      onclick={() => picker?.click()}
-    >
-      <Icon name="plus" size={22} />
-    </button>
+  <div class="prompt" class:has-error={!!errorText} class:busy class:no-plus={photo === 'button'}>
+    {#if photo === 'plus'}
+      <button
+        type="button"
+        class="icon-btn"
+        aria-label={t('prompt.upload')}
+        title={t('prompt.upload')}
+        disabled={busy || disabled}
+        onclick={() => picker?.click()}
+      >
+        <Icon name="plus" size={22} />
+      </button>
+    {/if}
     <input
       bind:this={picker}
       class="sr-only"
@@ -176,6 +182,14 @@
       </button>
     {/if}
   </div>
+  {#if photo === 'button'}
+    <div class="or">
+      <span>{t('prompt.or')}</span>
+      <button type="button" class="btn btn--tonal photo-btn" disabled={busy || disabled} onclick={() => picker?.click()}>
+        <Icon name="image" size={20} />{t('prompt.photo')}
+      </button>
+    </div>
+  {/if}
   <div class="status" id="{id}-status" aria-live="polite">
     {#if errorText}
       <p class="msg msg--error"><Icon name="alert" size={16} /><span>{errorText}</span></p>
@@ -228,6 +242,17 @@
   .prompt.busy::before { animation: ring-pulse 1.6s var(--ease-in-out) infinite alternate; }
   @keyframes ring-pulse { from { opacity: 0.45; } to { opacity: 1; } }
   .prompt.has-error { box-shadow: var(--shadow-prompt), 0 0 0 1.5px var(--err); }
+  .prompt.no-plus { padding-left: 20px; }
+  .or {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-3);
+    margin-top: 6px;
+    color: var(--muted);
+    font-size: var(--text-sm);
+  }
+  .photo-btn { min-height: 48px; padding-inline: 20px; font-size: var(--text-base); }
 
   .prompt-input {
     flex: 1 1 auto;

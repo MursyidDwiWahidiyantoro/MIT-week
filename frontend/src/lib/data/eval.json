@@ -1,7 +1,0 @@
-{
-  "note": "Labelled eval of 10 Nov 2026 on staging (backend 12342d1, Scratch/amba-v2/eval-g1): overall 50/69, recall 62.7%, specificity 100%, median 43 s. total 0 hides the section.",
-  "total": 69,
-  "ai": { "ok": 22, "n": 33 },
-  "asli": { "ok": 18, "n": 18 },
-  "hoaks": { "ok": 10, "n": 18 }
-}

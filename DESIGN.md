@@ -73,34 +73,36 @@ Surfaces are tonal and have no borders. The only shadow is the prompt's soft lif
 
 ## Layout
 
-- **Desktop (64rem and up):**
-  - A left rail with the mark, "Periksa baru", Belajar, Tentang, and the theme at the bottom. It shrinks to icons.
-  - Reading columns are 760px; Belajar is 1080px.
-- **Phones and tablets:**
-  - A top bar with the menu, the mark and the theme.
-  - The same rail opens as a drawer with a scrim. Escape closes it, and the page behind it is inert.
+Simplified for parents on 10 Nov 2026 (Sir, seq 926 and 933): few pages, few buttons, as little text as possible, and diagrams and real pictures instead of paragraphs. There are no eyebrow badges, no lead paragraphs, and no section repeats what another says.
+
+- **Shell, every page and every width:**
+  - One top bar with the mark, two destinations (Periksa, Belajar), each an icon with a word, and the theme toggle.
+  - There is no sidebar and no hidden menu.
+  - The footer is one line: results are indicative, with a link to Tentang, which holds the full legal text.
 - **Home:**
-  - The greeting in two lines (gradient, then muted), the prompt bar, the three example chips and a one-line disclaimer.
-  - Below them, "Yang diperiksa" in four tonal cards.
-  - On phones the prompt sits at the bottom, as in a chat app.
+  - The headline in two lines, then one sentence.
+  - The link pill, with "atau Pilih foto" under it as a labelled button, and the platforms' marks (Simple Icons, CC0).
+  - The flow diagram: what you send, then the four checks, then the three verdicts.
+  - An example result built from the result page's own components with bundled demo data, labelled as a simulation, and the three example chips.
+  - A Belajar card with a real image and its ELA map.
 - **/deteksi:**
-  - The person's bubble on the right.
-  - AMBA's answer on the left: a turning gradient ring, a shimmer line, and the checks as collapsible steps.
-  - The prompt is pinned at the bottom; its send button becomes stop while a check runs.
-- **/hasil:** the person's item as their message, then AMBA's answer, top to bottom:
-  - the verdict chip, the plain sentence, the score with its meter, and "Kenapa?";
-  - action chips (read aloud, check another);
-  - the evidence panels;
-  - the prompt, pinned at the bottom for the next check.
-- **Images from any page:** an image picked with the + button is handed to /deteksi in memory and checked at once.
+  - The title, then the link pill with "Pilih foto". The whole panel also takes a dropped image.
+  - The example chips show while idle. The four-check strip appears only once a check starts.
+  - The session list appears only when it has entries.
+- **/hasil, top to bottom:**
+  - the item beside the verdict (the h1), one sentence, the score and its meter, up to four reasons, then Bacakan hasil and Periksa lagi;
+  - the risk map;
+  - the video frames or the ELA viewer;
+  - the written detail, folded under "Lihat rincian lengkap".
+- **/edukasi:** each sign is one line that opens on tap. The photo practice, the quiz and the family password follow.
+- **Images from any page:** a picked image is handed to /deteksi in memory and checked at once.
 
 ## Motion
 
 - Entrances rise 12px and fade in, staggered.
 - The home glow breathes slowly.
-- The thinking ring turns and the status line shimmers.
-- The score bar fills once the answer is in view.
-- The drawer slides in.
+- A dot travels along the flow diagram's arrows.
+- The score bar and the risk-map bars fill once they are in view.
 - Page changes cross-fade through View Transitions, and the prompt bar glides between pages.
 - Reduced motion shows every final state at once.
 

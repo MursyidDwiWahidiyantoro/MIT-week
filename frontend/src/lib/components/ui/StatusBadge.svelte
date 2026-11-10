@@ -31,11 +31,13 @@
 </p>
 
 <style>
+  /* Icon on the left, the words wrapping beside it (never under it). */
   .badge {
-    display: inline-flex;
+    display: inline-grid;
+    grid-template-columns: auto minmax(0, 1fr);
     align-items: center;
-    gap: var(--space-2);
-    flex-wrap: wrap;
+    column-gap: var(--space-2);
+    row-gap: 2px;
     margin: 0;
     padding: 6px 14px;
     border: var(--border-width) solid var(--border);
@@ -48,11 +50,13 @@
     line-height: 1.25;
   }
   .icon { display: inline-flex; }
+  .badge:has(.score) .icon { grid-row: span 2; }
   .tone--safe { background: var(--safe); }
   .tone--warn { background: var(--yellow); }
   .tone--danger { background: var(--coral); }
   .tone--neutral { background: var(--surface-2); }
   .score {
+    grid-column: 2;
     font-family: var(--font-sans);
     font-weight: 700;
     font-size: var(--text-sm);

@@ -341,9 +341,9 @@ export const UI = {
   description: {
     id: 'Cara mengenali video buatan AI dan video hoaks, cara memeriksa sendiri, modus penipuan di Indonesia, dan kuis singkat.'
   },
-  h1: { id: 'Belajar mengenali video palsu dan hoaks' },
+  h1: { id: 'Belajar mengenali hoaks' },
   lede: {
-    id: 'Kartu singkat, cara memeriksa sendiri, dan kuis delapan pertanyaan. Tidak ada nilai yang disimpan.'
+    id: 'Ketuk satu tanda untuk melihat penjelasannya, lalu coba kuisnya.'
   },
   jump: { id: 'Isi halaman' },
   nav: {
@@ -366,13 +366,13 @@ export const UI = {
     lede: { id: 'Videonya asli, tetapi ceritanya dibengkokkan.' }
   },
   check: {
-    title: { id: 'Cara memeriksa sendiri' },
+    title: { id: 'Cek sendiri' },
     lede: { id: 'Empat langkah, urut dari yang paling cepat.' },
     open: { id: 'Buka' },
     newTab: { id: 'tab baru' }
   },
   scam: {
-    title: { id: 'Modus penipuan yang sering terjadi di Indonesia' },
+    title: { id: 'Modus penipuan' },
     lede: { id: 'Polanya mirip: mendesak, menjanjikan, lalu meminta data atau uang.' },
     act: { id: 'Yang dilakukan' },
     rule: {

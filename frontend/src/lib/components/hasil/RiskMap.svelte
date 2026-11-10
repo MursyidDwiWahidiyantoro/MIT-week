@@ -136,6 +136,7 @@
   @media (max-width: 30rem) {
     .row { grid-template-columns: minmax(0, 1fr) 4rem; row-gap: 6px; padding-block: 8px; }
     .track { grid-column: 1 / -1; grid-row: 2; }
+    .tick span { display: none; }
     .row--fact { grid-template-columns: minmax(0, 1fr); }
   }
 </style>

@@ -12,8 +12,7 @@
   import LinkPreview from '$lib/components/hasil/LinkPreview.svelte';
   import VideoAnalysis from '$lib/components/hasil/VideoAnalysis.svelte';
   import RiskMap from '$lib/components/hasil/RiskMap.svelte';
-  import { autoRead, speak, speechAvailable } from '$lib/a11y.svelte';
-  import { t, type MessageKey } from '$lib/i18n/index.svelte';
+  import { t } from '$lib/i18n/index.svelte';
   import { simpleSentence, explanation, basisList } from '$lib/i18n/verdict';
   import { keyReasons } from '$lib/reasons';
   import { inview } from '$lib/motion';
@@ -85,7 +84,7 @@
     return /^(data:image\/|blob:|\/)/.test(frame) ? frame : null;
   });
 
-  // The title row names the item: the post's title, its site, or the upload.
+  // The caption names the item: the post's title, its site, or the upload.
   const itemName = $derived.by(() => {
     if (!dossier) return '';
     if (dossier.input_type === 'FILE') return imageFile?.name || t('res.item.image');
@@ -104,40 +103,7 @@
     if (video?.platform) parts.push(platformName(video.platform));
     else if (dossier.source_metadata?.site_name) parts.push(dossier.source_metadata.site_name);
     if (video?.duration_sec) parts.push(formatClock(video.duration_sec));
-    try {
-      parts.push(new Date(dossier.timestamp).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }));
-    } catch {
-      // A malformed timestamp only drops the time.
-    }
     return parts.join(' · ');
-  });
-
-  // The KPI strip: figures as type, one tone of colour for what crossed a line.
-  type Kpi = { label: MessageKey; value: string; unit?: string; over?: boolean };
-  const kpis = $derived.by((): Kpi[] => {
-    if (!dossier) return [];
-    const p = dossier.pillars;
-    const list: Kpi[] = [];
-    const aiLine = video ? 55 : 80;
-    list.push(p.ai.available ? { label: 'kpi.ai', value: String(p.ai.score), unit: '/100', over: p.ai.score >= aiLine } : { label: 'kpi.ai', value: '—' });
-    if (video) list.push({ label: 'kpi.manip', value: String(video.manipulation.score), unit: '/100', over: video.manipulation.score >= 70 });
-    else list.push(p.ela.available ? { label: 'kpi.ela', value: String(p.ela.score), unit: '/100', over: p.ela.score >= 70 } : { label: 'kpi.ela', value: '—' });
-    list.push({
-      label: 'kpi.fact',
-      value: p.fact.available ? t(`risk.fact.${p.fact.status}` as MessageKey) : '—',
-      over: p.fact.available && p.fact.status === 'CONTRADICTS'
-    });
-    list.push(p.link.available ? { label: 'kpi.link', value: String(p.link.score), unit: '/100', over: p.link.score >= 45 } : { label: 'kpi.link', value: '—' });
-    return list;
-  });
-
-  // Optional auto-read: off by default, speaks once per result.
-  let autoReadDone = false;
-  $effect(() => {
-    if (dossier && !autoReadDone && autoRead.value && speechAvailable()) {
-      autoReadDone = true;
-      speak(`${sentence} ${explained}`);
-    }
   });
 </script>
 
@@ -150,178 +116,151 @@
     <a class="btn btn--primary" href={resolve('/deteksi')}>{t('res.checkAgain')}</a>
   </section>
 {:else}
-  <div class="dash tone-{tone}" use:inview>
-    <div class="title-row">
-      <div class="titles">
-        <h1 class="title">{itemName}</h1>
-        <p class="meta">{meta}</p>
-      </div>
-      <div class="actions">
-        <ReadAloud text={`${sentence} ${explained}`} />
-        <a class="btn btn--primary btn--sm" href={resolve('/deteksi')}><Icon name="plus" size={18} />{t('shell.newCheck')}</a>
-      </div>
-    </div>
-
+  <div class="res tone-{tone}" use:inview>
     {#if dossier.is_demo}<p class="notice notice--demo" role="note">{t('res.demoNotice')}</p>{/if}
     {#if dossier.degraded}<p class="notice" role="note">{t('res.degraded')}</p>{/if}
 
-    <!-- KPI strip: the verdict and the score first, then one cell per check. -->
-    <section class="kpis" aria-label={t('res.h1')}>
-      <div class="kpi kpi--verdict">
-        <p class="k-label">{t('kpi.verdict')}</p>
-        <h2 id="verdict-title" class="verdict-heading" tabindex="-1" bind:this={verdictHeading} data-testid="verdict-badge">
+    <!-- The answer first: the item, its verdict, one sentence, the score and why. -->
+    <section class="verdict rise" style:--i="0" aria-labelledby="verdict-title">
+      <figure class="media">
+        {#if picture}
+          <img src={picture} alt={t('chat.imageAlt')} />
+        {:else}
+          <div class="media-empty"><Icon name={dossier.input_type === 'URL' ? 'link' : 'image'} size={32} /></div>
+        {/if}
+        <figcaption><span class="item">{itemName}</span>{#if meta}<span>{meta}</span>{/if}</figcaption>
+      </figure>
+      <div class="v-body">
+        <h1 id="verdict-title" class="verdict-heading" tabindex="-1" bind:this={verdictHeading} data-testid="verdict-badge">
           <StatusBadge status={dossier.verdict.status} />
-        </h2>
-      </div>
-      <div class="kpi">
-        <p class="k-label">{t('kpi.score')}</p>
-        <p class="k-value k-score tabular" aria-label={dossier.verdict.score === null ? undefined : formatScore(dossier.verdict.score)}>
-          {#if dossier.verdict.score === null}—{:else}{dossier.verdict.score}<small>/100</small>{/if}
-        </p>
-      </div>
-      {#each kpis as k (k.label)}
-        <div class="kpi" class:over={k.over}>
-          <p class="k-label">{t(k.label)}</p>
-          <p class="k-value tabular" class:k-word={!k.unit && k.value !== '—'}>{k.value}{#if k.unit}<small>{k.unit}</small>{/if}</p>
-        </div>
-      {/each}
-    </section>
-
-    <div class="grid">
-      <div class="col-main">
-        <section class="card lead rise" style:--i="0" aria-labelledby="lead-title">
-          <h2 id="lead-title" class="k-label">{t('res.lead')}</h2>
-          <p class="sentence" data-testid="verdict-sentence">{sentence}</p>
-          {#if dossier.verdict.score !== null}
+        </h1>
+        <p class="sentence" data-testid="verdict-sentence">{sentence}</p>
+        {#if dossier.verdict.score !== null}
+          <div class="score-row">
+            <span class="score tabular">{dossier.verdict.score}<small>/100</small></span>
             <div class="meter" role="img" aria-label={formatScore(dossier.verdict.score)}>
               <span class="meter-fill" style:width="{dossier.verdict.score}%"></span>
             </div>
-            <p class="score-cap">{t('res.scoreCap')}</p>
-          {/if}
-          <h3 class="why-title">{t('res.why')}</h3>
-          <ul class="why">
-            {#each reasons as reason (reason)}
-              <li><span class="dot" aria-hidden="true"></span><span>{reason}</span></li>
-            {/each}
-          </ul>
-          {#if speechAvailable()}
-            <label class="auto-read">
-              <input type="checkbox" checked={autoRead.value} onchange={(e) => autoRead.set((e.currentTarget as HTMLInputElement).checked)} />
-              {t('res.autoRead')}
-            </label>
-          {/if}
-        </section>
-
-        <section class="card rise" style:--i="1">
-          <RiskMap {dossier} />
-        </section>
-      </div>
-
-      <aside class="col-side rise" style:--i="2">
-        <figure class="card media">
-          {#if picture}
-            <img src={picture} alt={t('chat.imageAlt')} />
-          {:else}
-            <div class="media-empty"><Icon name={dossier.input_type === 'URL' ? 'link' : 'image'} size={32} /><span>{itemName}</span></div>
-          {/if}
-          <figcaption>{meta}</figcaption>
-        </figure>
-        {#if showLinkPreview && dossier.source_metadata}
-          <div class="card" data-testid="source-metadata">
-            <h3 class="k-label">{t('res.panelLink')}</h3>
-            <LinkPreview metadata={dossier.source_metadata} />
           </div>
+          <p class="score-cap">{t('res.scoreCap')}</p>
         {/if}
-      </aside>
-    </div>
-
-    <h2 class="sec-title">{t('res.evidence')}</h2>
-    <div class="evidence">
-      {#if dossier.video && (dossier.video.status !== 'UNAVAILABLE' || dossier.video.platform_ai_label)}
-        <VideoAnalysis video={dossier.video} ai={dossier.pillars.ai} />
-      {/if}
-      {#if imageFile && dossier.input_type === 'FILE'}
-        <Panel title={t('res.panelImage')}>
-          <ElaViewer file={imageFile} anomalies={elaAnomalies} />
-        </Panel>
-      {/if}
-      <Panel title={t('res.panelDetails')}>
-        <div class="details">
-          {#if dossier.tactics.length > 0}
-            <div class="block">
-              <h3 class="label">{t('res.panelTactics')}</h3>
-              <HighlightedText text={highlight.text} sourceLabel={highlight.label} tactics={dossier.tactics} labels={tacticLabelsId} />
-            </div>
-          {/if}
-          <EvidenceAccordion pillars={dossier.pillars} inputType={dossier.input_type} fromVideo={dossier.video?.status === 'OK'} />
+        <ul class="why" aria-label={t('res.why')}>
+          {#each reasons as reason (reason)}
+            <li><span class="dot" aria-hidden="true"></span><span>{reason}</span></li>
+          {/each}
+        </ul>
+        <div class="actions">
+          <ReadAloud text={`${sentence} ${explained}`} />
+          <a class="btn btn--primary" href={resolve('/deteksi')}><Icon name="plus" size={18} />{t('res.checkAgain')}</a>
         </div>
+      </div>
+    </section>
+
+    <section class="card rise" style:--i="1">
+      <RiskMap {dossier} />
+    </section>
+
+    {#if showLinkPreview && dossier.source_metadata}
+      <section class="card rise" style:--i="2" data-testid="source-metadata">
+        <h2 class="k-label">{t('res.panelLink')}</h2>
+        <LinkPreview metadata={dossier.source_metadata} />
+      </section>
+    {/if}
+
+    {#if dossier.video && (dossier.video.status !== 'UNAVAILABLE' || dossier.video.platform_ai_label)}
+      <VideoAnalysis video={dossier.video} ai={dossier.pillars.ai} />
+    {/if}
+    {#if imageFile && dossier.input_type === 'FILE'}
+      <Panel title={t('res.panelImage')}>
+        <ElaViewer file={imageFile} anomalies={elaAnomalies} />
       </Panel>
-      <Panel title={t('res.panelLimits')} tone="soft">
-        {#if showExplained}<p class="explained">{explained}</p>{/if}
-        {#if basis}<p class="basis"><strong>{t('res.basis')}:</strong> {basis}.</p>{/if}
-        <p class="note">{t('res.limitsNote')}</p>
-      </Panel>
-    </div>
+    {/if}
+
+    <!-- The written detail stays one tap away. -->
+    <details class="more">
+      <summary><span>{t('res.more')}</span><Icon name="chevron" size={18} /></summary>
+      <div class="evidence">
+        <Panel title={t('res.panelDetails')}>
+          <div class="details">
+            {#if dossier.tactics.length > 0}
+              <div class="block">
+                <h3 class="label">{t('res.panelTactics')}</h3>
+                <HighlightedText text={highlight.text} sourceLabel={highlight.label} tactics={dossier.tactics} labels={tacticLabelsId} />
+              </div>
+            {/if}
+            <EvidenceAccordion pillars={dossier.pillars} inputType={dossier.input_type} fromVideo={dossier.video?.status === 'OK'} />
+          </div>
+        </Panel>
+        <Panel title={t('res.panelLimits')} tone="soft">
+          {#if showExplained}<p class="explained">{explained}</p>{/if}
+          {#if basis}<p class="basis"><strong>{t('res.basis')}:</strong> {basis}.</p>{/if}
+          <p class="note">{t('res.limitsNote')}</p>
+        </Panel>
+      </div>
+    </details>
   </div>
 {/if}
 
 <style>
-  .state { display: grid; gap: var(--space-4); justify-items: start; max-width: 40rem; padding-block: var(--space-6); }
-  .dash { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-5); max-width: 76rem; }
+  .state { display: grid; gap: var(--space-4); justify-items: start; max-width: 40rem; margin-inline: auto; padding-block: var(--space-6); }
+  .res { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4); max-width: 64rem; margin-inline: auto; }
   .tone-safe { --tone: var(--ok); }
   .tone-warn { --tone: var(--warn); }
   .tone-danger { --tone: var(--err); }
   .tone-neutral { --tone: var(--ink); }
-
-  .title-row { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: var(--space-3) var(--space-5); }
-  .titles { display: grid; gap: 4px; min-width: 0; flex: 1 1 24rem; }
-  .title { font-size: var(--text-xl); font-weight: 500; overflow-wrap: anywhere; }
-  .meta { margin: 0; color: var(--muted); font-size: var(--text-sm); }
-  .actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
   .notice { margin: 0; padding: var(--space-3) var(--space-4); font-size: var(--text-sm); font-weight: 500; }
 
-  /* KPIs are type in one strip split by hairlines, not tiles. */
-  .kpis {
+  .verdict {
     display: grid;
-    grid-template-columns: minmax(12rem, 1.4fr) repeat(5, minmax(0, 1fr));
-    border: 1px solid var(--border-soft);
-    border-radius: 16px;
-    overflow: hidden;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-5);
+    padding: clamp(16px, 3vw, 28px);
+    border-radius: var(--radius-xl);
+    background: var(--card);
   }
-  .kpi { display: grid; align-content: start; gap: 8px; padding: 16px 18px; border-left: 1px solid var(--border-soft); min-width: 0; }
-  .kpi:first-child { border-left: 0; }
-  .k-label { margin: 0; color: var(--muted); font-size: var(--text-sm); font-weight: 500; }
-  .k-value { margin: 0; font-size: 1.5rem; font-weight: 400; color: var(--ink); line-height: 1.15; }
-  .k-value small { margin-left: 2px; color: var(--muted); font-size: var(--text-sm); }
-  .k-word { font-size: var(--text-base); font-weight: 500; }
-  .k-score { color: var(--tone); font-size: 1.75rem; }
-  .over .k-value { color: var(--err); }
+  .media { display: grid; gap: var(--space-2); margin: 0; min-width: 0; }
+  .media img { display: block; width: 100%; max-height: 22rem; object-fit: contain; border-radius: 16px; background: var(--sheet); }
+  .media-empty { display: grid; place-items: center; min-height: 8rem; border-radius: 16px; background: var(--surface-2); color: var(--muted); }
+  .media figcaption { display: grid; gap: 2px; color: var(--muted); font-size: var(--text-xs); }
+  .media .item { color: var(--body-2); font-size: var(--text-sm); overflow-wrap: anywhere; }
+  .v-body { display: grid; align-content: start; gap: var(--space-4); min-width: 0; }
   .verdict-heading { margin: 0; font-size: inherit; line-height: inherit; }
+  .verdict-heading :global(.badge) { font-size: var(--text-lg); padding: 10px 18px; }
   .verdict-heading:focus { outline: none; }
   .verdict-heading:focus-visible { outline: var(--focus-ring); outline-offset: 4px; border-radius: 12px; }
-
-  .grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(16rem, 1fr); gap: var(--space-4); align-items: start; }
-  .col-main, .col-side { display: grid; gap: var(--space-4); min-width: 0; }
-  .card { margin: 0; padding: var(--space-5); background: var(--card); border-radius: 16px; min-width: 0; }
-  .lead { display: grid; gap: var(--space-3); }
-  .sentence { margin: 0; max-width: 34ch; font-size: clamp(1.3rem, 1.05rem + 1vw, 1.75rem); font-weight: 400; line-height: 1.3; }
-  .meter { --meter-color: var(--tone); }
+  .sentence { margin: 0; max-width: 30ch; font-size: clamp(1.35rem, 1.1rem + 1vw, 1.9rem); font-weight: 400; line-height: 1.3; }
+  .score-row { display: flex; align-items: center; gap: var(--space-4); }
+  .score { flex: none; color: var(--tone); font-size: 2rem; line-height: 1; }
+  .score small { margin-left: 2px; color: var(--muted); font-size: var(--text-sm); }
+  .meter { flex: 1; --meter-color: var(--tone); }
   .meter-fill { display: block; height: 100%; transform-origin: left center; }
-  .score-cap { margin: 0; color: var(--muted); font-size: var(--text-xs); }
-  .why-title { margin-top: var(--space-2); font-size: var(--text-base); font-weight: 500; }
+  .score-cap { margin: calc(var(--space-2) * -1) 0 0; color: var(--muted); font-size: var(--text-xs); }
   .why { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); }
-  .why li { display: flex; gap: var(--space-3); align-items: baseline; color: var(--body-2); }
-  .dot { flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--tone); transform: translateY(-2px); }
-  .auto-read { display: inline-flex; align-items: center; gap: var(--space-2); min-height: 44px; font-size: var(--text-sm); color: var(--body-2); cursor: pointer; }
-  .auto-read input { width: 20px; height: 20px; }
+  .why li { display: flex; gap: var(--space-3); align-items: baseline; color: var(--ink); line-height: 1.5; }
+  .dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--tone); transform: translateY(-1px); }
+  .actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
 
-  .media { display: grid; gap: var(--space-3); padding: var(--space-3); }
-  .media img { display: block; width: 100%; max-height: 22rem; object-fit: contain; border-radius: 12px; background: var(--sheet); }
-  .media-empty { display: grid; place-items: center; gap: var(--space-2); min-height: 10rem; color: var(--muted); text-align: center; font-size: var(--text-sm); overflow-wrap: anywhere; padding: var(--space-4); }
-  .media figcaption { color: var(--muted); font-size: var(--text-xs); padding: 0 4px 4px; }
+  .card { margin: 0; padding: var(--space-5); background: var(--card); border-radius: var(--radius-lg); min-width: 0; }
+  .k-label { margin: 0 0 var(--space-3); color: var(--muted); font-size: var(--text-sm); font-weight: 500; }
 
-  .sec-title { margin-top: var(--space-3); font-size: var(--text-base); font-weight: 500; }
-  .evidence { display: grid; gap: var(--space-4); }
+  .more summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    min-height: 56px;
+    padding: 0 var(--space-5);
+    border-radius: var(--radius-lg);
+    background: var(--card);
+    font-weight: 500;
+    list-style: none;
+    cursor: pointer;
+  }
+  .more summary::-webkit-details-marker { display: none; }
+  .more summary:hover { background: var(--surface-2); }
+  .more summary :global(svg) { transition: transform var(--dur-base) var(--ease-out); }
+  .more[open] summary :global(svg) { transform: rotate(180deg); }
+  .evidence { display: grid; gap: var(--space-4); margin-top: var(--space-4); }
   .details { display: grid; gap: var(--space-5); }
   .block { display: grid; gap: var(--space-2); }
   .label { margin: 0; font-weight: 500; font-size: var(--text-sm); color: var(--body-2); }
@@ -332,22 +271,10 @@
   :global([data-motion='in']) .meter-fill { animation: fill 900ms var(--ease-out) 300ms both; }
   @keyframes fill { from { transform: scaleX(0); } }
 
-  @media (max-width: 75rem) {
-    .kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-    .kpi:nth-child(4) { border-left: 0; }
-    .kpi:nth-child(n + 4) { border-top: 1px solid var(--border-soft); }
-  }
-  @media (max-width: 56rem) {
-    .grid { grid-template-columns: minmax(0, 1fr); }
-    .col-side { order: -1; }
+  @media (min-width: 52rem) {
+    .verdict { grid-template-columns: minmax(0, 18rem) minmax(0, 1fr); align-items: start; }
   }
   @media (max-width: 36rem) {
-    .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .kpi:nth-child(odd) { border-left: 0; }
-    .kpi:nth-child(4) { border-left: 1px solid var(--border-soft); }
-    .kpi:nth-child(n + 3) { border-top: 1px solid var(--border-soft); }
-    .kpi--verdict { grid-column: 1 / -1; }
-    .kpi--verdict + .kpi { border-left: 0; }
     .card { padding: var(--space-4); }
   }
 </style>

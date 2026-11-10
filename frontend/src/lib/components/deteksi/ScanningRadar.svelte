@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { t, type MessageKey } from '$lib/i18n/index.svelte';
+  import { t } from '$lib/i18n/index.svelte';
   import { pillarSummary } from '$lib/pillar-summary';
   import type { PillarKey, StageStatus } from '$lib/audit.svelte';
-  import Icon from '$lib/components/ui/Icon.svelte';
+  import Icon, { type IconName } from '$lib/components/ui/Icon.svelte';
 
   interface Props {
     stages: Record<PillarKey, StageStatus>;
@@ -13,15 +13,10 @@
 
   let { stages, partials = {}, running = false }: Props = $props();
 
-  // The four detection modules as one strip split by hairlines: what each
-  // reads, and its state live while a check runs.
+  // The four checks as one strip split by hairlines, each with the icon the
+  // home page's diagram uses, and its state live while a check runs.
   const order: PillarKey[] = ['ai', 'ela', 'fact', 'link'];
-  const DESC: Record<PillarKey, MessageKey> = {
-    ai: 'app.mod.ai.d',
-    ela: 'app.mod.ela.d',
-    fact: 'app.mod.fact.d',
-    link: 'app.mod.link.d'
-  };
+  const ICON: Record<PillarKey, IconName> = { ai: 'sparkle', ela: 'type', fact: 'search', link: 'lock' };
   const doneCount = $derived(order.filter((k) => stages[k] === 'done').length);
   const stateText = (s: StageStatus): string => (s === 'idle' ? t('app.modules.idle') : t(`stage.${s}`));
 </script>
@@ -32,8 +27,7 @@
   <ol class="strip">
     {#each order as key (key)}
       <li class="cell {stages[key]}">
-        <p class="name">{t(`pillar.${key}`)}</p>
-        <p class="desc">{t(DESC[key])}</p>
+        <p class="name"><span class="ic" aria-hidden="true"><Icon name={ICON[key]} size={18} /></span>{t(`pillar.${key}`)}</p>
         <p class="state">
           <span class="mark" aria-hidden="true">
             {#if stages[key] === 'done'}<Icon name="check" size={12} />{/if}
@@ -72,8 +66,8 @@
     border-left: 1px solid var(--border-soft);
   }
   .cell:first-child { border-left: 0; }
-  .name { margin: 0; font-weight: 500; }
-  .desc { margin: 0; color: var(--muted); font-size: var(--text-sm); line-height: 1.5; }
+  .name { display: flex; align-items: center; gap: 10px; margin: 0; font-weight: 500; }
+  .ic { display: grid; place-items: center; width: 32px; height: 32px; flex: none; border-radius: 50%; background: var(--indigo-soft); color: var(--indigo-text); }
   .state { display: flex; align-items: center; gap: 8px; margin: 6px 0 0; color: var(--muted); font-size: var(--text-sm); }
   .mark {
     display: grid;
