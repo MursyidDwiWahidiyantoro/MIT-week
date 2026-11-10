@@ -478,7 +478,7 @@ func (p *Pipeline) RunStream(ctx context.Context, req Request, emit func(Event))
 				if claim := corePhrase(vclip.Title, vclip.Description); claim != "" {
 					// No Judged: every page goes through the claim classifier, as in v2;
 					// reusing the web check's verdicts let unrelated "hoax" pages through.
-					fact, failed := p.checkClaim(gctx, claim, "", factContext{Title: contentTitle, Video: true, Official: officialOutlet(vclip.Uploader, vclip.UploaderID)})
+					fact, failed := p.checkClaim(gctx, claim, "", factContext{Title: contentTitle, Video: true, Official: officialOutlet(vclip.Uploader, vclip.UploaderID), Debunk: isClarification(req, contentTitle)})
 					fact = addWebHoax(fact, web, claim)
 					mu.Lock()
 					res.Pillars.Fact = fact
@@ -563,7 +563,7 @@ func (p *Pipeline) RunStream(ctx context.Context, req Request, emit func(Event))
 			return nil
 		}
 		// No Judged (see the no-model path above): the claim classifier judges every page.
-		fc := factContext{Title: contentTitle, Summary: summary, Transcript: truncateRunes(transcript, 600), Video: vclip != nil}
+		fc := factContext{Title: contentTitle, Summary: summary, Transcript: truncateRunes(transcript, 600), Video: vclip != nil, Debunk: isClarification(req, contentTitle)}
 		if vclip != nil {
 			fc.Official = officialOutlet(vclip.Uploader, vclip.UploaderID)
 		}

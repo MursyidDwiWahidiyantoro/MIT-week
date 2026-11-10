@@ -28,6 +28,11 @@ type factContext struct {
 	// Judged is what the web provenance classification already said about a URL
 	// (HOAX, REAL, ...): the same page is not sent to the model twice.
 	Judged map[string]string
+	// Debunk is true when the content is itself a clarification or fact-check
+	// (its own title or address says so, grounding.IsFactCheck). The claim read
+	// from such a page is the hoax it corrects, so a fact-checker who debunks
+	// the same claim agrees with the page rather than refuting it.
+	Debunk bool
 }
 
 func (c factContext) llm() llm.ClaimContext {
@@ -214,15 +219,7 @@ func (p *Pipeline) checkClaim(ctx context.Context, claim, query string, fc factC
 
 	toolURLs := grounding.URLSet(results)
 	for i, r := range relevant {
-		match := models.FactUnverified
-		if judged[i] != "" && p.Grounder.Verified(r.URL, toolURLs) {
-			match = models.FactStatus(judged[i])
-		}
-		// Only a fact-check article may contradict (9 Nov: news and unrelated
-		// fact-checks "contradicted" real Kompas videos).
-		if match == models.FactContradicts && !grounding.IsFactCheck(r.Title, r.URL) {
-			match = models.FactUnverified
-		}
+		match := claimMatch(judged[i], p.Grounder.Verified(r.URL, toolURLs), r.Title, r.URL, fc)
 		fact.Sources = append(fact.Sources, models.Source{
 			Title: r.Title, Publisher: r.Publisher, URL: r.URL, Match: match,
 		})
@@ -230,6 +227,35 @@ func (p *Pipeline) checkClaim(ctx context.Context, claim, query string, fc factC
 	fact.Status = factStatus(fact.Sources, fc)
 	fact.Sources = topSources(fact.Sources, maxShownSources)
 	return fact, searchFailed || classifyErr != nil
+}
+
+// isClarification reports whether a link's own title or address marks it as a
+// clarification or fact-check article (for example a newsroom's
+// "Klarifikasi ..." or a cekfakta page). Uploads are never one.
+func isClarification(req Request, title string) bool {
+	if req.InputType != models.InputURL || req.URL == "" {
+		return false
+	}
+	return grounding.IsFactCheck(strings.TrimSpace(title), req.URL)
+}
+
+// claimMatch is one source's standing on the claim: the classifier's answer
+// when the source was really returned by the search tools, UNVERIFIED
+// otherwise.
+//   - Only a fact-check article may contradict (9 Nov: news and unrelated
+//     fact-checks "contradicted" real Kompas videos).
+//   - A clarification is never contradicted by the debunk it echoes (10 Nov: a
+//     Kompas clarification scored 85 "dibantah" because TurnBackHoax debunked
+//     the very hoax the article corrects).
+func claimMatch(judged string, verified bool, title, rawURL string, fc factContext) models.FactStatus {
+	match := models.FactUnverified
+	if judged != "" && verified {
+		match = models.FactStatus(judged)
+	}
+	if match == models.FactContradicts && (fc.Debunk || !grounding.IsFactCheck(title, rawURL)) {
+		match = models.FactUnverified
+	}
+	return match
 }
 
 // maxShownSources is how many sources the dossier lists.
