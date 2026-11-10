@@ -111,7 +111,7 @@ describe('VideoAnalysis', () => {
       ai
     });
 
-    expect(screen.getByText('Penilaian video ini memakai judul, keterangan, gambar pratinjau, dan pencarian web.')).toBeTruthy();
+    expect(screen.getByText('Penilaian video ini memakai label dari platform dan pemeriksaan yang tercantum di halaman ini.')).toBeTruthy();
     expect(container.textContent).not.toMatch(/belum bisa|gagal|tidak dapat|privat/i);
     expect(screen.queryByRole('button')).toBeNull();
     expect(screen.queryByRole('img')).toBeNull();

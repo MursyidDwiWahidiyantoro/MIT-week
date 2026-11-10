@@ -15,7 +15,7 @@ test('a link without a preview says what the result rests on and still concludes
   await expect(page).toHaveURL(/\/hasil$/, { timeout: 20_000 });
   const preview = page.locator('[data-testid="source-metadata"]');
   await expect(preview).toContainText('Halaman ini tidak menampilkan pratinjau.');
-  await expect(preview).toContainText('Penilaian memakai alamat tautan dan pencarian web.');
+  await expect(preview).toContainText('Hasil di atas memakai pemeriksaan yang tercantum di bawah.');
   await expect(preview.getByRole('button')).toHaveCount(0);
 
   // The link pillar still ran and found the lookalike; the verdict is never

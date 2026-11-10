@@ -14,13 +14,35 @@ import (
 const simpleMax = 140
 
 // VideoNote says what a video link was judged on when its footage was not
-// read: the post's own words, its preview image and a web search. It names
-// the basis, not the failure.
+// read. It names the basis, not the failure, and lists only what really ran:
+// an X post behind a login wall has no title or preview to cite.
 func VideoNote(res Result) string {
-	if res.Video != nil && res.Video.Status != models.VideoOK {
-		return "Penilaian memakai judul, keterangan, gambar pratinjau, dan pencarian web."
+	if res.Video == nil || res.Video.Status == models.VideoOK {
+		return ""
 	}
-	return ""
+	var used []string
+	if res.Metadata != nil && res.Metadata.Status == models.MetadataOK {
+		used = append(used, "judul dan keterangan")
+	}
+	if res.Pillars.AI.Available {
+		used = append(used, "gambar pratinjau")
+	}
+	if res.Pillars.Fact.Available {
+		used = append(used, "pencarian cek fakta")
+	}
+	if res.Pillars.Link.Available {
+		used = append(used, "alamat tautan")
+	}
+	switch n := len(used); n {
+	case 0:
+		return ""
+	case 1:
+		return "Penilaian memakai " + used[0] + "."
+	case 2:
+		return "Penilaian memakai " + used[0] + " dan " + used[1] + "."
+	default:
+		return "Penilaian memakai " + strings.Join(used[:n-1], ", ") + ", dan " + used[n-1] + "."
+	}
 }
 
 // FactNote says what the fact check found, in one sentence; "" when no claim
