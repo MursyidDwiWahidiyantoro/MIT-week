@@ -25,6 +25,14 @@ func (f *fakeResearch) Search(_ context.Context, q string) ([]grounding.Result, 
 	return f.results, f.err
 }
 
+func researchPipeline(s grounding.Searcher) *Pipeline {
+	return &Pipeline{
+		Grounder:         grounding.New(grounding.DefaultAllowlist),
+		Research:         s,
+		ResearchGrounder: grounding.New(grounding.WebAllowlist),
+	}
+}
+
 func TestResearchTermsPrefersKeywordsThenWhatTheVideoShows(t *testing.T) {
 	vf := llm.VideoFindings{SearchQuery: "banjir jakarta mobil terseret"}
 	if got := researchTerms(vf); got != "banjir jakarta mobil terseret" {
@@ -39,56 +47,62 @@ func TestResearchTermsPrefersKeywordsThenWhatTheVideoShows(t *testing.T) {
 	}
 }
 
-func TestResearchKeepsOnlyTrustedOnTopicPages(t *testing.T) {
-	fake := &fakeResearch{results: []grounding.Result{
-		{Title: "Banjir rendam Jakarta Utara, mobil terseret arus", URL: "https://www.kompas.com/a", Publisher: "kompas.com", Snippet: strings.Repeat("banjir jakarta ", 40)},
-		{Title: "Banjir Jakarta mobil terseret", URL: "https://blog-acak.example/banjir", Publisher: "blog-acak.example", Snippet: "banjir jakarta"},
-		{Title: "Harga cabai naik di pasar", URL: "https://www.detik.com/b", Publisher: "detik.com", Snippet: "cabai rawit"},
-		{Title: "Banjir rendam Jakarta Utara, mobil terseret arus", URL: "https://www.kompas.com/a", Publisher: "kompas.com", Snippet: "ulang"},
-		{Title: "Video mobil terseret banjir di Jakarta bukan hoaks", URL: "http://turnbackhoax.id/c", Publisher: "turnbackhoax.id", Snippet: "banjir jakarta"},
-	}}
-	p := &Pipeline{Research: fake, ResearchGrounder: grounding.New(grounding.WebAllowlist)}
-	r := p.research(context.Background(), "banjir jakarta mobil terseret")
-	if r.Status != models.ResearchFound || len(r.Sources) != 1 {
-		t.Fatalf("want 1 trusted on-topic page, got %s %+v", r.Status, r.Sources)
+// The audit's own searches come first; with two pages or more no credit is spent.
+func TestResearchReusesWhatTheAuditAlreadyFound(t *testing.T) {
+	fake := &fakeResearch{}
+	p := researchPipeline(fake)
+	r := p.buildResearch(context.Background(), researchInput{
+		terms:    "dasco usulan pemakzulan gibran",
+		evidence: []models.WebEvidence{{Title: "Respon Dasco soal usulan pemakzulan", URL: "https://nasional.kompas.com/b", Publisher: "nasional.kompas.com", Says: llm.WebReal}},
+		facts: []models.Source{
+			{Title: "[SALAH] Syarat Pemakzulan Terpenuhi", URL: "https://turnbackhoax.id/x", Publisher: "turnbackhoax.id", Match: models.FactUnverified},
+			{Title: "Respon Dasco soal usulan pemakzulan", URL: "https://nasional.kompas.com/b", Publisher: "nasional.kompas.com"},
+		},
+		pages: []grounding.Result{
+			{Title: "Dasco: tunggu masa sidang", URL: "https://news.okezone.com/c", Publisher: "news.okezone.com", Snippet: strings.Repeat("dasco ", 80)},
+			{Title: "Blog acak", URL: "https://blog-acak.example/d", Publisher: "blog-acak.example"},
+		},
+	})
+	if r == nil || r.Status != models.ResearchFound || len(r.Sources) != 3 {
+		t.Fatalf("want 3 trusted pages, once each: %+v", r)
 	}
-	s := r.Sources[0]
-	if s.Domain != "kompas.com" || s.URL != "https://www.kompas.com/a" {
-		t.Fatalf("domain without www and the page's own URL: %+v", s)
+	if len(fake.asked) != 0 || r.Query != "" {
+		t.Fatalf("no new search when the audit found enough: asked %v, query %q", fake.asked, r.Query)
 	}
-	if n := len([]rune(s.Snippet)); n > 280 {
+	if r.Sources[0].Domain != "nasional.kompas.com" || r.Sources[1].Domain != "turnbackhoax.id" {
+		t.Fatalf("judged pages first, then the claim check's: %+v", r.Sources)
+	}
+	if n := len([]rune(r.Sources[2].Snippet)); n > 280 {
 		t.Fatalf("snippet capped at 280 runes, got %d", n)
 	}
-	if r.Query != "banjir jakarta mobil terseret" || len(fake.asked) != 1 {
-		t.Fatalf("one search with the query, got %q %v", r.Query, fake.asked)
+}
+
+func TestResearchSearchesOnlyWhenTheAuditFoundTooLittle(t *testing.T) {
+	fake := &fakeResearch{results: []grounding.Result{
+		{Title: "Banjir rendam Jakarta Utara, mobil terseret arus", URL: "https://www.kompas.com/a", Publisher: "kompas.com", Snippet: "banjir jakarta"},
+		{Title: "Banjir Jakarta mobil terseret", URL: "https://blog-acak.example/banjir", Publisher: "blog-acak.example", Snippet: "banjir jakarta"},
+		{Title: "Harga cabai naik di pasar", URL: "https://www.detik.com/b", Publisher: "detik.com", Snippet: "cabai rawit"},
+		{Title: "Video mobil terseret banjir di Jakarta", URL: "http://turnbackhoax.id/c", Publisher: "turnbackhoax.id", Snippet: "banjir jakarta"},
+	}}
+	r := researchPipeline(fake).buildResearch(context.Background(), researchInput{terms: "banjir jakarta mobil terseret"})
+	if len(fake.asked) != 1 || fake.asked[0] != "banjir jakarta mobil terseret" || r.Query != "banjir jakarta mobil terseret" {
+		t.Fatalf("one search with the video's terms: %v %q", fake.asked, r.Query)
+	}
+	if r.Status != models.ResearchFound || len(r.Sources) != 1 || r.Sources[0].Domain != "kompas.com" {
+		t.Fatalf("only the trusted, on-topic https page: %+v", r)
 	}
 }
 
 func TestResearchSaysPlainlyWhenItFoundNothingOrCouldNotRun(t *testing.T) {
-	g := grounding.New(grounding.WebAllowlist)
-	none := (&Pipeline{Research: &fakeResearch{}, ResearchGrounder: g}).research(context.Background(), "banjir jakarta")
-	if none.Status != models.ResearchNone || none.Sources == nil || len(none.Sources) != 0 {
+	none := researchPipeline(&fakeResearch{}).buildResearch(context.Background(), researchInput{terms: "banjir jakarta"})
+	if none == nil || none.Status != models.ResearchNone || none.Sources == nil || len(none.Sources) != 0 {
 		t.Fatalf("nothing found: %+v", none)
 	}
-	down := (&Pipeline{Research: &fakeResearch{err: errors.New("432")}, ResearchGrounder: g}).research(context.Background(), "banjir jakarta")
+	down := researchPipeline(&fakeResearch{err: errors.New("432")}).buildResearch(context.Background(), researchInput{terms: "banjir jakarta"})
 	if down.Status != models.ResearchUnavailable {
 		t.Fatalf("a failed search is unavailable, not 'nothing found': %+v", down)
 	}
-}
-
-func TestResearchIsOffWithoutASearcherOrTerms(t *testing.T) {
-	vf := llm.VideoFindings{SearchQuery: "banjir jakarta mobil"}
-	if ch := (&Pipeline{}).startResearch(context.Background(), vf); ch != nil {
-		t.Fatal("no searcher: no research")
-	}
-	if ch := (&Pipeline{Research: &fakeResearch{}}).startResearch(context.Background(), llm.VideoFindings{}); ch != nil {
-		t.Fatal("no terms: no research")
-	}
-	ch := (&Pipeline{Research: &fakeResearch{}, ResearchGrounder: grounding.New(grounding.WebAllowlist)}).startResearch(context.Background(), vf)
-	if ch == nil {
-		t.Fatal("searcher and terms: research runs")
-	}
-	if r := awaitResearch(context.Background(), ch, "banjir jakarta mobil"); r.Status != models.ResearchNone {
-		t.Fatalf("got %+v", r)
+	if r := (&Pipeline{}).buildResearch(context.Background(), researchInput{}); r != nil {
+		t.Fatalf("nothing to show and nothing to search: %+v", r)
 	}
 }

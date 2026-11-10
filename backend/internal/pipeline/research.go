@@ -12,16 +12,18 @@ import (
 )
 
 // Research (Sir, 10 Nov 2026): the conclusion about a video must rest on data
-// from trusted places. What the video itself shows (its fact-check keywords,
-// or else its 5W1H) becomes one search over the trusted newsrooms and
-// fact-checkers, and the pages it finds are returned as the trail behind the
-// verdict. There is no model call: the trail is data the family can open and
-// read, not a second opinion. It starts as soon as the video is understood,
-// runs beside the fact check, and never degrades or delays a result past its
-// own budget.
+// from trusted places, shown as a trail the family can open and read. The
+// trail is built after every check has run, from what the audit already
+// searched: the pages the web search judged to be about this video, the claim
+// check's sources, and the web search's other on-topic pages. Only when those
+// leave fewer than researchMinPages does what the video shows (its fact-check
+// keywords, or else its 5W1H) get a search of its own over the trusted
+// newsrooms: the Tavily credits are shared with the fact check. No model call
+// judges these pages, and a failed search never degrades the result.
 const (
-	researchBudget = 8 * time.Second
-	researchMax    = 5
+	researchBudget   = 8 * time.Second
+	researchMax      = 5
+	researchMinPages = 2
 )
 
 // researchTerms is the model's fact-check keywords, or with none, what the
@@ -34,68 +36,78 @@ func researchTerms(vf llm.VideoFindings) string {
 	return corePhrase(strings.Join([]string{w.What, w.Where, w.When}, " "), w.Who)
 }
 
-// startResearch starts the search and returns a channel that receives
-// exactly one result, or nil when research is off or there is nothing to
-// search. ctx must outlive the audit's errgroup (it is awaited after it).
-func (p *Pipeline) startResearch(ctx context.Context, vf llm.VideoFindings) <-chan models.Research {
-	if p.Research == nil || !p.Research.Enabled() {
-		return nil
-	}
-	q := researchTerms(vf)
-	if q == "" {
-		return nil
-	}
-	ch := make(chan models.Research, 1)
-	go func() {
-		defer func() {
-			if recover() != nil {
-				ch <- models.Research{Query: q, Status: models.ResearchUnavailable, Sources: []models.ResearchSource{}}
-			}
-		}()
-		ch <- p.research(ctx, q)
-	}()
-	return ch
+// researchInput is what the audit already found, read once its goroutines are done.
+type researchInput struct {
+	terms    string
+	evidence []models.WebEvidence
+	facts    []models.Source
+	pages    []grounding.Result
 }
 
-// research runs one search and keeps the trusted, on-topic pages.
-func (p *Pipeline) research(ctx context.Context, q string) models.Research {
-	out := models.Research{Query: q, Status: models.ResearchNone, Sources: []models.ResearchSource{}}
-	sctx, cancel := withBudget(ctx, researchBudget)
-	results, err := p.Research.Search(sctx, q)
-	cancel()
-	if err != nil {
-		out.Status = models.ResearchUnavailable
-		return out
-	}
-	allowed := p.researchGrounder()
+// buildResearch returns the trail, or nil when there is nothing to show and
+// nothing to search.
+func (p *Pipeline) buildResearch(ctx context.Context, in researchInput) *models.Research {
+	out := models.Research{Status: models.ResearchNone, Sources: []models.ResearchSource{}}
 	seen := map[string]bool{}
-	for _, r := range results {
-		if len(out.Sources) >= researchMax {
-			break
+	add := func(title, rawURL, publisher, snippet string) {
+		if len(out.Sources) >= researchMax || seen[rawURL] || !p.trustedPage(rawURL) {
+			return
 		}
-		// No allowlist, no trail: a page is shown only from a trusted host.
-		if seen[r.URL] || allowed == nil || !allowed.HostAllowed(r.URL) || !grounding.SameTopic(q, r.Title+" "+r.Snippet) {
-			continue
-		}
-		seen[r.URL] = true
+		seen[rawURL] = true
 		out.Sources = append(out.Sources, models.ResearchSource{
-			Title:   truncateRunes(strings.TrimSpace(r.Title), 200),
-			URL:     r.URL,
-			Domain:  domainOf(r.URL, r.Publisher),
-			Snippet: truncateRunes(strings.TrimSpace(r.Snippet), 280),
+			Title:   truncateRunes(strings.TrimSpace(title), 200),
+			URL:     rawURL,
+			Domain:  domainOf(rawURL, publisher),
+			Snippet: truncateRunes(strings.TrimSpace(snippet), 280),
 		})
+	}
+	for _, e := range in.evidence {
+		add(e.Title, e.URL, e.Publisher, "")
+	}
+	for _, s := range in.facts {
+		add(s.Title, s.URL, s.Publisher, "")
+	}
+	for _, r := range in.pages {
+		add(r.Title, r.URL, r.Publisher, r.Snippet)
+	}
+	if len(out.Sources) < researchMinPages && in.terms != "" && p.Research != nil && p.Research.Enabled() {
+		out.Query = in.terms
+		sctx, cancel := withBudget(ctx, researchBudget)
+		results, err := p.Research.Search(sctx, in.terms)
+		cancel()
+		if err != nil && len(out.Sources) == 0 {
+			out.Status = models.ResearchUnavailable
+		}
+		for _, r := range results {
+			if grounding.SameTopic(in.terms, r.Title+" "+r.Snippet) {
+				add(r.Title, r.URL, r.Publisher, r.Snippet)
+			}
+		}
 	}
 	if len(out.Sources) > 0 {
 		out.Status = models.ResearchFound
 	}
-	return out
+	if len(out.Sources) == 0 && out.Query == "" && in.terms == "" {
+		return nil
+	}
+	return &out
+}
+
+// trustedPage is an https page on the fact-check or the newsroom allowlist.
+func (p *Pipeline) trustedPage(rawURL string) bool {
+	for _, g := range []*grounding.Grounder{p.Grounder, p.researchGrounder()} {
+		if g != nil && g.HostAllowed(rawURL) {
+			return true
+		}
+	}
+	return false
 }
 
 func (p *Pipeline) researchGrounder() *grounding.Grounder {
 	if p.ResearchGrounder != nil {
 		return p.ResearchGrounder
 	}
-	return p.webGrounder()
+	return p.WebGrounder
 }
 
 // domainOf is the page's host without "www.", or the searcher's publisher.
@@ -104,14 +116,4 @@ func domainOf(rawURL, publisher string) string {
 		return strings.TrimPrefix(strings.ToLower(u.Hostname()), "www.")
 	}
 	return publisher
-}
-
-// awaitResearch waits for the search, at most until ctx ends.
-func awaitResearch(ctx context.Context, ch <-chan models.Research, q string) models.Research {
-	select {
-	case r := <-ch:
-		return r
-	case <-ctx.Done():
-		return models.Research{Query: q, Status: models.ResearchUnavailable, Sources: []models.ResearchSource{}}
-	}
 }

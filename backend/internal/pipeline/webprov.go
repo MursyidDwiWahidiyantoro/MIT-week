@@ -35,6 +35,9 @@ type webOutcome struct {
 	// Judged is the classification of every page that reached the model, by URL,
 	// so the claim check does not send the same page again.
 	Judged map[string]string
+	// Pages is every on-topic page the search returned, judged or not: the
+	// research trail reuses them instead of spending another search.
+	Pages []grounding.Result
 }
 
 // says returns the evidence with the given verdict.
@@ -141,6 +144,7 @@ func (p *Pipeline) webProvenance(ctx context.Context, c *video.Clip, phrase stri
 	if len(onTopic) == 0 {
 		return out
 	}
+	out.Pages = onTopic
 	evidence := make([]llm.Evidence, len(onTopic))
 	for i, r := range onTopic {
 		evidence[i] = llm.Evidence{Title: r.Title, Publisher: r.Publisher, Snippet: r.Snippet, Rating: r.Rating}
