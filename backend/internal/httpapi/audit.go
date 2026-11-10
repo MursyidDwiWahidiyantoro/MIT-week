@@ -327,7 +327,7 @@ func sourceReference(req pipeline.Request) string {
 func shortTitle(s models.Status) string {
 	switch s {
 	case models.StatusTampered:
-		return "Terindikasi Hoax/Manipulasi"
+		return "Terindikasi hoaks atau manipulasi"
 	case models.StatusSuspicious:
 		return "Perlu diperiksa lebih lanjut"
 	default: // SAFE, and INSUFFICIENT in old payloads

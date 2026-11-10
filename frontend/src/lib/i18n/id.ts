@@ -341,7 +341,7 @@ export const id = {
   "status.INSUFFICIENT": "Tidak ditemukan tanda bahaya",
   "status.SAFE": "Tidak ditemukan tanda bahaya",
   "status.SUSPICIOUS": "Perlu diperiksa",
-  "status.TAMPERED": "Terindikasi Hoax/Manipulasi",
+  "status.TAMPERED": "Terindikasi hoaks atau manipulasi",
   "summary.ai": "Skor indikatif {n}.",
   "summary.CONTRADICTS": "Klaim dibantah sumber terverifikasi.",
   "summary.ela": "Keandalan {n}%.",

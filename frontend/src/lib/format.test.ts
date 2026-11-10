@@ -13,8 +13,8 @@ describe('statusLabel', () => {
     expect(statusLabel('SAFE')).toBe('Tidak ditemukan tanda bahaya');
   });
 
-  it('maps TAMPERED to the spec label', () => {
-    expect(statusLabel('TAMPERED')).toBe('Terindikasi Hoax/Manipulasi');
+  it('maps TAMPERED to the Indonesian label (hoaks, not hoax: Indonesian only, 10 Nov 2026)', () => {
+    expect(statusLabel('TAMPERED')).toBe('Terindikasi hoaks atau manipulasi');
   });
 
   it('maps INSUFFICIENT honestly', () => {
