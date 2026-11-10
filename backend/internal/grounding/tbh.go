@@ -50,7 +50,7 @@ type tbhEntry struct {
 }
 
 // NewTBHSearcher builds a searcher on client, which must be the SSRF-safe
-// client. Each request is bounded by 6 s whatever the client allows.
+// client. Each request is bounded by 12 s whatever the client allows.
 func NewTBHSearcher(client *http.Client) *TBHSearcher {
 	return &TBHSearcher{Endpoint: TBHSearchURL, HTTP: client, MaxResults: 5}
 }
@@ -81,7 +81,7 @@ func (s *TBHSearcher) Search(ctx context.Context, query string) ([]Result, error
 	if res, ok := s.cached(key); ok {
 		return res, nil
 	}
-	ctx, cancel := context.WithTimeout(ctx, 7*time.Second) // the site often needs more than 6 s
+	ctx, cancel := context.WithTimeout(ctx, 12*time.Second) // 2-5 s idle, past 8 s under load
 	defer cancel()
 	q := url.Values{}
 	q.Set("query", query)

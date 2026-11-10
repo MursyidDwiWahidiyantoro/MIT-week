@@ -431,7 +431,9 @@ func classifyLines(s string) []claimMatch {
 // do not each wait for it to fail again.
 const (
 	fallbackReserve = 9 * time.Second
-	breakerCooldown = 60 * time.Second
+	// 60 s sent a whole minute of calls to the weaker fallback after one slow
+	// answer under load (10 Nov eval); a refused connection still skips fast.
+	breakerCooldown = 30 * time.Second
 	// slowBudget is the shortest first-gateway budget whose overrun counts as
 	// the gateway being slow. Overrunning a shorter one (a fact-check
 	// classification gets about 5 s) says more about the budget.

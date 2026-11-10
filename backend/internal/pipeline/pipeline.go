@@ -163,8 +163,11 @@ func New(client *llm.Client, g *grounding.Grounder, cacheTTL time.Duration) *Pip
 		LLMDeadline:    9 * time.Second,
 		// Measured 9 Nov: a text-only call takes 4-9 s on our gateways and a
 		// Tavily search 1-5 s; with 3 s the classifier timed out every time.
-		SearchDeadline:     8 * time.Second,
-		ClassifyDeadline:   10 * time.Second,
+		// 10 Nov eval: TurnBackHoax answers in 2-5 s idle and past 8 s under
+		// load, and a 10 s classify left the main model only 5 s before the
+		// weaker fallback took over; both cost debunks that v2 had found.
+		SearchDeadline:     12 * time.Second,
+		ClassifyDeadline:   20 * time.Second,
 		DetectDeadline:     4 * time.Second,
 		PreviewDeadline:    1500 * time.Millisecond,
 		TextDeadline:       1500 * time.Millisecond,

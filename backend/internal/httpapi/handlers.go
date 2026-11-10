@@ -100,7 +100,9 @@ func NewDeps(cfg *config.Config) Deps {
 	if !cfg.LLMMock {
 		// TurnBackHoax's own search runs beside the general fact-check search: it
 		// finds debunks that a web search misses. Keyless, through the SSRF-safe client.
-		p.SiteSearch = grounding.NewTBHSearcher(security.NewSafeClient(6*time.Second, 2))
+		// The client's own timeout must not undercut the searcher's 12 s:
+		// at 6 s it cut slow answers and they were logged as "transport".
+		p.SiteSearch = grounding.NewTBHSearcher(security.NewSafeClient(12*time.Second, 2))
 	}
 	if cfg.TavilyKey != "" {
 		// Video provenance: the same Tavily key, but a wider newsroom list and

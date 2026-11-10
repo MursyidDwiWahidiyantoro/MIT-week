@@ -19,8 +19,9 @@ import (
 // beside the frame analysis and never holds the verdict past the video's
 // own time budget.
 const (
-	webSearchBudget   = 6 * time.Second
-	webClassifyBudget = 8 * time.Second
+	// An 8 s classify gave the main model 4 s before the fallback (10 Nov).
+	webSearchBudget   = 10 * time.Second
+	webClassifyBudget = 16 * time.Second
 	webMaxEvidence    = 5
 	// webPhraseWords is how many words of the title form the search phrase.
 	webPhraseWords = 10
