@@ -239,6 +239,7 @@ export const en: Record<MessageKey, string> = {
   "res.h1": "Check result",
   "res.limitsNote": "The score shows the level of risk, not certainty. Results are indicative and not legal evidence.",
   "res.ocrLabel": "Read from the image",
+  "res.scoreCap": "Risk score, not a confidence level",
   "res.panelDetails": "Check details",
   "res.panelImage": "Image view",
   "res.panelLimits": "Limits of this check",

@@ -240,6 +240,7 @@ export const id = {
   "res.h1": "Hasil pemeriksaan",
   "res.limitsNote": "Skor ini menunjukkan tingkat risiko, bukan tingkat keyakinan. Hasil bersifat indikatif dan bukan alat bukti hukum.",
   "res.ocrLabel": "Dibaca dari gambar",
+  "res.scoreCap": "Skor risiko, bukan tingkat keyakinan",
   "res.panelDetails": "Rincian pemeriksaan",
   "res.panelImage": "Tampilan gambar",
   "res.panelLimits": "Batas pemeriksaan ini",

@@ -189,4 +189,7 @@
   .body ul { margin: 0; padding-left: var(--space-5); display: grid; gap: var(--space-1); }
   .note { color: var(--muted); }
   .muted { color: var(--muted); }
+  .sources { list-style: none; padding-left: 0 !important; gap: var(--space-2) !important; }
+  .sources li { display: grid; }
+  .sources a { display: inline-flex; align-items: center; min-height: 44px; overflow-wrap: anywhere; font-weight: 700; }
 </style>

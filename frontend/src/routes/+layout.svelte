@@ -282,6 +282,7 @@
       grid-column: 1;
       grid-row: 1;
     }
+    .brand { min-height: 44px; }
     .logo {
       width: 38px;
       height: 38px;
@@ -323,7 +324,7 @@
       justify-content: center;
       padding: 0 4px;
       font-size: 0.88rem;
-      min-height: 38px;
+      min-height: 44px;
       text-align: center;
       white-space: nowrap;
     }

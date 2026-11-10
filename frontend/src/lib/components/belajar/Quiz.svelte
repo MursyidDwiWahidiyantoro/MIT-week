@@ -99,7 +99,7 @@
 
     <div class="feedback" role="status" aria-live="polite" class:filled={submitted}>
       {#if submitted}
-        <p class="verdict"><strong>{correct ? tx(UI.quiz.right) : tx(UI.quiz.wrong)}</strong>
+        <p class="fb-head"><strong>{correct ? tx(UI.quiz.right) : tx(UI.quiz.wrong)}</strong>
           {#if !correct && answerText}{tx(UI.quiz.correctIs, { answer: tx(answerText) })}{/if}</p>
         <p class="explain">{tx(q.explain)}</p>
       {/if}
@@ -179,7 +179,7 @@
   .feedback { margin: 0 0 var(--space-4); }
   .feedback.filled { padding: var(--space-3) var(--space-4); background: var(--paper); border-left: 4px solid var(--brand); border-radius: var(--radius-sm); }
   .feedback p { margin: 0; }
-  .verdict { margin-bottom: var(--space-1) !important; }
+  .fb-head { margin-bottom: var(--space-1) !important; }
   .explain { color: var(--body-2); }
 
   .result h3 { font-size: var(--text-xl); margin-bottom: var(--space-2); }
