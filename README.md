@@ -44,8 +44,16 @@ Semua fitur di bawah ini ada di kode saat ini (cabang `amba-v2`, 10 November 202
   ("Lihat ini https://..."), tautannya diambil otomatis di browser. Skema
   berbahaya (`javascript:`, `data:`) ditolak sebelum dikirim.
 
-Masih ada: halaman Cek cepat (cek situasi tanpa tautan), panduan keluarga,
-edukasi, bot Telegram opsional, dan baca-lantang hasil.
+Juga ada: halaman **Belajar** (tanda video buatan AI dan video hoaks, cara
+cek sendiri, modus penipuan yang beredar di Indonesia, kuis 8 soal dengan
+pembahasan, dan panduan kata sandi keluarga), bot Telegram opsional, dan
+baca-lantang hasil.
+
+Setiap pemeriksaan selalu berakhir dengan kesimpulan yang jelas: aman,
+perlu diperiksa, atau kemungkinan hoaks/dimanipulasi. Hasilnya tidak pernah
+berupa "belum cukup data". Pemeriksaan yang tidak relevan untuk jenis
+masukan (misalnya ELA untuk video) tidak ditampilkan, dan sumber cek fakta
+hanya yang membahas klaim yang sama.
 
 ### Fitur yang sudah dihapus
 
@@ -57,6 +65,8 @@ berikut **sudah tidak ada** di v2:
 - Bagikan laporan (tombol dan tampilan laporan bersama).
 - Balas sopan (endpoint `/reply` dihapus).
 - Kartu bukti (simpan gambar).
+- Cek cepat (`/cek-cepat`); panduan keluarga pindah ke Belajar
+  (`/panduan-keluarga` dialihkan ke `/edukasi#keluarga`).
 
 Menu bagikan dari sistem operasi ke AMBA (PWA share target) tetap ada: itu
 jalur masuk, bukan bagikan laporan.
