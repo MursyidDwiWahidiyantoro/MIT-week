@@ -97,6 +97,11 @@ func NewDeps(cfg *config.Config) Deps {
 		}
 		p.Searcher = newsSearcher{ns}
 	}
+	if !cfg.LLMMock {
+		// TurnBackHoax's own search runs beside the general fact-check search: it
+		// finds debunks that a web search misses. Keyless, through the SSRF-safe client.
+		p.SiteSearch = grounding.NewTBHSearcher(security.NewSafeClient(6*time.Second, 2))
+	}
 	if cfg.TavilyKey != "" {
 		// Video provenance: the same Tavily key, but a wider newsroom list and
 		// the video's own words instead of a "cek fakta" query.

@@ -33,7 +33,9 @@ const (
 // fetchVideo downloads a supported social video link. Any other link, or a
 // pipeline without a video source, returns nil, nil. A failed download
 // returns the UNAVAILABLE object with its reason; transient says whether a
-// retry could succeed, so the result is not cached.
+// retry could succeed, so the result is not cached. A failed download that
+// still learned the post's metadata returns a metadata-only clip (no Frames)
+// together with the UNAVAILABLE object.
 func (p *Pipeline) fetchVideo(ctx context.Context, rawURL string) (clip *video.Clip, va *models.VideoAnalysis, transient bool) {
 	if p.Video == nil || !p.Video.Enabled() {
 		return nil, nil, false
@@ -64,12 +66,22 @@ func (p *Pipeline) fetchVideo(ctx context.Context, rawURL string) (clip *video.C
 	// least 10 s of the download budget is left.
 	if errors.Is(err, video.ErrTimeout) && fctx.Err() == nil {
 		if dl, ok := fctx.Deadline(); !ok || time.Until(dl) >= 10*time.Second {
-			c, err = p.Video.Fetch(fctx, rawURL)
+			retry, rerr := p.Video.Fetch(fctx, rawURL)
+			if retry != nil {
+				c = retry
+			}
+			err = rerr
 		}
 	}
 	if err != nil || c == nil || len(c.Frames) == 0 {
+		if err == nil {
+			err = video.ErrDownload
+		}
 		va.Reason, transient = videoReason(err)
-		return nil, va, transient
+		if c != nil {
+			c.Frames = nil // metadata only: the title and caption are still evidence
+		}
+		return c, va, transient
 	}
 	return c, va, false
 }

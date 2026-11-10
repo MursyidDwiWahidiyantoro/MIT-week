@@ -160,7 +160,7 @@ func TestTacticsOnlyWhenPhrasePresent(t *testing.T) {
 
 func TestStatusFromSources(t *testing.T) {
 	c := models.Source{Match: models.FactContradicts}
-	sup := models.Source{Match: models.FactSupports}
+	sup := models.Source{Title: "[BENAR] Klaim", URL: "https://turnbackhoax.id/articles/2-benar", Match: models.FactSupports} // a fact-checker's own support
 	u := models.Source{Match: models.FactUnverified}
 	tests := []struct {
 		name    string
