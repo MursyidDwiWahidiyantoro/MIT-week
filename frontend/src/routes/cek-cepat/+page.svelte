@@ -2,7 +2,6 @@
   import Button from '$lib/components/ui/Button.svelte';
   import {
     evaluateQuickCheck,
-    generateFamilyCode,
     quickCheckQuestions,
     type QuickCheckResult
   } from '$lib/quickcheck';
@@ -10,8 +9,6 @@
 
   let answers = $state<Record<string, boolean>>({});
   let result = $state<QuickCheckResult | null>(null);
-  let code = $state<string | null>(null);
-  let copied = $state(false);
 
   const answered = $derived(quickCheckQuestions.every((q) => q.id in answers));
 
@@ -26,26 +23,6 @@
   function reset(): void {
     answers = {};
     result = null;
-  }
-
-  function makeCode(): void {
-    code = generateFamilyCode();
-    copied = false;
-  }
-
-  async function copyCode(): Promise<void> {
-    if (!code) return;
-    try {
-      await navigator.clipboard.writeText(code);
-      copied = true;
-      setTimeout(() => (copied = false), 2500);
-    } catch {
-      // The code is visible and selectable; no error is needed.
-    }
-  }
-
-  function printCard(): void {
-    window.print();
   }
 </script>
 
@@ -66,7 +43,7 @@
   </p>
 </section>
 
-<section class="questions no-print" aria-labelledby="questions-title">
+<section class="questions" aria-labelledby="questions-title">
   <h2 class="h2" id="questions-title">Jawab sejujur mungkin</h2>
   <p class="hint">Pilih “Ya” atau “Tidak”. Hasil muncul setelah pertanyaan terakhir dijawab.</p>
 
@@ -130,45 +107,6 @@
   </section>
 {/if}
 
-<section class="family no-print" aria-labelledby="family-title">
-  <div class="family-panel card--soft lift">
-    <h2 class="h2" id="family-title">Sandi Keluarga</h2>
-    <p class="family-lede">
-      Sepakati dua kata rahasia dengan keluarga. Saat ada yang mengaku sebagai
-      kerabat lewat nomor baru, minta sandi ini untuk memastikan.
-    </p>
-
-    <div class="family-actions">
-      <Button onclick={makeCode}>
-        <Icon name="lock" size={18} /> Buat sandi
-      </Button>
-      {#if code}
-        <Button variant="quiet" onclick={copyCode}>
-          <Icon name={copied ? 'check' : 'copy'} size={18} /> {copied ? 'Tersalin' : 'Salin'}
-        </Button>
-        <Button variant="quiet" onclick={printCard}>
-          <Icon name="print" size={18} /> Cetak kartu
-        </Button>
-      {/if}
-    </div>
-
-    {#if code}
-      <div class="print-card" data-testid="family-card">
-        <p class="card-label">SANDI KELUARGA AMBA</p>
-        <p class="card-code">{code}</p>
-        <p class="card-copy">
-          Jangan berikan sandi ini lewat pesan. Saat ada yang mengaku keluarga
-          lewat nomor baru, telepon nomor lama dan minta sandi ini.
-        </p>
-        <p class="card-foot">Simpan di tempat yang hanya keluarga tahu.</p>
-      </div>
-      <p class="note no-print">
-        Sandi dibuat di perangkat Anda dengan pengacak aman. Tidak ada yang dikirim
-        atau disimpan di server.
-      </p>
-    {/if}
-  </div>
-</section>
 
 <style>
   .head { max-width: 54rem; margin-bottom: var(--space-6); }
@@ -247,7 +185,7 @@
   }
   .level[data-level='high'] { background: var(--coral); }
   .level[data-level='wary'] { background: var(--yellow); }
-  .level[data-level='low'] { background: var(--lime); }
+  .level[data-level='low'] { background: var(--safe); }
   .summary {
     margin: 0;
     font-family: var(--font-display);
@@ -259,53 +197,4 @@
   .override { margin: 0; color: var(--err); font-weight: 700; font-size: var(--text-sm); max-width: var(--measure); }
   .result h3 { font-size: 1.15em; margin: var(--space-2) 0 0; }
   .steps { margin: 0; padding-left: var(--space-5); display: grid; gap: var(--space-2); max-width: var(--measure); }
-
-  .family { margin-top: var(--space-8); }
-  .family-panel {
-    padding: clamp(1.5rem, 4vw, 2.25rem);
-    border: var(--border-width) solid var(--border);
-    border-radius: var(--radius-xl);
-    box-shadow: var(--shadow-hard-lg);
-  }
-  .family-lede { margin: var(--space-3) 0 0; max-width: var(--measure); }
-  .family-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); margin: var(--space-5) 0 var(--space-4); }
-
-  .print-card {
-    margin-top: var(--space-4);
-    padding: var(--space-6);
-    max-width: 30rem;
-    background: var(--white);
-    border: var(--border-width-strong) solid var(--border);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-hard);
-  }
-  .card-label {
-    margin: 0;
-    font-family: var(--font-display);
-    font-weight: 800;
-    font-size: var(--text-xs);
-    letter-spacing: 0.1em;
-    color: var(--indigo-text);
-  }
-  .card-code {
-    margin: var(--space-3) 0;
-    font-family: var(--font-display);
-    font-weight: 800;
-    font-size: clamp(1.5rem, 5vw, 2.25rem);
-    letter-spacing: 0.02em;
-    overflow-wrap: anywhere;
-  }
-  .card-copy { margin: 0 0 var(--space-3); max-width: var(--measure); }
-  .card-foot { margin: 0; color: var(--muted); font-size: var(--text-sm); }
-
-  @media print {
-    :global(.site-header), :global(.site-footer), :global(.skip-link) { display: none !important; }
-    :global(body) { background: #fff; color: #000; }
-    :global(main) { padding: 0; max-width: none; }
-    h1, .lede, .eyebrow, .no-print { display: none !important; }
-    .family { border: 0; margin: 0; }
-    .family-panel { border: 0; box-shadow: none; padding: 0; }
-    .print-card { border: 3px solid #000; background: #fff; color: #000; max-width: none; box-shadow: none; }
-    .card-label, .card-foot { color: #333; }
-  }
 </style>

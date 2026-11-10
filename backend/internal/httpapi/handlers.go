@@ -3,8 +3,8 @@ package httpapi
 import (
 	"crypto/rand"
 	"encoding/base32"
-	"encoding/base64"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/amba/amba/backend/internal/config"
@@ -12,6 +12,9 @@ import (
 	"github.com/amba/amba/backend/internal/llm"
 	"github.com/amba/amba/backend/internal/models"
 	"github.com/amba/amba/backend/internal/pipeline"
+	"github.com/amba/amba/backend/internal/reply"
+	"github.com/amba/amba/backend/internal/retrieval"
+	"github.com/amba/amba/backend/internal/safebrowsing"
 	"github.com/amba/amba/backend/internal/security"
 	"github.com/amba/amba/backend/internal/token"
 )
@@ -20,8 +23,13 @@ import (
 type handlers struct {
 	cfg        *config.Config
 	pipeline   *pipeline.Pipeline
+	replies    *reply.Service
+	llm        *llm.Client
+	reputation *safebrowsing.Client
 	limiter    *security.RateLimiter
 	signingKey []byte
+	startedAt  time.Time
+	requests   atomic.Int64
 }
 
 // newHandlers builds the handler set. In development a random key is generated
@@ -37,11 +45,37 @@ func newHandlers(cfg *config.Config, limiter *security.RateLimiter) *handlers {
 	}
 
 	client := llm.New(cfg.RouterBaseURL, cfg.RouterAPIKey, cfg.RouterModel, cfg.LLMMock)
+	client.ReasoningEffort = cfg.Reasoning
+	grounder := grounding.New(grounding.DefaultAllowlist)
+
+	var searcher pipeline.FactSearcher
+	if cfg.Retrieval && !cfg.LLMMock {
+		s := retrieval.New(grounder)
+		if cfg.RetrievalURL != "" {
+			s.Endpoint = cfg.RetrievalURL
+		}
+		searcher = s
+	}
+
+	p := pipeline.New(client, grounder, searcher, cfg.CacheTTL)
+	p.Deadline = cfg.HardTimeout
+
+	rep := safebrowsing.New(cfg.SafeBrowsing)
+	var reputation pipeline.ReputationChecker
+	if cfg.SafeBrowsing != "" {
+		reputation = rep
+	}
+	p.Reputation = reputation
+
 	return &handlers{
 		cfg:        cfg,
-		pipeline:   pipeline.New(client, grounding.New(grounding.DefaultAllowlist), cfg.CacheTTL),
+		pipeline:   p,
+		replies:    reply.New(client, cfg.PublicAppURL),
+		llm:        client,
+		reputation: rep,
 		limiter:    limiter,
 		signingKey: key,
+		startedAt:  time.Now(),
 	}
 }
 
@@ -87,10 +121,3 @@ func newID() string {
 	}
 	return "AMBA-" + time.Now().UTC().Format("20060102") + "-" + enc[:4]
 }
-
-// encodeToken is used by tests that need a valid token without a full dossier.
-func encodeToken(p token.Payload, key []byte) (string, error) {
-	return token.Sign(key, p)
-}
-
-var _ = base64.RawURLEncoding

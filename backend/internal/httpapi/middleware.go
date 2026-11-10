@@ -8,19 +8,6 @@ import (
 	"github.com/amba/amba/backend/internal/models"
 )
 
-// securityHeaders sets the API's own headers. The API returns JSON only, so
-// the policy can be maximally restrictive.
-func securityHeaders(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		h := w.Header()
-		h.Set("X-Content-Type-Options", "nosniff")
-		h.Set("Referrer-Policy", "no-referrer")
-		h.Set("Cache-Control", "no-store")
-		h.Set("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'")
-		next.ServeHTTP(w, r)
-	})
-}
-
 // recoverer converts a panic into the generic error envelope. The stack is
 // logged server-side only; the response never carries it.
 func recoverer(next http.Handler) http.Handler {

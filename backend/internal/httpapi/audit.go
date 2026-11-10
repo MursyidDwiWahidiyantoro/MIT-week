@@ -63,7 +63,7 @@ func (h *handlers) auditFile(w http.ResponseWriter, r *http.Request) {
 		writeError(w, errPayloadTooLarge)
 		return
 	}
-	file, header, err := r.FormFile("file")
+	file, _, err := r.FormFile("file")
 	if err != nil {
 		writeError(w, errUnsupportedMedia)
 		return
@@ -87,17 +87,28 @@ func (h *handlers) auditFile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// The filename is never stored or logged; only the format is used.
-	_ = header
 	h.runAudit(w, r, pipeline.Request{
 		InputType: models.InputFile,
 		Image:     data,
-		OCRText:   r.FormValue("ocr_text"),
+		ImageMIME: mimeFor(format),
+		OCRText:   strings.TrimSpace(r.FormValue("ocr_text")),
 	})
-	_ = format
+}
+
+func mimeFor(format string) string {
+	switch format {
+	case "png":
+		return "image/png"
+	case "webp":
+		return "image/webp"
+	default:
+		return "image/jpeg"
+	}
 }
 
 // runAudit executes the pipeline and renders either SSE or a single JSON body.
 func (h *handlers) runAudit(w http.ResponseWriter, r *http.Request, req pipeline.Request) {
+	h.requests.Add(1)
 	if !h.limiter.AcquireInFlight() {
 		writeError(w, errRateLimited)
 		return
@@ -113,14 +124,14 @@ func (h *handlers) runAudit(w http.ResponseWriter, r *http.Request, req pipeline
 		return
 	}
 
-	res := h.pipeline.Run(ctx, req)
+	res := h.pipeline.Run(ctx, req, nil)
 	dossier := h.buildDossier(res, req)
 	writeJSON(w, http.StatusOK, dossier)
 }
 
-// streamAudit emits stage -> partial -> verdict -> done in that order.
-// Progress comes only from real work: each pillar's stage event is sent when
-// that pillar actually starts and finishes.
+// streamAudit forwards the pipeline's real events. A pillar announces
+// "running" when it actually starts and "done"/"failed"/"skipped" when it
+// actually finishes; there is no timer anywhere in this path.
 func (h *handlers) streamAudit(ctx context.Context, w http.ResponseWriter, req pipeline.Request) {
 	flusher, ok := w.(http.Flusher)
 	if !ok {
@@ -134,12 +145,16 @@ func (h *handlers) streamAudit(ctx context.Context, w http.ResponseWriter, req p
 	w.Header().Set("X-Accel-Buffering", "no")
 	w.WriteHeader(http.StatusOK)
 
+	var writeMu chan struct{} = make(chan struct{}, 1)
+	writeMu <- struct{}{}
+
 	send := func(event string, payload any) bool {
 		select {
 		case <-ctx.Done():
 			return false
-		default:
+		case <-writeMu:
 		}
+		defer func() { writeMu <- struct{}{} }()
 		data, err := json.Marshal(payload)
 		if err != nil {
 			return false
@@ -151,30 +166,37 @@ func (h *handlers) streamAudit(ctx context.Context, w http.ResponseWriter, req p
 		return true
 	}
 
-	// Announce only the pillars that can run for this input type.
-	pillars := pillarsFor(req.InputType)
-	for _, p := range pillars {
-		if !send("stage", map[string]string{"pillar": p, "status": "running"}) {
-			return
-		}
-	}
-
-	res := h.pipeline.Run(ctx, req)
-
-	for _, p := range pillars {
-		status := "done"
-		if !pillarAvailable(res, p) {
-			status = "skipped"
-		}
-		if !send("stage", map[string]string{"pillar": p, "status": status}) {
-			return
-		}
-		if status == "done" {
-			if !send("partial", map[string]any{"pillar": p, "data": pillarPayload(res, p)}) {
+	// A comment heartbeat keeps proxies from closing an idle stream. It is
+	// never an event, so the client's stage list cannot mistake it for work.
+	done := make(chan struct{})
+	defer close(done)
+	go func() {
+		ticker := time.NewTicker(10 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-done:
 				return
+			case <-ticker.C:
+				select {
+				case <-writeMu:
+					_, _ = fmt.Fprint(w, ": ping\n\n")
+					flusher.Flush()
+					writeMu <- struct{}{}
+				default:
+				}
 			}
 		}
-	}
+	}()
+
+	res := h.pipeline.Run(ctx, req, func(e pipeline.Event) {
+		switch e.Kind {
+		case "stage":
+			send("stage", map[string]string{"pillar": e.Pillar, "status": e.Status})
+		case "partial":
+			send("partial", map[string]any{"pillar": e.Pillar, "data": e.Data})
+		}
+	})
 
 	dossier := h.buildDossier(res, req)
 	if !send("verdict", dossier) {
@@ -183,48 +205,9 @@ func (h *handlers) streamAudit(ctx context.Context, w http.ResponseWriter, req p
 	send("done", struct{}{})
 }
 
-func pillarsFor(t models.InputType) []string {
-	switch t {
-	case models.InputURL:
-		return []string{"link", "ai", "fact"}
-	case models.InputFile:
-		return []string{"ela", "ai", "fact"}
-	default:
-		return []string{"ai", "fact"}
-	}
-}
-
-func pillarAvailable(res pipeline.Result, p string) bool {
-	switch p {
-	case "ela":
-		return res.Pillars.ELA.Available
-	case "ai":
-		return res.Pillars.AI.Available
-	case "fact":
-		return res.Pillars.Fact.Available
-	case "link":
-		return res.Pillars.Link.Available
-	}
-	return false
-}
-
-func pillarPayload(res pipeline.Result, p string) any {
-	switch p {
-	case "ela":
-		return res.Pillars.ELA
-	case "ai":
-		return res.Pillars.AI
-	case "fact":
-		return res.Pillars.Fact
-	case "link":
-		return res.Pillars.Link
-	}
-	return nil
-}
-
 // buildDossier assembles the contract object.
 func (h *handlers) buildDossier(res pipeline.Result, req pipeline.Request) models.Dossier {
-	verdict := pipeline.Verdict(res, false)
+	verdict := pipeline.Verdict(res)
 	d := models.Dossier{
 		SchemaVersion:   2,
 		ID:              newID(),
@@ -257,8 +240,8 @@ func (h *handlers) buildDossier(res pipeline.Result, req pipeline.Request) model
 	if d.Verdict.Explanation == "" {
 		d.Verdict.Explanation = explanation(verdict)
 	}
-	if token, err := h.sign(d); err == nil {
-		d.ShareToken = token
+	if signed, err := h.sign(d); err == nil {
+		d.ShareToken = signed
 	}
 	return d
 }

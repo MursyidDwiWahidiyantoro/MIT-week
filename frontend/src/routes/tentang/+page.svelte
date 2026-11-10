@@ -157,7 +157,7 @@
   }
   .tag--send { background: var(--yellow); }
   .tag--no { background: var(--coral); }
-  .tag--none { background: var(--lime); }
+  .tag--none { background: var(--safe); }
 
   .two-col { display: grid; grid-template-columns: 1fr; gap: var(--space-5); margin-top: var(--space-5); }
   @media (min-width: 48rem) { .two-col { grid-template-columns: repeat(2, 1fr); } }
@@ -176,7 +176,7 @@
     border: 2px solid var(--border);
     border-radius: 50%;
   }
-  .bullet--ok { background: var(--lime); }
+  .bullet--ok { background: var(--safe); }
 
   .disclaimer {
     margin-top: var(--space-6);

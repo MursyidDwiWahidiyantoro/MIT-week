@@ -1,10 +1,41 @@
 import adapter from '@sveltejs/adapter-static';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vitest/config';
+import { loadEnv } from 'vite';
+import type { sveltekit as sveltekitPlugin } from '@sveltejs/kit/vite';
 import { securityHeaders } from './tools/vite-security-headers.ts';
 
+/**
+ * connect-src must name the real API origin. Hardcoding localhost meant a
+ * deployed build silently blocked every audit request, so the origin is
+ * derived from the same variable the client uses.
+ */
+// The CSP directive types are not exported by name, so they are derived from
+// the plugin's own config signature. This keeps the array typed without a cast.
+type KitConfig = NonNullable<Parameters<typeof sveltekitPlugin>[0]>;
+type CspDirectives = NonNullable<KitConfig['csp']>['directives'];
+type ConnectSources = NonNullable<NonNullable<CspDirectives>['connect-src']>;
+type ConnectSource = ConnectSources[number];
+
+function connectSources(mode: string): ConnectSources {
+  const env = loadEnv(mode, process.cwd(), '');
+  const base = env.VITE_API_BASE_URL || '/api/v1';
+  if (base.startsWith('/')) return ['self'];
+  try {
+    // In development the Go server is also reachable on both loopback names.
+    // `URL.origin` is typed as plain string; CSP host sources are template
+    // literal types, so this one cast is unavoidable and safe: origin is
+    // always `scheme://host[:port]`.
+    const origins: ConnectSources = [new URL(base).origin as ConnectSource];
+    if (mode === 'development') origins.push('http://localhost:8080', 'http://127.0.0.1:8080');
+    return ['self', ...origins];
+  } catch {
+    return ['self'];
+  }
+}
+
 // SvelteKit 3 takes its config through the plugin, not svelte.config.js.
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [
     sveltekit({
       // SPA: no SSR, single static bundle with a fallback page.
@@ -22,7 +53,7 @@ export default defineConfig({
           'style-src': ['self', 'unsafe-inline'],
           'img-src': ['self', 'data:', 'blob:'],
           'font-src': ['self'],
-          'connect-src': ['self', 'http://localhost:8080'],
+          'connect-src': connectSources(mode),
           'worker-src': ['self', 'blob:'],
           // Required by Svelte's runtime and SvelteKit's service-worker
           // registration. Narrowing this list further blocks hydration.
@@ -40,4 +71,4 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./vitest-setup.ts']
   }
-});
+}));

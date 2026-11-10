@@ -10,9 +10,15 @@ import (
 	"github.com/amba/amba/backend/internal/security"
 )
 
-// NewRouter builds the API router. Routes are added per phase; the envelope,
-// headers and recovery apply to everything mounted here.
+// NewRouter builds the API router.
 func NewRouter(cfg *config.Config) http.Handler {
+	handler, _ := NewRouterWithMetrics(cfg)
+	return handler
+}
+
+// NewRouterWithMetrics also returns the internal metrics handler, which the
+// entrypoint may serve on a separate listener.
+func NewRouterWithMetrics(cfg *config.Config) (http.Handler, http.Handler) {
 	r := chi.NewRouter()
 
 	r.Use(security.APISecurityHeaders)
@@ -41,6 +47,7 @@ func NewRouter(cfg *config.Config) http.Handler {
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Get("/healthz", health)
+		r.Get("/ops/status", h.getOpsStatus)
 		r.Get("/demo/{id}", getDemo)
 		r.Post("/audit/url", h.auditURL)
 		r.Post("/audit/text", h.auditText)
@@ -49,7 +56,10 @@ func NewRouter(cfg *config.Config) http.Handler {
 		r.Post("/reply", h.reply)
 	})
 
-	return r
+	metrics := chi.NewRouter()
+	metrics.Get("/metrics", h.getMetrics)
+
+	return r, metrics
 }
 
 func health(w http.ResponseWriter, _ *http.Request) {

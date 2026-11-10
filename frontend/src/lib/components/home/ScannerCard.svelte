@@ -247,7 +247,8 @@
                 box-shadow var(--dur-fast) var(--ease-out);
   }
   .scan-bar:hover {
-    color: var(--lime);
+    /* Cream is a surface, not text: on the orange bar it would be 2.5:1. */
+    color: var(--on-brand);
     transform: translate(-2px, -2px);
     box-shadow: var(--shadow-hard-sm);
   }
@@ -257,8 +258,9 @@
     place-items: center;
     width: 32px;
     height: 32px;
-    background: var(--lime);
-    color: var(--on-fill);
+    /* A cream disc on the orange bar: dark icon, never cream-on-orange. */
+    background: var(--paper);
+    color: var(--ink);
     border-radius: 50%;
     border: 2px solid var(--border);
     flex: none;

@@ -10,15 +10,19 @@ services:
       - SERVER_HOST=0.0.0.0
       - SERVER_PORT=8080
       - ENVIRONMENT=${ENVIRONMENT:-development}
-      - PUBLIC_APP_URL=${PUBLIC_APP_URL:-http://localhost:${FRONTEND_PORT:-80}}
+      - PUBLIC_APP_URL=${PUBLIC_APP_URL:-http://localhost}
       - LLM_MOCK=${LLM_MOCK:-true}
       - NINEROUTER_API_KEY=${NINEROUTER_API_KEY:-}
-      - NINEROUTER_MODEL=${NINEROUTER_MODEL:-gemini-3.8-flash}
+      - NINEROUTER_MODEL=${NINEROUTER_MODEL:-Maru}
+      - NINEROUTER_REASONING_EFFORT=${NINEROUTER_REASONING_EFFORT:-low}
       - NINEROUTER_BASE_URL=${NINEROUTER_BASE_URL:-http://host.docker.internal:20128/v1}
       - REPORT_SIGNING_KEY=${REPORT_SIGNING_KEY:-}
       - GOOGLE_SAFE_BROWSING_KEY=${GOOGLE_SAFE_BROWSING_KEY:-}
       - MAX_UPLOAD_SIZE_MB=${MAX_UPLOAD_SIZE_MB:-10}
-      - HARD_TIMEOUT_MS=${HARD_TIMEOUT_MS:-12000}
+      - HARD_TIMEOUT_MS=${HARD_TIMEOUT_MS:-20000}
+      - FACT_RETRIEVAL=${FACT_RETRIEVAL:-true}
+      - FACT_SEARCH_URL=${FACT_SEARCH_URL:-https://www.bing.com/news/search}
+      - METRICS_ADDR=${METRICS_ADDR:-}
       - CACHE_TTL_SECONDS=${CACHE_TTL_SECONDS:-600}
     extra_hosts:
       - "host.docker.internal:host-gateway"

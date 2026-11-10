@@ -1,18 +1,22 @@
 <script lang="ts">
+  import { resolve } from '$app/paths';
   import Icon from '$lib/components/ui/Icon.svelte';
 
+  // Every row is a real destination inside the app. The previous version
+  // showed fabricated progress percentages for lessons that did not exist.
   const LESSONS = [
-    { title: 'Biaya paket palsu', minutes: 4, progress: 100 },
-    { title: 'Trik nomor baru', minutes: 5, progress: 60 },
-    { title: 'Mengenali tautan palsu', minutes: 3, progress: 25 },
-    { title: 'Investasi yang terlalu bagus', minutes: 6, progress: 5 }
+    { id: 'bansos', title: 'Bantuan sosial palsu' },
+    { id: 'judul', title: 'Judul berita yang diedit' },
+    { id: 'shortlink', title: 'Tautan pendek ke halaman palsu' },
+    { id: 'kuis', title: 'Kuis singkat: asli atau scam?' }
   ];
 
-  const BADGES = [
-    { label: 'Detektif tautan', tone: 'badge--indigo' },
-    { label: 'Penelepon tenang', tone: 'badge--yellow' },
-    { label: 'Ahli paket', tone: 'badge--lime' },
-    { label: 'Penakluk hadiah palsu', tone: 'badge--coral' }
+  // The path is stored, not a resolved href: resolve() is called in the
+  // template so the router type and the lint rule both see it directly.
+  const NEXT_STEPS = [
+    { label: 'Cek pesan sekarang', path: '/cek-cepat' as const, tone: 'badge--indigo' },
+    { label: 'Periksa tautan', path: '/deteksi' as const, tone: 'badge--safe' },
+    { label: 'Baca batas AMBA', path: '/tentang' as const, tone: 'badge--yellow' }
   ];
 
   let answer = $state<null | 'real' | 'scam'>(null);
@@ -38,7 +42,7 @@
         <blockquote class="bubble">
           Halo Bu, HP saya rusak. Ini <mark class="hl hl--yellow">nomor baru</mark> saya. Bisa
           kirim uang <mark class="hl hl--coral">sekarang juga</mark>?
-          <mark class="hl hl--lime">Jangan telepon</mark>, saya sedang rapat.
+          <mark class="hl hl--safe">Jangan telepon</mark>, saya sedang rapat.
         </blockquote>
 
         <ol class="explain">
@@ -51,7 +55,7 @@
             <span><strong>Desakan.</strong> Penipu tidak suka Anda punya waktu berpikir.</span>
           </li>
           <li>
-            <span class="dot dot--lime" aria-hidden="true">3</span>
+            <span class="dot dot--safe" aria-hidden="true">3</span>
             <span><strong>Larang menelepon.</strong> Mereka menghindari satu hal yang membuktikan identitas.</span>
           </li>
         </ol>
@@ -61,29 +65,23 @@
       <article class="bento-card card--ink card-lessons lift">
         <div class="lessons-head">
           <span class="book" aria-hidden="true"><Icon name="book" size={22} /></span>
-          <h3>Pelajaran singkat</h3>
+          <h3>Materi belajar</h3>
         </div>
         <ul>
-          {#each LESSONS as lesson (lesson.title)}
+          {#each LESSONS as lesson (lesson.id)}
             <li>
-              <div class="lesson-row">
+              <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- resolved path plus a same-page fragment -->
+              <a class="lesson-row" href={resolve('/edukasi') + (lesson.id === 'kuis' ? '#kuis-title' : `#modus-${lesson.id}`)}>
                 <span class="lesson-title">{lesson.title}</span>
-                <span class="lesson-time">{lesson.minutes} mnt</span>
-              </div>
-              <div
-                class="bar"
-                role="img"
-                aria-label={`Progres ${lesson.progress} persen`}
-              >
-                <span class="bar-fill" style:width="{lesson.progress}%"></span>
-              </div>
+                <span class="lesson-arrow" aria-hidden="true"><Icon name="arrow-right" size={18} /></span>
+              </a>
             </li>
           {/each}
         </ul>
       </article>
 
       <!-- Quiz (7 cols) -->
-      <article class="bento-card card--lime card-quiz lift">
+      <article class="bento-card card--safe card-quiz lift">
         <p class="eyebrow quiz-eyebrow">Kuis kilat</p>
         <h3>Asli atau scam?</h3>
         <p class="quiz-bubble">
@@ -115,13 +113,15 @@
         </div>
       </article>
 
-      <!-- Badges (5 cols) -->
+      <!-- Next steps (5 cols) -->
       <article class="bento-card card card-badges lift">
-        <h3>Kumpulkan lencananya</h3>
-        <p>Tuntaskan pelajaran, dapatkan stiker, lalu tantang keluarga.</p>
+        <h3>Langkah berikutnya</h3>
+        <p>Semua fitur gratis dan tanpa akun. Mulai dari mana saja.</p>
         <ul class="badge-list">
-          {#each BADGES as badge (badge.label)}
-            <li class="badge {badge.tone} lift">{badge.label}</li>
+          {#each NEXT_STEPS as step (step.label)}
+            <li>
+              <a class="badge {step.tone}" href={resolve(step.path)}>{step.label}</a>
+            </li>
           {/each}
         </ul>
       </article>
@@ -199,7 +199,7 @@
   }
   .hl--yellow { background: var(--yellow); }
   .hl--coral { background: var(--coral); }
-  .hl--lime { background: var(--lime); }
+  .hl--safe { background: var(--safe); }
   .explain { display: grid; gap: var(--space-3); margin: var(--space-5) 0 0; padding: 0; list-style: none; }
   .explain li { display: flex; align-items: flex-start; gap: var(--space-3); font-size: 0.98em; line-height: 1.45; }
   .dot {
@@ -217,7 +217,7 @@
   }
   .dot--yellow { background: var(--yellow); }
   .dot--coral { background: var(--coral); }
-  .dot--lime { background: var(--lime); }
+  .dot--safe { background: var(--safe); }
 
   /* b) lessons */
   .card-lessons {
@@ -231,7 +231,7 @@
     place-items: center;
     width: 44px;
     height: 44px;
-    background: var(--lime);
+    background: var(--safe);
     color: var(--on-fill);
     border: var(--border-width) solid var(--border);
     border-radius: 14px;
@@ -239,17 +239,21 @@
   }
   .card-lessons h3 { font-size: 1.4em; margin: 0; }
   .card-lessons ul { display: grid; gap: var(--space-4); margin: 0; padding: 0; list-style: none; }
-  .lesson-row { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); }
-  .lesson-title { font-weight: 700; }
-  .lesson-time { color: var(--lime); font-size: var(--text-sm); white-space: nowrap; }
-  .bar {
-    height: 12px;
-    margin-top: var(--space-2);
-    background: var(--ink-soft);
-    border-radius: var(--radius-pill);
-    overflow: hidden;
+  .lesson-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    min-height: 44px;
+    color: var(--on-panel-dark);
+    text-decoration: none;
+    border-bottom: 1px solid var(--border);
+    transition: color var(--dur-fast) var(--ease-out);
   }
-  .bar-fill { display: block; height: 100%; background: var(--lime); border-radius: inherit; }
+  .lesson-row:hover { color: var(--yellow); }
+  .lesson-row:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
+  .lesson-title { font-weight: 700; }
+  .lesson-arrow { display: inline-flex; flex: none; }
 
   /* c) quiz */
   .card-quiz {
@@ -278,16 +282,23 @@
   .card-badges p { margin: 0 0 var(--space-4); color: var(--body-2); font-size: 0.98em; }
   .badge-list { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
   .badge {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
     padding: 10px 16px;
     border: var(--border-width) solid var(--border);
     border-radius: var(--radius-pill);
-    box-shadow: 4px 4px 0 var(--ink);
+    box-shadow: 3px 3px 0 var(--border);
     font-weight: 700;
     font-size: var(--text-sm);
-    color: var(--ink);
+    color: var(--on-fill);
+    text-decoration: none;
+    transition: transform var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
   }
+  .badge:hover { transform: translate(-2px, -2px); box-shadow: 5px 5px 0 var(--border); }
+  .badge:active { transform: translate(1px, 1px); box-shadow: 2px 2px 0 var(--border); }
   .badge--indigo { background: var(--indigo); color: var(--on-brand); }
   .badge--yellow { background: var(--yellow); }
-  .badge--lime { background: var(--lime); }
+  .badge--safe { background: var(--safe); }
   .badge--coral { background: var(--coral); }
 </style>

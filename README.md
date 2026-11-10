@@ -11,15 +11,19 @@ Browser (SvelteKit SPA)
    │  POST /api/v1/audit/{url,file,text}   (JSON or SSE)
    ▼
 Go API (chi)
-   ├── internal/security   SSRF-safe client, upload validation, rate limit, CORS
-   ├── internal/pipeline   errgroup, sub-deadlines, degradation, TTL cache
-   │      ├── forensics    server-side ELA
-   │      ├── linkcheck    URL heuristics
-   │      ├── llm          OpenAI-compatible gateway (or mock)
-   │      └── grounding    allowlist source verification
-   ├── internal/scoring    the ONLY place a score is computed
-   ├── internal/token      HMAC-signed share tokens
-   └── internal/demo       bundled example dossiers
+   ├── internal/security     SSRF-safe client, upload validation, rate limit, CORS
+   ├── internal/pipeline     errgroup, real per-pillar events, degradation, TTL cache
+   │      ├── forensics     server-side ELA (original bytes)
+   │      ├── pagefetch     reads the submitted page through the SSRF client
+   │      ├── llm           Maru via 9router, vision + structured findings (or mock)
+   │      ├── retrieval     fixed news endpoint, filtered by the allowlist
+   │      ├── grounding     allowlist source verification
+   │      └── imaging       downscale for the vision model
+   ├── internal/scoring      the ONLY place a score is computed
+   ├── internal/reply        Balas Sopan: validated model draft + templates
+   ├── internal/safebrowsing optional Safe Browsing v4 (placeholder without a key)
+   ├── internal/token        HMAC-signed share tokens
+   └── internal/demo         bundled example dossiers
 ```
 
 The model never returns a score or status. `internal/scoring` combines the
@@ -27,83 +31,53 @@ pillar signals and applies the floors from TECH_SPEC §3.3.
 
 ## Menjalankan
 
-Ada empat cara. Pilih satu sesuai kebutuhan.
+Cukup **Docker**. Tidak perlu memasang Go, Node, atau `make`.
 
-| Cara | Perintah | Dipakai untuk |
-|---|---|---|
-| **Docker** (Linux/macOS) | `make up` | Demo ke juri, atau cek cepat tanpa setup |
-| **Docker** (Windows) | `start.bat` | Sama, tanpa perlu `make` |
-| **Manual** (dua terminal) | `go run` + `npm run dev` | Kerja harian backend / frontend |
-| **Preview produksi** | `npm run build` + `npm run preview` | Melihat hasil akhir sebelum demo |
+### Paling mudah — satu klik
 
----
+| Sistem | Caranya |
+|---|---|
+| **Windows** | Klik dua kali **`start.bat`** |
+| **Linux / macOS** | Jalankan **`./start.sh`** (atau klik dua kali di file manager) |
 
-### 1. Docker — paling cepat, paling aman untuk demo
+Skrip mengecek Docker, menyalakan semuanya, menunggu sampai siap, lalu
+menampilkan alamatnya. Buka alamat itu di browser. Matikan dengan
+`stop.bat` / `./stop.sh`.
 
-```bash
-cd /home/riko/Projects/AMBA
-make up                 # atau: docker compose up --build
-```
-
-- Aplikasi: **http://localhost** (port 80)
+- Aplikasi: **http://localhost**
 - API: **http://localhost:8080**
-- Hentikan: `make down`
+- Kalau port 80 sedang dipakai, skrip otomatis pindah ke **http://localhost:3000**
 
 Ini stack **sungguhan**: nginx menyajikan SPA hasil build dan mem-proxy `/api/`
 ke Go. Tidak ada mock.
 
-> **Prasyarat: daemon Docker harus berjalan.** Kalau `make up` berhenti dengan
-> `cannot connect to the Docker daemon`, daemon-nya belum hidup:
->
-> ```bash
-> sudo systemctl start docker     # Linux
-> sudo systemctl enable docker    # opsional: hidup otomatis saat boot
-> ```
->
-> Di macOS/Windows, buka **Docker Desktop** dan tunggu ikonnya berhenti
-> “starting”.
+> **Satu-satunya prasyarat: Docker.** Kalau belum ada, pasang
+> [Docker Desktop](https://www.docker.com/products/docker-desktop/), buka, tunggu
+> sampai berstatus running, lalu jalankan skrip lagi. Skrip akan memberi tahu
+> sendiri kalau Docker belum terpasang atau belum berjalan.
 
-Kalau port 80 sudah terpakai:
+### Untuk yang terbiasa terminal
 
 ```bash
-FRONTEND_PORT=3000 make up      # aplikasi pindah ke http://localhost:3000
+docker compose up --build     # sama dengan start.sh / start.bat
+docker compose down           # sama dengan stop.sh / stop.bat
 ```
 
-### Windows — tanpa `make`
+`make up` dan `make dev` tetap tersedia untuk pengembangan (hot-reload).
 
-Windows tidak menyertakan `make`. Pakai skrip batch di root repo; isinya sama
-persis dengan target Makefile:
+### Pengembangan — hot-reload
 
-| Perintah | Setara | Kegunaan |
-|---|---|---|
-| `start.bat` | `make up` | Build lalu jalankan stack demo (web :80, API :8080) |
-| `start-dev.bat` | `make dev` | Mode hot-reload (Go Air + Vite HMR) |
-| `stop.bat` | `make down` | Hentikan dan hapus container |
-
-Prasyarat: **Docker Desktop** sudah berjalan (ikonnya tidak lagi “starting”).
-Skrip memeriksa ini lebih dulu dan berhenti dengan pesan jelas kalau daemon
-belum siap. Klik dua kali berkasnya, atau dari PowerShell:
-
-```powershell
-.\start.bat
-```
-
-Port 80 dipakai aplikasi lain? Jalankan lewat PowerShell dengan variabel
-lingkungan, sama seperti versi Make:
-
-```powershell
-$env:FRONTEND_PORT=3000; .\start.bat
-```
-
-Mode hot-reload (Go Air + Vite di dalam container):
+Hanya untuk yang mengubah kode; tidak perlu untuk mencoba aplikasi.
 
 ```bash
-make dev                        # API :8080, web :5173
+make dev      # API :8080, web :5173 (Go Air + Vite HMR)
 ```
+
+Tanpa `make` (Windows): `start-dev.bat`.
 
 ---
 
-### 2. Manual — dua terminal
+### Manual — dua terminal
 
 **Terminal 1, backend:**
 
@@ -168,7 +142,7 @@ Kalau ketiganya terpenuhi, hasilnya datang dari Go, bukan dari mock.
 
 ---
 
-### 3. Preview build produksi
+### Preview build produksi
 
 Untuk melihat hasil akhir persis seperti yang akan dinilai (bundle, CSP, dan
 aspek statis lainnya):
@@ -286,15 +260,19 @@ riwayat pengerjaan dan daftar bug yang ditemukan ada di
 | `SERVER_PORT` | `8080` | |
 | `ENVIRONMENT` | `development` | production requires `REPORT_SIGNING_KEY` |
 | `PUBLIC_APP_URL` | `http://localhost:5173` | CORS origin in production |
-| `LLM_MOCK` | `true` | deterministic fake findings |
+| `LLM_MOCK` | `true` | deterministic fake findings; no network |
 | `NINEROUTER_BASE_URL` | `http://localhost:20128/v1` | OpenAI-compatible gateway |
-| `NINEROUTER_MODEL` | — | required when `LLM_MOCK=false` |
+| `NINEROUTER_MODEL` | — | combo name, e.g. `Maru`; required when `LLM_MOCK=false` |
+| `NINEROUTER_REASONING_EFFORT` | `low` | `minimal`/`low`/`medium`/`high`; low keeps audits inside the budget |
+| `FACT_RETRIEVAL` | `true` | news search for the fact pillar (skipped in mock mode) |
+| `FACT_SEARCH_URL` | `https://www.bing.com/news/search` | fixed endpoint; only allowlisted publishers survive |
 | `REPORT_SIGNING_KEY` | — | ≥ 32 bytes, required in production |
 | `MAX_UPLOAD_SIZE_MB` | `10` | |
-| `HARD_TIMEOUT_MS` | `12000` | past this, a degraded verdict or a 504 |
+| `HARD_TIMEOUT_MS` | `20000` | Maru reasoning needs headroom for image audits |
+| `METRICS_ADDR` | — | optional separate listener, `/metrics` JSON |
 | `CACHE_TTL_SECONDS` | `600` | in-memory verdict cache only |
 | `VITE_API_MODE` | `mock` saat `vite dev`, `http` saat build | `http` untuk memakai Go sungguhan |
-| `VITE_API_BASE_URL` | `http://localhost:8080/api/v1` | alamat API yang dipanggil browser |
+| `VITE_API_BASE_URL` | `http://localhost:8080/api/v1` saat dev, `/api/v1` saat build | alamat API yang dipanggil browser; juga menjadi `connect-src` di CSP |
 
 ## Prinsip
 
@@ -310,7 +288,13 @@ riwayat pengerjaan dan daftar bug yang ditemukan ada di
 
 - Analisis ELA melemah pada PNG dan tangkapan layar, karena gambar sudah
   disimpan ulang sebelum diperiksa.
-- Pemeriksaan fakta hanya memakai sumber yang ada di allowlist.
+- Pemeriksaan fakta hanya memakai sumber yang ada di allowlist. Tanpa
+  `NINEROUTER_API_KEY` (mode mock) tidak ada pencarian sama sekali; pilar fakta
+  tampil "belum terverifikasi", bukan hasil karangan.
+- Google Safe Browsing adalah **placeholder** sampai `GOOGLE_SAFE_BROWSING_KEY`
+  diisi; `GET /api/v1/ops/status` menyatakannya secara terbuka.
+- Model dapat mengabaikan `response_format`; hasilnya tetap dipakai selama
+  memuat skor, tetapi bentuknya dinormalisasi di Go.
 - Menu bagikan ke AMBA hanya tersedia di peramban yang mendukung Web Share
   Target (Chrome Android). Di iOS gunakan tombol tempel.
 - Laporan yang dibagikan hanya memuat ringkasan; gambar dan teks aslinya tidak

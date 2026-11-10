@@ -8,13 +8,13 @@
 :root {
   /* Reference palette; legacy names remain aliases for existing components. */
   color-scheme: dark;
-  --brand: #ff6129;
-  --brand-hover: #ff7145;
-  --brand-deep: #fc3b00;
-  --on-brand: #100702;
-  /* Text that sits on a saturated pastel fill (lime/yellow/coral). These fills
+  --brand: #ff5a1f;
+  --brand-hover: #ff7440;
+  --brand-deep: #d93c00;
+  --on-brand: #140800;
+  /* Text that sits on a light semantic fill (safe/yellow/coral). These fills
    * stay light in both themes, so the text must stay dark in both themes. */
-  --on-fill: #100702;
+  --on-fill: #120a04;
   /* Text that sits on an --ink surface. --ink flips between themes, so this
    * aliases the opposite ground instead of a fixed hex. */
   --on-ink: var(--paper);
@@ -26,22 +26,26 @@
   --ink: #fff8f4;
   --paper: #070302;
   --white: #171210;
-  --indigo: #ff6129;
-  --indigo-soft: #301a11;
-  --indigo-tint: #352016;
-  --indigo-text: #ff9b73;
-  --lime: #ffad87;
-  --yellow: #ffc76d;
-  --coral: #ff879c;
-  --coral-tint: #301a1c;
-  --yellow-tint: #302415;
+  --indigo: #ff5a1f;
+  --indigo-soft: #2a1d16;
+  --indigo-tint: #33221a;
+  --indigo-text: #ff9a6b;
+  /* The semantic trio is deliberately three DIFFERENT values, not three shades
+   * of orange: warm ivory = safe, amber = suspicious, vermilion = danger.
+   * Ivory keeps the whole palette warm (no cool hue to clash with the copal
+   * orange) and still separates clearly from amber and vermilion. */
+  --safe: #efe0c9;
+  --yellow: #ffc53d;
+  --coral: #ff4b3e;
+  --coral-tint: #2b1310;
+  --yellow-tint: #2a2011;
   --muted: #bfb4ae;
   --body-2: #d4c9c3;
   --ink-soft: #aaa09a;
   --on-indigo-text: #160b05;
-  --ok: #8bd6a0;
-  --warn: #ffd28a;
-  --err: #ff9eb0;
+  --ok: #e8d3ae;
+  --warn: #ffc53d;
+  --err: #ff6b5a;
   --bg: var(--paper);
   --surface: var(--white);
   --surface-2: #211a17;
@@ -55,7 +59,7 @@
   --selected-bg: var(--indigo-tint);
   --hover-overlay: #30231c;
   --active-overlay: #402b20;
-  --hero-glow: #fc3b004a;
+  --hero-glow: #ff5a1f40;
   /* ---- type ---- */
   --font-sans: 'Atkinson Hyperlegible', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-display: 'Bricolage Grotesque Variable', 'Helvetica Neue', Arial, sans-serif;
@@ -79,10 +83,6 @@
   --leading-tight: 1.1;
   --leading-normal: 1.5;
   --measure: 34em;
-
-  /* Composable root scale: text-size toggle × presentation mode. */
-  --text-scale: 1;
-  --mode-scale: 1;
 
   /* ---- space ---- */
   --space-1: 0.25rem;
@@ -134,20 +134,13 @@
   --disabled-opacity: 0.45;
 }
 
-/* Calm motion: the reduced-motion preference, Esensial mode and the pre-hydration
- * default all collapse durations. */
+/* Calm motion: the reduced-motion preference collapses every duration. */
 @media (prefers-reduced-motion: reduce) {
   :root {
     --dur-fast: 0ms;
     --dur-base: 0ms;
     --dur-slow: 0ms;
   }
-}
-
-html[data-motion='calm'] {
-  --dur-fast: 0ms;
-  --dur-base: 0ms;
-  --dur-slow: 0ms;
 }
 
 html[data-theme='light'] {
@@ -157,14 +150,13 @@ html[data-theme='light'] {
   --indigo: #c2410c;
   --on-indigo-text: #fff8f4;
   --ink: #170e09; --paper: #fff8f4; --white: #ffffff;
-  --indigo-soft: #ffe7db; --indigo-tint: #fff0e7; --indigo-text: #a4350d;
-  --lime: #ffd2b8; --yellow: #ffd391; --coral: #f79bad;
-  --coral-tint: #fff0ed; --yellow-tint: #fff2dd;
+  --indigo-soft: #f2e9e1; --indigo-tint: #fbf1ea; --indigo-text: #a4350d;
+  /* Same three hues as dark mode, held bright enough that dark text on them
+   * still clears 4.5:1. */
+  --safe: #ecd9b8; --yellow: #ffc93c; --coral: #ff4b3e;
+  --coral-tint: #fde3dc; --yellow-tint: #fff1cc;
   --muted: #665950; --body-2: #51463f; --ink-soft: #75665c;
-  --ok: #236637; --warn: #815000; --err: #a72643;
+  --ok: #6b4f2a; --warn: #815000; --err: #a72643;
   --surface-2: #f7eee8; --border: #dfd1c7; --border-strong: #9a8070;
-  --hover-overlay: #fbe9df; --active-overlay: #f5d7c6; --hero-glow: #ff71451c;
-  /* Copal accents are used with --on-brand; darken them in light mode so the
-   * white on-brand text keeps AA contrast. */
-  --copal-1: #c2410c; --copal-2: #9a3412; --copal-3: #7c2d12;
+  --hover-overlay: #fbe9df; --active-overlay: #f5d7c6; --hero-glow: #ff5a1f3d;
 }

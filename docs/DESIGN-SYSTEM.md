@@ -39,23 +39,36 @@ earlier source spec. Values live in `frontend/src/lib/styles/tokens.css`.
 | `--white` | `#171210` | `#ffffff` | cards, inputs |
 | `--surface-2` | `#211a17` | `#f7eee8` | recessed surface |
 | `--ink` | `#fff8f4` | `#170e09` | **text only** (flips between themes) |
-| `--brand` | `#ff6129` | `#c2410c` | primary action |
-| `--on-brand` | `#100702` | `#fff8f4` | text on a brand fill |
-| `--lime` | `#ffad87` | `#ffd2b8` | safe / positive fill |
-| `--yellow` | `#ffc76d` | `#ffd391` | suspicious fill |
-| `--coral` | `#ff879c` | `#f79bad` | danger fill |
-| `--on-fill` | `#100702` | `#170e09` | text on a pastel fill |
+| `--brand` | `#ff5a1f` | `#c2410c` | primary action |
+| `--on-brand` | `#140800` | `#fff8f4` | text on a brand fill |
+| `--safe` | `#efe0c9` | `#ecd9b8` | safe / positive fill (warm ivory) |
+| `--yellow` | `#ffc53d` | `#ffc93c` | suspicious fill |
+| `--coral` | `#ff4b3e` | `#ff4b3e` | danger fill |
+| `--on-fill` | `#120a04` | `#170e09` | text on a saturated fill |
 | `--panel-dark` | `#171210` | `#171210` | deliberately dark accent panel |
 | `--on-panel-dark` | `#fff8f4` | `#fff8f4` | text on a dark panel |
 | `--text-2` | `#d4c9c3` | `#51463f` | paragraph text |
 | `--text-3` | `#bfb4ae` | `#665950` | secondary text |
+
+**Three values, not three oranges.** The semantic trio must be readable at a
+glance: warm ivory (safe), amber (suspicious), vermilion (danger). An earlier
+"copal" refinement mapped all three onto one orange ramp, so a SAFE badge and
+a DANGER badge looked like the same state; it also replaced the danger fill
+with pink. Both are gone.
+
+The safe fill was briefly an electric lime (`#c8f751`); it was replaced by warm
+ivory because a cool neon green clashed with the copal orange. Ivory keeps the
+whole palette warm and still separates from amber and vermilion by hue and
+value. Cream is a **surface only**: it is never used as text on the orange
+brand fill (that pairing is 2.5:1). Every fill keeps dark text via `--on-fill`
+(contrast checked, not assumed).
 
 **Why semantic roles instead of ink/white pairs.** `--ink` is the *text*
 colour and flips between themes. Using it as a background produced near-white
 panels with dark text in dark mode. Every surface therefore maps to exactly one
 of four text roles:
 
-1. `--on-fill` — pastel sticker fills (`--lime`, `--yellow`, `--coral`), light in
+1. `--on-fill` — light sticker fills (`--safe`, `--yellow`, `--coral`), light in
    both themes, so the text stays dark.
 2. `--on-panel-dark` — deliberately dark panels (`.card--ink`, `.marquee`,
    `.tile--ink`, active nav).

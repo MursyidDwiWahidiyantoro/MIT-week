@@ -28,5 +28,4 @@
   @media (prefers-reduced-motion: reduce) {
     .skeleton span { animation: none; opacity: 0.75; }
   }
-  :global(html[data-motion='calm']) .skeleton span { animation: none; opacity: 0.75; }
 </style>

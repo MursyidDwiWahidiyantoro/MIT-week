@@ -14,8 +14,7 @@
     background: var(--paper);
     color: var(--ink);
     font-family: var(--font-sans);
-    /* Text-size toggle and Esensial mode compose instead of fighting. */
-    font-size: calc(100% * var(--text-scale) * var(--mode-scale));
+    font-size: 100%;
     -webkit-text-size-adjust: 100%;
     overflow-x: clip;
     scroll-behavior: smooth;
@@ -61,7 +60,7 @@
   }
 
   ::selection {
-    background: var(--lime);
+    background: var(--safe);
     color: var(--on-fill);
   }
 
@@ -119,7 +118,7 @@
 
   .card--flat { box-shadow: var(--shadow-hard); }
   .card--ink { background: var(--panel-dark); color: var(--on-panel-dark); box-shadow: var(--shadow-indigo); }
-  .card--lime { background: var(--lime); color: var(--on-fill); }
+  .card--safe { background: var(--safe); color: var(--on-fill); }
   .card--yellow { background: var(--yellow); color: var(--on-fill); }
   .card--coral { background: var(--coral); color: var(--on-fill); }
   .card--indigo { background: var(--indigo); color: var(--on-brand); box-shadow: var(--shadow-hard-xl); }
@@ -181,7 +180,7 @@
   .btn--primary:hover { color: var(--on-brand); }
   .btn--ink { background: var(--panel-dark); color: var(--on-panel-dark); }
   .btn--ink:hover { color: var(--on-panel-dark); }
-  .btn--lime { background: var(--lime); color: var(--on-fill); }
+  .btn--safe { background: var(--safe); color: var(--on-fill); }
   .btn--sm {
     min-height: 44px;
     padding: 0 var(--space-4);
@@ -215,7 +214,7 @@
   }
 
   .nav-link:hover {
-    background: var(--lime);
+    background: var(--safe);
     border-color: var(--on-fill);
     transform: translate(-2px, -2px);
   }
@@ -300,7 +299,7 @@
     top: -100px;
     z-index: 60;
     padding: var(--space-3) var(--space-4);
-    background: var(--lime);
+    background: var(--safe);
     color: var(--on-fill);
     border: var(--border-width) solid var(--border);
     border-radius: var(--radius-md);
@@ -410,7 +409,7 @@
   }
 }
 
-/* ---- calm motion: preference, Esensial mode, and the pre-hydration state ---- */
+/* ---- calm motion: the reduced-motion preference ---- */
 @media (prefers-reduced-motion: reduce) {
   .marquee__track,
   .sticker { animation: none; }
@@ -419,40 +418,3 @@
   .btn:hover,
   .btn:active { transform: none; }
 }
-
-html[data-motion='calm'] .marquee__track,
-html[data-motion='calm'] .sticker { animation: none; }
-
-html[data-motion='calm'] .lift:hover,
-html[data-motion='calm'] .btn:hover { transform: none; }
-
-/* ---- Esensial mode (TECH_SPEC §8.2) --------------------------------------
- * One component tree, two presentations. Esensial changes density, type size
- * and motion only: never data, controls, destinations or capability.
- */
-html[data-mode='essential'] {
-  --mode-scale: 1.125;
-}
-
-html[data-mode='essential'] body { line-height: 1.7; }
-
-html[data-mode='essential'] [class*='grid'],
-html[data-mode='essential'] ol {
-  grid-template-columns: minmax(0, 1fr) !important;
-}
-
-/* The page's own flex rows (steps, tiles, bento, family) are one column in
- * Esensial. Wrapping alone left an uneven 2+1, which reads as a mistake. */
-html[data-mode='essential'] .steps > *,
-html[data-mode='essential'] .tiles > *,
-html[data-mode='essential'] .bento > *,
-html[data-mode='essential'] .two-col > *,
-html[data-mode='essential'] .hero-grid > *,
-html[data-mode='essential'] .access-grid > * {
-  flex-basis: 100% !important;
-}
-
-html[data-mode='essential'] .card--ink,
-html[data-mode='essential'] .card--indigo { box-shadow: var(--shadow-hard-lg); }
-
-html[data-mode='essential'] .blob { display: none; }

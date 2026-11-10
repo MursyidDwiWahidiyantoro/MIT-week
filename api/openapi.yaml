@@ -10,6 +10,11 @@ servers:
   - url: http://localhost:8080/api/v1
     description: Local development
 
+# AMBA has no accounts and no API keys: every route is public. Declaring the
+# empty requirement explicitly keeps the contract honest and satisfies the
+# security-defined lint rule.
+security: []
+
 paths:
   /healthz:
     get:
@@ -173,10 +178,58 @@ paths:
                 type: object
                 properties:
                   text: { type: string, maxLength: 280 }
-                  source: { type: string, enum: [llm, template] }
+                  source:
+                    type: string
+                    enum: [llm, template]
+                    description: llm = model draft that passed validation; template = deterministic fallback
                 required: [text, source]
         "400": { $ref: "#/components/responses/BadRequest" }
         "429": { $ref: "#/components/responses/RateLimited" }
+
+  /ops/status:
+    get:
+      operationId: getOpsStatus
+      summary: Honest integration status (live, disabled, or placeholder)
+      description: |
+        Reports which external integrations actually ran. It never returns a
+        key, a host, a URL or model output. `placeholder` means the integration
+        is not configured, so the corresponding pillar did not really run.
+      security: []
+      responses:
+        "200":
+          description: Integration map
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: ok }
+                  version: { type: string }
+                  uptime_seconds: { type: integer }
+                  requests: { type: integer }
+                  llm:
+                    type: object
+                    properties:
+                      mode: { type: string, enum: [live, mock] }
+                      model: { type: string }
+                      model_found: { type: boolean }
+                      probe_failed:
+                        type: boolean
+                        description: The /models probe did not answer; live audits may still work
+                      vision: { type: boolean }
+                      reasoning_effort: { type: string }
+                      placeholder: { type: boolean }
+                  retrieval:
+                    $ref: "#/components/schemas/IntegrationStatus"
+                  safe_browsing:
+                    $ref: "#/components/schemas/IntegrationStatus"
+                  pillars:
+                    type: object
+                    additionalProperties: { type: string }
+                  stats:
+                    type: object
+                    additionalProperties: true
+                required: [status, llm, retrieval, safe_browsing, pillars]
 
   /demo/{id}:
     get:
@@ -377,6 +430,15 @@ components:
       required:
         [schema_version, id, timestamp, input_type, source_reference,
          degraded, is_demo, verdict, pillars, tactics, share_token]
+
+    IntegrationStatus:
+      type: object
+      properties:
+        enabled: { type: boolean }
+        configured: { type: boolean }
+        placeholder: { type: boolean }
+        note: { type: string }
+      required: [enabled, configured, placeholder]
 
     ErrorEnvelope:
       type: object

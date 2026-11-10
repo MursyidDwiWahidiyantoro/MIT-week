@@ -26,6 +26,7 @@ const (
 	ReasonNoHTTPS         = "NO_HTTPS"
 	ReasonPortNonStandard = "NONSTANDARD_PORT"
 	ReasonSuspiciousPath  = "SUSPICIOUS_PATH"
+	ReasonReputation      = "MALICIOUS_REPUTATION"
 )
 
 // brands are the names impersonated most often in Indonesian phishing.

@@ -5,7 +5,7 @@
     title?: string;
     eyebrow?: string;
     /** Colour role of the panel surface. `white` is the default card. */
-    tone?: 'white' | 'paper' | 'ink' | 'lime' | 'yellow' | 'coral' | 'indigo' | 'soft';
+    tone?: 'white' | 'paper' | 'ink' | 'safe' | 'yellow' | 'coral' | 'indigo' | 'soft';
     children: Snippet;
     footer?: Snippet;
   }
@@ -16,7 +16,7 @@
     white: '',
     paper: 'panel--paper',
     ink: 'panel--ink',
-    lime: 'panel--lime',
+    safe: 'panel--safe',
     yellow: 'panel--yellow',
     coral: 'panel--coral',
     indigo: 'panel--indigo',
@@ -49,7 +49,7 @@
   }
   .panel--paper { background: var(--paper); }
   .panel--ink { background: var(--panel-dark); color: var(--on-panel-dark); box-shadow: var(--shadow-indigo); }
-  .panel--lime { background: var(--lime); color: var(--on-fill); }
+  .panel--safe { background: var(--safe); color: var(--on-fill); }
   .panel--yellow { background: var(--yellow); color: var(--on-fill); }
   .panel--coral { background: var(--coral); color: var(--on-fill); }
   .panel--indigo { background: var(--indigo); color: var(--on-brand); box-shadow: var(--shadow-hard-xl); }
@@ -63,5 +63,5 @@
     border-top: var(--border-width) solid currentColor;
   }
   .panel--ink :global(a),
-  .panel--indigo :global(a) { color: var(--lime); }
+  .panel--indigo :global(a) { color: var(--on-brand); }
 </style>

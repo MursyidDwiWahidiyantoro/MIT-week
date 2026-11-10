@@ -6,11 +6,7 @@
   import '@fontsource-variable/bricolage-grotesque';
   import '@fontsource/atkinson-hyperlegible/400.css';
   import '@fontsource/atkinson-hyperlegible/700.css';
-  import { mode } from '$lib/mode.svelte';
-  import { textSize } from '$lib/a11y.svelte';
   import ThemeSwitch from '$lib/components/ui/ThemeSwitch.svelte';
-  import TextSize from '$lib/components/a11y/TextSize.svelte';
-  import ModeSwitch from '$lib/components/mode/ModeSwitch.svelte';
   import '../lib/styles/refinement.css';
   import PreviewBadge from '$lib/components/ui/PreviewBadge.svelte';
   import Icon from '$lib/components/ui/Icon.svelte';
@@ -23,12 +19,6 @@
     { href: '/edukasi', label: 'Belajar', match: ['/edukasi'] },
     { href: '/tentang', label: 'Tentang', match: ['/tentang'] }
   ];
-
-  // Read the stored preference once the component is live.
-  $effect(() => {
-    mode.init();
-    textSize.init();
-  });
 
   // Move focus to the main heading on NAVIGATION only. Focusing on the initial
   // mount would paint a focus ring on a heading the user never touched, which
@@ -80,8 +70,6 @@
     </nav>
 
     <div class="tools">
-      <TextSize />
-      <ModeSwitch />
       <ThemeSwitch />
     </div>
   </div>

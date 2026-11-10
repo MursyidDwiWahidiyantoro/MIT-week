@@ -283,3 +283,136 @@ reports every CR as trailing whitespace and the pre-commit gate fails.
 
 Revisit: if the team standardises on a Windows-only toolchain, `eol=crlf`
 would also work; `-text` stays correct either way.
+
+## 2026-11-06 · Maru is the engine; the model never supplies a source
+
+The gateway is 9router with the `Maru` combo. Four behaviours found by probing
+it directly shaped the client, and each one is now covered by a test:
+
+1. **9router streams by default.** A request without `stream:false` returns
+   `text/event-stream`, which the old client could not parse. Every call now
+   sends `stream:false` explicitly *and* decodes an SSE body if the gateway
+   streams anyway.
+2. **Maru ignores `response_format`.** It returns its own keys (`patterns`,
+   `reasoning`, `skor`) and sometimes wraps JSON in a ```json fence. The
+   decoder accepts both the requested schema and these aliases; only a missing
+   numeric score fails the pillar. A strict unmarshal discarded a usable
+   assessment on every image audit.
+3. **Reasoning is always on.** A one-word answer costs ~5–14 s at default
+   effort. `reasoning_effort:"low"` brings a realistic audit to 2–4 s, so it
+   is the default and `HARD_TIMEOUT_MS` rose from 12 s to 20 s to leave image
+   audits room. Images are downscaled to 1600 px for the model (`internal/imaging`);
+   ELA still runs on the original bytes.
+4. **`fact_status` was removed from the model's output.** The model cannot
+   verify anything, and asking it for a verdict produced confident
+   `CONTRADICTS` with an invented URL. Retrieval now owns the fact pillar:
+   a fixed news endpoint (Bing News RSS) → allowlist filter → claim/number
+   match → deterministic debunk/support markers. The model contributes only a
+   search query and a claim.
+
+A retrieved item must also share a **number** with the claim. Without that
+gate, a fact-check about "bantuan Rp 900.000" was cited as contradicting a
+claim about "Rp 500.000" — a false citation with a real, allowlisted URL.
+
+## 2026-11-06 · Mock mode reports an honest UNVERIFIED fact pillar
+
+Retrieval is skipped in mock mode (previews and e2e must stay offline). The
+fact pillar is still `available:true` with `status:"UNVERIFIED"` and no
+sources: the claim exists, nothing was checked. Marking the pillar unavailable
+instead would have pushed text audits to `INSUFFICIENT` and broken the e2e
+contract test for no product benefit.
+
+## 2026-11-06 · Every unconfigured integration is a labelled placeholder
+
+`GET /api/v1/ops/status` reports each dependency as live, disabled or
+placeholder, with no key, host or model output. Safe Browsing without
+`GOOGLE_SAFE_BROWSING_KEY` is a placeholder; retrieval without a live model is
+a placeholder; mock mode labels the AI pillar a placeholder. The alternative —
+silently skipping a check — is the dishonesty the trust contract forbids.
+
+## 2026-11-06 · `/reply` drafts with the model, validates, then falls back
+
+`internal/reply` asks Maru for a ≤ 280-character draft using only the verdict
+summary already in the share token (never raw user content). The draft is
+rejected wholesale if it contains certainty words or shaming, and every URL
+outside `{token sources, share link}` is stripped. A rejected or unavailable
+draft returns the deterministic status × tone template, and `source` says
+which one the user received. The template matrix has a parity test against
+`configs/reply_templates.json`.
+
+## 2026-11-06 · Netlify for static hosting, not Vercel
+
+The frontend is a static SPA (`adapter-static`); either host can serve it. The
+decision is licence-based, not technical:
+
+- **Netlify Free/Starter** permits commercial use, so the project does not need
+  a paid plan if it later ships as a product.
+- **Vercel Hobby** is restricted to non-commercial personal projects. Moving to
+  Pro to satisfy that is a cost the project does not need.
+
+The Go API is **not** deployed to either: it holds 20 s SSE streams and makes
+outbound fetches, which do not fit serverless function limits. `netlify.toml`
+therefore ships the SPA only, and the API base is configurable at build time
+(`VITE_API_BASE_URL`). A preview-only deployment can build with
+`VITE_API_MODE=mock`; it is honest because the app labels every mock result.
+
+Two deploy bugs were fixed on the way: `connect-src` hardcoded
+`http://localhost:8080` (a deployed build would block every request), and the
+production API base defaulted to localhost instead of same-origin `/api/v1`.
+
+## 2026-11-06 · Palette: three distinct hues, no pink
+
+`--coral` was `#ff879c` (pink) and `--lime` was `#ffad87` (peach). The home
+page also ran a `--copal-1/2/3` ramp that turned lime, amber and vermilion into
+three shades of orange. Result: every accent collapsed into one peach family
+and the danger state read as decoration.
+
+Restored the spec's intent — a strong warm trio — while keeping the warm-orange
+concept: `--lime #c8f751`, `--yellow #ffc53d`, `--coral #ff4b3e`, `--brand
+#ff5a1f`. All 82 contrast pairs pass in both themes. Layout is untouched.
+
+## 2026-11-06 · Home page: fabricated progress and badges removed
+
+The "Pelajaran singkat" card showed made-up completion percentages (100/60/25/5)
+for lessons that did not exist, and "Kumpulkan lencananya" advertised badges
+with no storage. Both are gone: lessons are links to real `/edukasi` anchors,
+and badges are real next-step links. "Buka panduan keluarga" now opens a new
+`/panduan-keluarga` page with a client-only safe word and a printable card
+(PRD F15), instead of pointing at the six-question self-check.
+
+## 2026-11-06 · Safe accent: warm ivory instead of green
+
+The electric lime (`#c8f751`) used for SAFE status, the hero highlight and
+step 2 clashed with the copal orange. Replaced with warm ivory
+(`--safe #efe0c9` dark / `#ecd9b8` light) and renamed the token from `--lime`
+to `--safe`: a cream token called "lime" would be a lie, and the name now says
+what it means.
+
+Ivory was chosen over teal and cobalt because it keeps the entire palette warm
+— no cool hue is left to clash with copal. Trade-off: SAFE reads calmer than a
+saturated green, which is acceptable because status is never colour alone
+(icon + label always ship).
+
+Cream is a **surface, never text**: cream on `--brand` is 2.5:1. Three
+hover/link rules that used it as text were moved to `--on-brand` / `--yellow`,
+and `.btn--safe` was removed from the brand-filled control list.
+
+## 2026-11-06 · Rebuilding one compose service recreates the other
+
+Running `docker compose build frontend && docker compose up -d frontend` after
+editing `docker-compose.yml` recreated `backend` with the file's defaults,
+which are `LLM_MOCK=true` and an empty key. The app silently dropped to mock
+mode. When restarting either service, pass the live env inline (or export it)
+so the backend keeps `LLM_MOCK=false` and `NINEROUTER_API_KEY`:
+
+```bash
+LLM_MOCK=false NINEROUTER_API_KEY=... docker compose up -d --force-recreate backend
+```
+
+`GET /api/v1/ops/status` reports `llm.mode`, so this is detectable rather than
+silent.
+
+**Fix:** a gitignored root `.env` now holds the live values. Docker Compose
+reads it automatically, so any `docker compose up` / `restart` keeps
+`LLM_MOCK=false` and the key. `chmod 600`; it is never committed
+(`.gitignore` line 2).

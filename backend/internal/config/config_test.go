@@ -24,7 +24,7 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.Port != 8080 || !cfg.LLMMock || cfg.MaxUploadMB != 10 {
 		t.Fatalf("unexpected defaults: %+v", cfg)
 	}
-	if cfg.HardTimeout.Milliseconds() != 12000 {
+	if cfg.HardTimeout.Milliseconds() != 20000 {
 		t.Fatalf("hard timeout = %v", cfg.HardTimeout)
 	}
 }
@@ -83,5 +83,32 @@ func TestTrustedProxyParsing(t *testing.T) {
 	}
 	if len(cfg.TrustedProxy) != 2 {
 		t.Fatalf("want 2 proxies, got %v", cfg.TrustedProxy)
+	}
+}
+
+func TestReasoningAndRetrievalDefaults(t *testing.T) {
+	setEnv(t, map[string]string{
+		"NINEROUTER_REASONING_EFFORT": "", "FACT_RETRIEVAL": "", "FACT_SEARCH_URL": "",
+	})
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Reasoning != "low" {
+		t.Errorf("reasoning = %q, want low", cfg.Reasoning)
+	}
+	if !cfg.Retrieval {
+		t.Error("retrieval should default on")
+	}
+	if cfg.RetrievalURL == "" {
+		t.Error("retrieval URL should have a default")
+	}
+}
+
+func TestReasoningRejectsUnknownValue(t *testing.T) {
+	setEnv(t, map[string]string{"NINEROUTER_REASONING_EFFORT": "turbo"})
+	_, err := Load()
+	if err == nil || !strings.Contains(err.Error(), "NINEROUTER_REASONING_EFFORT") {
+		t.Fatalf("want reasoning error, got %v", err)
 	}
 }

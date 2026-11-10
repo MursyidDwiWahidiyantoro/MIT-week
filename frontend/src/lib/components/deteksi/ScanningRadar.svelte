@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { mode } from '$lib/mode.svelte';
   import { pillarSummary } from '$lib/pillar-summary';
   import type { PillarKey, StageStatus } from '$lib/audit.svelte';
 
@@ -20,7 +19,6 @@
   const order: PillarKey[] = ['ela', 'ai', 'fact', 'link'];
 
   const doneCount = $derived(order.filter((k) => stages[k] === 'done').length);
-  const calm = $derived(mode.resolved === 'essential');
 
   const STATUS_TEXT: Record<StageStatus, string> = {
     idle: 'menunggu',
@@ -32,7 +30,7 @@
   const statusText = (s: StageStatus): string => STATUS_TEXT[s];
 </script>
 
-<div class="radar card" data-calm={calm}>
+<div class="radar card">
   <p class="summary">
     {doneCount} dari {order.length} pemeriksaan selesai
   </p>
@@ -75,7 +73,7 @@
     background: var(--yellow);
     animation: pulse var(--dur-slow) var(--ease-in-out) infinite alternate;
   }
-  li.done .dot { background: var(--lime); }
+  li.done .dot { background: var(--safe); }
   li.failed .dot { background: var(--coral); }
   li.skipped .dot { background: var(--indigo-soft); }
   .name { font-weight: 700; }
@@ -93,8 +91,6 @@
     to { opacity: 1; }
   }
 
-  /* Calm mode: no looping animation at all, just static states. */
-  .radar[data-calm='true'] li.running .dot { animation: none; opacity: 1; }
   @media (prefers-reduced-motion: reduce) {
     li.running .dot { animation: none; opacity: 1; }
   }

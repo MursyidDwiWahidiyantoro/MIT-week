@@ -8,7 +8,7 @@
     },
     {
       n: '2',
-      tone: 'lime',
+      tone: 'safe',
       title: 'AI memeriksa',
       body: 'Kata-kata, tautan, dan taktik desakan diperiksa, lalu keluar satu kesimpulan yang jelas.'
     },
@@ -79,7 +79,7 @@
     box-shadow: var(--shadow-hard-xs);
   }
   .num--indigo { background: var(--indigo); color: var(--on-brand); }
-  .num--lime { background: var(--lime); color: var(--on-fill); }
+  .num--safe { background: var(--safe); color: var(--on-fill); }
   .num--yellow { background: var(--yellow); color: var(--on-fill); }
 
   h3 { font-size: 1.4em; margin: 0 0 var(--space-2); }

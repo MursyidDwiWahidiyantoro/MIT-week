@@ -19,7 +19,7 @@
     },
     {
       id: 'shortlink',
-      tone: 'lime',
+      tone: 'safe',
       icon: 'link',
       title: 'Tautan pendek ke halaman palsu',
       body: 'Tautan dipendekkan supaya alamat aslinya tidak terlihat, lalu diarahkan ke halaman yang meminta kata sandi.'
@@ -95,7 +95,7 @@
   <h2 class="h2" id="modus-title">Modus yang sering terjadi</h2>
   <div class="grid">
     {#each modus as m (m.id)}
-      <article class="mode card lift mode--{m.tone}">
+      <article class="mode card lift mode--{m.tone}" id={`modus-${m.id}`}>
         <span class="icon" aria-hidden="true"><Icon name={m.icon} size={28} /></span>
         <h3>{m.title}</h3>
         <p>{m.body}</p>
@@ -160,7 +160,7 @@
   .mode { min-width: 0; padding: clamp(1.25rem, 3vw, 1.75rem); display: flex; flex-direction: column; height: 100%; }
   .mode--yellow { background: var(--yellow); }
   .mode--soft { background: var(--indigo-soft); }
-  .mode--lime { background: var(--lime); }
+  .mode--safe { background: var(--safe); }
   .icon {
     display: grid;
     place-items: center;
@@ -228,10 +228,10 @@
       transform var(--dur-fast) var(--ease-out);
   }
   .option:hover { background: var(--indigo-tint); border-color: var(--ink); transform: translateX(3px); }
-  .option.correct:hover { background: var(--lime); }
+  .option.correct:hover { background: var(--safe); }
   .option.wrong:hover { background: var(--coral-tint); }
   .option input { width: 22px; height: 22px; accent-color: var(--indigo); flex: none; }
-  .option.correct { background: var(--lime); border-color: var(--on-fill); }
+  .option.correct { background: var(--safe); border-color: var(--on-fill); }
   .option.wrong { background: var(--coral-tint); border-color: var(--ink); }
   .verdict-tag {
     margin-left: auto;

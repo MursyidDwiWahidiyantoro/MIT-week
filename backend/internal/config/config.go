@@ -22,6 +22,9 @@ type Config struct {
 	RouterBaseURL string
 	RouterAPIKey  string
 	RouterModel   string
+	Reasoning     string
+	Retrieval     bool
+	RetrievalURL  string
 	LLMMock       bool
 	SigningKey    string
 	SafeBrowsing  string
@@ -48,6 +51,8 @@ func Load() (*Config, error) {
 		RouterBaseURL: env("NINEROUTER_BASE_URL", "http://localhost:20128/v1"),
 		RouterAPIKey:  os.Getenv("NINEROUTER_API_KEY"),
 		RouterModel:   os.Getenv("NINEROUTER_MODEL"),
+		Reasoning:     env("NINEROUTER_REASONING_EFFORT", "low"),
+		RetrievalURL:  env("FACT_SEARCH_URL", "https://www.bing.com/news/search"),
 		SigningKey:    os.Getenv("REPORT_SIGNING_KEY"),
 		SafeBrowsing:  os.Getenv("GOOGLE_SAFE_BROWSING_KEY"),
 		MetricsAddr:   os.Getenv("METRICS_ADDR"),
@@ -66,13 +71,24 @@ func Load() (*Config, error) {
 		errs = append(errs, errors.New("LLM_MOCK: must be true or false"))
 	}
 
+	c.Retrieval, err = strconv.ParseBool(env("FACT_RETRIEVAL", "true"))
+	if err != nil {
+		errs = append(errs, errors.New("FACT_RETRIEVAL: must be true or false"))
+	}
+
+	switch c.Reasoning {
+	case "low", "medium", "high", "minimal":
+	default:
+		errs = append(errs, errors.New("NINEROUTER_REASONING_EFFORT: must be minimal, low, medium or high"))
+	}
+
 	mb, err := strconv.ParseInt(env("MAX_UPLOAD_SIZE_MB", "10"), 10, 64)
 	if err != nil || mb < 1 || mb > 25 {
 		errs = append(errs, errors.New("MAX_UPLOAD_SIZE_MB: must be an integer between 1 and 25"))
 	}
 	c.MaxUploadMB = mb
 
-	ms, err := strconv.Atoi(env("HARD_TIMEOUT_MS", "12000"))
+	ms, err := strconv.Atoi(env("HARD_TIMEOUT_MS", "20000"))
 	if err != nil || ms < 1000 || ms > 60000 {
 		errs = append(errs, errors.New("HARD_TIMEOUT_MS: must be an integer between 1000 and 60000"))
 	}

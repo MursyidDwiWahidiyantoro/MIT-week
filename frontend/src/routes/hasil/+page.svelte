@@ -254,7 +254,7 @@
     gap: var(--space-2);
     margin: var(--space-2) 0 var(--space-4);
     padding: 6px 16px;
-    background: var(--lime);
+    background: var(--safe);
     border: var(--border-width) solid var(--border);
     border-radius: var(--radius-pill);
     box-shadow: var(--shadow-hard-xs);

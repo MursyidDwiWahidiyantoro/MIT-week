@@ -8,6 +8,8 @@ import (
 	_ "image/jpeg" // register decoders
 	_ "image/png"
 	"io"
+
+	_ "golang.org/x/image/webp" // WebP is accepted by magic bytes; decoding needs this
 )
 
 // Upload errors. Each maps to a distinct API error code at the handler layer.

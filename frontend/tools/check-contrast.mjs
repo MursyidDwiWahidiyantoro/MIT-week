@@ -75,11 +75,11 @@ const textPairs = [
   ['ok', 'surface'], ['warn', 'surface'], ['err', 'surface'],
   /* Semantic roles: a fill stays pastel in both themes, so text on it is
    * --on-fill; --ink flips between themes, so text on it is --on-ink. */
-  ['on-fill', 'lime'], ['on-fill', 'yellow'], ['on-fill', 'coral'],
+  ['on-fill', 'safe'], ['on-fill', 'yellow'], ['on-fill', 'coral'],
   ['on-ink', 'ink'],
   ['on-brand', 'brand'], ['on-brand', 'indigo'],
   ['ink', 'paper'], ['ink', 'white'],
-  ['ink', 'indigo-soft'], ['ink', 'indigo-tint'],
+  ['ink', 'indigo-soft'], ['ink', 'indigo-tint'], ['on-fill', 'safe'],
   ['ink', 'coral-tint'], ['ink', 'yellow-tint'],
   ['indigo-text', 'paper'], ['indigo-text', 'white'], ['indigo-text', 'indigo-tint'],
   ['muted', 'paper'], ['muted', 'white'], ['body-2', 'paper'], ['body-2', 'white']

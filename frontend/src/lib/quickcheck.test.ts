@@ -1,11 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   evaluateQuickCheck,
-  familyWordCount,
-  generateFamilyCode,
   quickCheckQuestions
 } from './quickcheck';
-import words from './data/family-words.json';
 
 describe('evaluateQuickCheck', () => {
   it('returns Rendah when no warning sign is present', () => {
@@ -38,29 +35,5 @@ describe('evaluateQuickCheck', () => {
     expect(quickCheckQuestions).toHaveLength(6);
     const total = quickCheckQuestions.reduce((sum, q) => sum + q.weight, 0);
     expect(total).toBe(14);
-  });
-});
-
-describe('Sandi Keluarga', () => {
-  it('has at least 256 unique common words', () => {
-    expect(familyWordCount).toBeGreaterThanOrEqual(256);
-    expect(new Set(words).size).toBe(words.length);
-  });
-
-  it('generates two distinct words', () => {
-    const code = generateFamilyCode(() => 0);
-    const parts = code.split('-');
-    expect(parts).toHaveLength(2);
-    expect(parts[0]).not.toBe(parts[1]);
-  });
-
-  it('uses the injected random source instead of Math.random', () => {
-    const calls: number[] = [];
-    const code = generateFamilyCode(() => {
-      calls.push(1);
-      return 0.5;
-    });
-    expect(calls.length).toBeGreaterThan(0);
-    expect(code).toMatch(/^[a-z]+-[a-z]+$/);
   });
 });

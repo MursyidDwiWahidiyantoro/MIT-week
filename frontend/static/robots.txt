@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+# AMBA is a public literacy tool. There is no private area to exclude.

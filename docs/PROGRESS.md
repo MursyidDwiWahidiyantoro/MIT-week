@@ -294,3 +294,147 @@ frontend: size                         120.2 KB gz / 250 KB
 frontend: playwright e2e               14/14 (incl. axe on 6 surfaces)
 demo diff                              in sync
 ```
+
+---
+
+## 2026-11-06 — Backend engine completed against live Maru
+
+### What changed
+
+| Area | Before | After |
+|---|---|---|
+| 9router client | no `stream:false`; SSE body rejected | explicit non-streaming + SSE-body decoder + one retry |
+| Maru output | strict schema only; every image audit failed | tolerant aliases (`patterns`, `reasoning`, `skor`), fence stripping |
+| Vision | image never reached the model | image bytes + MIME sent as a data URL, downscaled to 1600 px |
+| Page fetch | none; URL audits sent only the address | `internal/pagefetch` reads title/description/text via the SSRF client |
+| Fact pillar | model invented sources; grounding downgraded them all | retrieval (fixed news endpoint) → allowlist → number gate → markers |
+| SSE | all pillars announced `running`, then all `done` after one blocking call | real per-pillar events from the goroutines that do the work |
+| Degradation | mixed signals | every failed pillar → `available:false` + `not_checked` + `degraded` |
+| Reply | templates only | model draft → validation → template fallback, with `source` |
+| Safe Browsing | env read, never used | optional v4 check; labelled placeholder without a key |
+| Metrics | env read, never used | separate `/metrics` listener, JSON counters |
+| Ops visibility | none | `GET /api/v1/ops/status` with live/disabled/placeholder per integration |
+| Cache | unbounded map | 500-entry LRU |
+| WebP | advertised, never decoded | `golang.org/x/image/webp` registered |
+
+### Live verification (Maru through 9router, 2026-11-06)
+
+| Input | Result | Latency |
+|---|---|---|
+| text (bantuan Rp 500.000) | AI 85, SUSPICIOUS 48, no false citation | 3.5 s |
+| URL (turnbackhoax.id article) | fact CONTRADICTS, TAMPERED 85, 2 allowlisted sources | 3.7 s |
+| image (720×1280 screenshot) | ELA 16 (PNG, reliability 0.5), AI 85, OCR tactic, SUSPICIOUS 42 | 10.4 s |
+| reply (hormat/santai/singkat) | LLM draft, tone register enforced, 280 chars, only the share link | ~3 s |
+| tampered token | `Laporan tidak sah`, no payload | < 10 ms |
+
+### Checks
+
+```
+backend : gofmt -l .            clean
+backend : go vet ./...          clean
+backend : go test -race ./...   19 packages pass
+contract: redocly lint          valid (5 style warnings, no errors)
+frontend: svelte-check          0 errors, 0 warnings
+frontend: eslint                clean
+frontend: vitest                53 pass
+frontend: vite build            OK
+frontend: playwright            13/14 (see note)
+```
+
+### Open item found by e2e (not caused by the backend work)
+
+`tests/share.spec.ts › Essential mode changes typography, not content` fails.
+The test sets `document.documentElement.dataset.mode` and expects the H1 to
+grow in Essential mode, but the current working tree has an uncommitted
+frontend redesign that deleted `ModeSwitch`/`mode.svelte.ts` and the CSS rule
+that made `[data-mode='essential']` scale headings. Backend changes cannot
+affect computed font size. Recorded here so it is fixed with the redesign,
+not silently ignored.
+
+### Still open
+
+- Safe Browsing stays a placeholder until a key is provided.
+- Retrieval depends on the Bing News RSS shape; a provider change degrades the
+  fact pillar to UNVERIFIED rather than failing the audit.
+
+---
+
+## 2026-11-06 — Distribution readiness + palette correction
+
+### Palette
+
+`--coral` was pink (`#ff879c`) and `--lime` was peach (`#ffad87`). A
+`--copal-1/2/3` ramp in `refinement.css` then mapped lime, amber and vermilion
+onto three shades of orange, so SAFE and DANGER looked identical. Restored the
+strong warm trio and kept the layout untouched:
+
+| Token | Before | After |
+|---|---|---|
+| `--brand` | `#ff6129` | `#ff5a1f` |
+| `--lime` | `#ffad87` (peach) | `#c8f751` (electric lime) |
+| `--yellow` | `#ffc76d` (peach) | `#ffc53d` (amber) |
+| `--coral` | `#ff879c` (pink) | `#ff4b3e` (vermilion) |
+
+Also fixed: the hero highlight word had been made transparent (the one
+signature type treatment), the risk meter was a yellow→orange→pink gradient,
+and light-mode brand badges took dark text (`3.67:1`). All 82 token contrast
+pairs pass in both themes.
+
+### Home page placeholders → real destinations
+
+| Before | After |
+|---|---|
+| "Pelajaran singkat" with invented 100/60/25/5 % progress | 4 links to real `/edukasi` anchors |
+| "Kumpulkan lencananya" badges with no storage | 3 real next-step links |
+| "Buka panduan keluarga" → `/cek-cepat` (wrong page) | new `/panduan-keluarga` page |
+| Hero highlight transparent | lime sticker restored |
+
+### New page: `/panduan-keluarga`
+
+Client-only safe word (two concrete Indonesian nouns, `crypto.getRandomValues`),
+three family rules, and a printable card with a real `@media print` stylesheet.
+No network call, nothing stored.
+
+### Deployment
+
+`netlify.toml` + `docs/DEPLOY.md`. Netlify chosen because its free tier permits
+commercial use (Vercel Hobby does not). Two real deploy blockers fixed:
+`connect-src` hardcoded `http://localhost:8080`, and the production API base
+defaulted to localhost instead of same-origin `/api/v1`.
+
+### Verification
+
+```
+typecheck     0 errors, 0 warnings
+eslint        clean
+vitest        53 pass
+contrast      82 pairs, both themes
+size          118.6 KB gz / 250 KB
+build         OK, adapter-static
+axe           0 serious/critical on 6 routes × 2 themes
+routes        / /panduan-keluarga /deteksi /edukasi /cek-cepat /tentang = 200
+browser       safe word generates, print button present, 0 page errors
+```
+
+### Still open
+
+- `tests/share.spec.ts › Essential mode changes typography` still fails because
+  the uncommitted redesign removed the mode system (documented earlier).
+- A real deployment still needs the Go API hosted separately; the static site
+  alone can only run in labelled mock mode.
+
+### Follow-up fixes from visual review (2026-11-06)
+
+| Report | Cause | Fix |
+|---|---|---|
+| Black boxes behind every marquee word in light mode | `.marquee__item` was in the dark-panel rule, so each word painted its own `--panel-dark` background | items now inherit the band's ground; only band + group paint it |
+| Light theme had no radial orange wash | `--hero-glow` was `#ff5a1f18` (9% alpha) vs dark `#ff5a1f40` (25%) | light value raised to `#ff5a1f3d` |
+| Green accent clashed with copal | neon lime `#c8f751` | warm ivory `--safe #efe0c9` / `#ecd9b8`; token renamed `--lime` → `--safe` |
+
+Cream is a surface, never text: cream on `--brand` is 2.5:1. Three hover/link
+rules were moved to `--on-brand` / `--yellow`, and `.btn--safe` was removed
+from the brand-filled control list.
+
+Verification: typecheck 0/0, eslint clean, vitest 53, contrast **84** pairs
+(both themes), build OK, 118.6 KB gz, axe 0 serious/critical on `/` in both
+themes, marquee item background is transparent in both themes.

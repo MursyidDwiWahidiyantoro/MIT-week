@@ -5,8 +5,6 @@
   import HowItWorks from '$lib/components/home/HowItWorks.svelte';
   import ScamSchool from '$lib/components/home/ScamSchool.svelte';
   import MadeForEveryone from '$lib/components/home/MadeForEveryone.svelte';
-  import ModePicker from '$lib/components/mode/ModePicker.svelte';
-  import { mode } from '$lib/mode.svelte';
 
   const TRUST = ['Tanpa jargon', 'Teks mudah dibaca', 'Aman untuk seisi rumah'];
 </script>
@@ -22,7 +20,7 @@
 <section class="hero" id="top">
   <!-- Atmospheric decorative background spanning full viewport width -->
   <div class="hero-backdrop" aria-hidden="true">
-    <span class="blob blob--lime"></span>
+    <span class="blob blob--safe"></span>
     <span class="blob blob--soft"></span>
     <span class="blob blob--yellow"></span>
   </div>
@@ -85,10 +83,6 @@
   </div>
 </section>
 
-{#if mode.needsPicker}
-  <div class="wrap"><ModePicker /></div>
-{/if}
-
 <section class="marquee" aria-label="Jenis scam yang bisa dikenali">
   <div class="marquee__track">
     {#each [0, 1] as copy (copy)}
@@ -108,7 +102,7 @@
 <section class="family-section section" id="family">
   <div class="wrap">
     <div class="family-panel card--indigo lift">
-      <span class="blob blob--lime" aria-hidden="true"></span>
+      <span class="blob blob--safe" aria-hidden="true"></span>
       <span class="blob blob--yellow" aria-hidden="true"></span>
       <div class="family-body">
         <h2 class="h2">Ada pesan aneh masuk sekarang?</h2>
@@ -117,8 +111,8 @@
           Anda sayangi, supaya satu grup tetap selangkah lebih aman.
         </p>
         <div class="cta-row">
-          <a class="btn btn--lime" href={resolve('/deteksi')}>Periksa gratis</a>
-          <a class="btn btn--quiet" href={resolve('/cek-cepat')}>Buka panduan keluarga</a>
+          <a class="btn btn--safe" href={resolve('/deteksi')}>Periksa gratis</a>
+          <a class="btn btn--quiet" href={resolve('/panduan-keluarga')}>Buka panduan keluarga</a>
         </div>
       </div>
     </div>
@@ -150,10 +144,10 @@
     border-radius: 50%;
     filter: blur(0px);
   }
-  .blob--lime {
+  .blob--safe {
     width: clamp(340px, 35vw, 540px);
     height: clamp(340px, 35vw, 540px);
-    background: var(--lime);
+    background: var(--safe);
     right: -8vw;
     top: -12vw;
   }
@@ -216,7 +210,7 @@
   .mark {
     display: inline-block;
     padding: 0 12px;
-    background: var(--lime);
+    background: var(--safe);
     border: var(--border-width) solid var(--border);
     border-radius: 14px;
     transform: rotate(-1.5deg);
@@ -272,8 +266,9 @@
     place-items: center;
     width: 32px;
     height: 32px;
-    background: var(--lime);
-    color: var(--on-fill);
+    /* Sits inside the orange primary button, so it uses the paper role. */
+    background: var(--paper);
+    color: var(--ink);
     border-radius: 50%;
     border: 2px solid var(--border);
     transition: transform var(--dur-fast) var(--ease-out);
@@ -319,7 +314,7 @@
     border-radius: var(--radius-xl);
     box-shadow: var(--shadow-hard-xl);
   }
-  .family-panel .blob--lime { width: 240px; height: 240px; right: -70px; top: -70px; }
+  .family-panel .blob--safe { width: 240px; height: 240px; right: -70px; top: -70px; }
   .family-panel .blob--yellow { width: 120px; height: 120px; right: 120px; bottom: -60px; }
   .family-body { position: relative; z-index: 1; max-width: 44rem; }
   .family-lede {

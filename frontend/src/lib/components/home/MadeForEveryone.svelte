@@ -29,7 +29,7 @@
       icon: 'chat',
       title: 'Kata sederhana',
       body: 'Tanpa istilah teknis. Kalau satu kalimat butuh kamus, kami tulis ulang.',
-      tone: 'tile--lime'
+      tone: 'tile--safe'
     }
   ];
 </script>
@@ -110,7 +110,7 @@
   .tile--soft { background: var(--indigo-soft); }
   .tile--yellow { background: var(--yellow); }
   .tile--ink { background: var(--panel-dark); color: var(--on-panel-dark); box-shadow: var(--shadow-indigo); }
-  .tile--lime { background: var(--lime); }
+  .tile--safe { background: var(--safe); }
   .icon { display: inline-flex; margin-bottom: var(--space-3); }
   h3 { font-size: 1.3em; margin: 0 0 var(--space-2); }
   p { margin: 0; font-size: 0.98em; line-height: 1.5; }

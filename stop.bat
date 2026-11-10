@@ -1,12 +1,16 @@
 @echo off
-REM AMBA - stop and remove containers. Mirrors "make down".
+REM AMBA - stop and remove the containers. Safe to run any time.
 setlocal
 cd /d "%~dp0"
 
-docker info >nul 2>&1
+where docker >nul 2>&1
 if errorlevel 1 (
-  echo Docker is not running. Start Docker Desktop, then run this again.
+  echo Docker belum terpasang.
+  pause
   exit /b 1
 )
 
 docker compose down
+echo.
+echo AMBA sudah dimatikan.
+pause

@@ -47,7 +47,7 @@
     line-height: 1.25;
   }
   .icon { display: inline-flex; }
-  .tone--safe { background: var(--lime); }
+  .tone--safe { background: var(--safe); }
   .tone--warn { background: var(--yellow); }
   .tone--danger { background: var(--coral); }
   .tone--neutral { background: var(--indigo-soft); }

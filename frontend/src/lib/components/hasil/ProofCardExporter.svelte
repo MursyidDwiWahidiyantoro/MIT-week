@@ -95,7 +95,7 @@
     justify-content: space-between;
     background: #070302;
     color: #fff8f4;
-    border: 10px solid #ff6129;
+    border: 10px solid #ff5a1f;
     font-family: var(--font-sans);
   }
   .card-top { display: flex; justify-content: space-between; align-items: baseline; }
@@ -111,10 +111,10 @@
     margin: 0;
     align-self: flex-start;
     padding: 8px 22px;
-    background: #ff6129;
-    border: 4px solid #ff6129;
+    background: #ff5a1f;
+    border: 4px solid #ff5a1f;
     border-radius: 99px;
-    color: #100702;
+    color: #140800;
     font-family: var(--font-display);
     font-weight: 800;
     font-size: 30px;
@@ -123,7 +123,7 @@
   .sentence { margin: 18px 0 0; font-size: 32px; line-height: 1.3; max-width: 820px; font-weight: 700; }
   .card-bottom { display: flex; justify-content: space-between; align-items: flex-end; gap: 40px; }
   .disclaimer { margin: 0; font-size: 18px; color: #bfb4ae; max-width: 820px; line-height: 1.4; }
-  .card img { background: #fff8f4; border: 3px solid #ff6129; border-radius: 8px; }
+  .card img { background: #fff8f4; border: 3px solid #ff5a1f; border-radius: 8px; }
   .qr-placeholder {
     width: 160px;
     height: 160px;

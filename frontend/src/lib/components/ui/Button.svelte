@@ -2,7 +2,7 @@
   import type { Snippet } from 'svelte';
 
   interface Props {
-    variant?: 'primary' | 'quiet' | 'danger' | 'ink' | 'lime';
+    variant?: 'primary' | 'quiet' | 'danger' | 'ink' | 'safe';
     size?: 'md' | 'lg';
     type?: 'button' | 'submit';
     disabled?: boolean;
@@ -31,7 +31,7 @@
       variant === 'quiet' ? 'btn--quiet' : '',
       variant === 'danger' ? 'btn--ink' : '',
       variant === 'ink' ? 'btn--ink' : '',
-      variant === 'lime' ? 'btn--lime' : '',
+      variant === 'safe' ? 'btn--safe' : '',
       size === 'lg' ? 'btn--lg' : ''
     ]
       .filter(Boolean)
