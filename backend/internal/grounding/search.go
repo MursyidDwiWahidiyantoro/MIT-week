@@ -177,3 +177,19 @@ func failureReason(ctx context.Context) string {
 	}
 	return "transport"
 }
+
+// MergeResults joins result lists in order and drops repeated URLs.
+func MergeResults(lists ...[]Result) []Result {
+	seen := map[string]bool{}
+	var out []Result
+	for _, l := range lists {
+		for _, r := range l {
+			if seen[r.URL] {
+				continue
+			}
+			seen[r.URL] = true
+			out = append(out, r)
+		}
+	}
+	return out
+}
