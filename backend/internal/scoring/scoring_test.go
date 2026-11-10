@@ -85,7 +85,8 @@ func TestVectors(t *testing.T) {
 		{
 			name:       "6 nothing available",
 			in:         Input{},
-			wantStatus: models.StatusInsufficient,
+			wantScore:  ptr0(0),
+			wantStatus: models.StatusSafe,
 			wantMissed: []string{"ela", "ai", "fact", "link"},
 		},
 		{
@@ -132,7 +133,8 @@ func TestVectors(t *testing.T) {
 			// Below LinkStrongMin the honest answer is still INSUFFICIENT.
 			name:       "11 weak link alone",
 			in:         Input{Link: sig(40, 1.0)},
-			wantStatus: models.StatusInsufficient,
+			wantScore:  ptr0(20),
+			wantStatus: models.StatusSafe,
 			wantBasis:  []string{"link"},
 			wantMissed: []string{"ela", "ai", "fact"},
 		},
@@ -164,7 +166,8 @@ func TestVectors(t *testing.T) {
 			// route made this SAFE).
 			name:       "15 low ela and a clean link are not safe",
 			in:         Input{ELA: sig(5, 1.0), AI: sig(30, 0.7), Link: sig(10, 1.0)},
-			wantStatus: models.StatusInsufficient,
+			wantScore:  ptr0(17),
+			wantStatus: models.StatusSafe,
 			wantBasis:  []string{"ela", "ai", "link"},
 			wantMissed: []string{"fact"},
 		},
@@ -274,13 +277,15 @@ func TestFloors(t *testing.T) {
 		{
 			name:       "weaker visible signs are not enough on their own",
 			in:         Input{UploadedImage: true, AI: sig(79, 0.5), ELA: sig(0, 0.7)},
-			wantStatus: models.StatusInsufficient,
+			wantScore:  ptr0(20),
+			wantStatus: models.StatusSafe,
 			wantFloors: []string{},
 		},
 		{
 			name:       "an unavailable AI pillar triggers nothing",
 			in:         Input{UploadedImage: true, AIDeclared: DeclaredAIGenerated},
-			wantStatus: models.StatusInsufficient,
+			wantScore:  ptr0(0),
+			wantStatus: models.StatusSafe,
 			wantFloors: []string{},
 		},
 		{
@@ -407,7 +412,8 @@ func TestWeightsAndStatusThresholds(t *testing.T) {
 		{
 			name:       "weight just below minimum",
 			in:         Input{ELA: sig(50, 0.99)},
-			wantStatus: models.StatusInsufficient,
+			wantScore:  ptr0(20),
+			wantStatus: models.StatusSafe,
 		},
 		{
 			name:       "weight exactly minimum",
@@ -425,17 +431,20 @@ func TestWeightsAndStatusThresholds(t *testing.T) {
 		{
 			name:       "safe without enough weight downgrades",
 			in:         Input{AI: sig(0, 1.0), Link: sig(0, 1.0)},
-			wantStatus: models.StatusInsufficient,
+			wantScore:  ptr0(0),
+			wantStatus: models.StatusSafe,
 		},
 		{
 			name:       "safe without a fact check downgrades",
 			in:         Input{AI: sig(0, 1.0), Link: sig(0, 1.0), ELA: off},
-			wantStatus: models.StatusInsufficient,
+			wantScore:  ptr0(0),
+			wantStatus: models.StatusSafe,
 		},
 		{
 			name:       "ela alone below the evidence line is insufficient",
 			in:         Input{ELA: sig(49, 1.0)},
-			wantStatus: models.StatusInsufficient,
+			wantScore:  ptr0(0),
+			wantStatus: models.StatusSafe,
 		},
 		{
 			name:       "score 20 is safe",
@@ -476,7 +485,8 @@ func TestWeightsAndStatusThresholds(t *testing.T) {
 		{
 			name:       "negative reliability contributes nothing",
 			in:         Input{ELA: sig(100, -1.0)},
-			wantStatus: models.StatusInsufficient,
+			wantScore:  ptr0(0),
+			wantStatus: models.StatusSafe,
 		},
 		{
 			name:       "score is clamped to 100",
@@ -651,9 +661,9 @@ func TestExplanationSimple(t *testing.T) {
 			want:   "Belum jelas benar atau tidak. Cek dulu sebelum menyebarkan.",
 		},
 		{
-			name:   "insufficient",
+			name:   "insufficient (old payloads only)",
 			status: models.StatusInsufficient,
-			want:   "Informasinya belum cukup untuk dipastikan.",
+			want:   "Tidak ditemukan tanda bahaya, tapi tetap bijak sebelum menyebarkan.",
 		},
 		{
 			name:   "safe",
@@ -731,9 +741,9 @@ func TestComputeSetsExplanationSimple(t *testing.T) {
 			want: "Belum jelas benar atau tidak. Cek dulu sebelum menyebarkan.",
 		},
 		{
-			name: "insufficient",
+			name: "nothing available is still a verdict",
 			in:   Input{},
-			want: "Informasinya belum cukup untuk dipastikan.",
+			want: "Tidak ditemukan tanda bahaya, tapi tetap bijak sebelum menyebarkan.",
 		},
 		{
 			name: "safe",
@@ -786,5 +796,51 @@ func assertScore(t *testing.T, got, want *int) {
 		t.Fatalf("score = %d, want nil", *got)
 	case *got != *want:
 		t.Fatalf("score = %d, want %d", *got, *want)
+	}
+}
+
+// Item 3 (10 Nov): a finished audit never ends INSUFFICIENT, and no floor
+// changes: the same inputs that were SUSPICIOUS or TAMPERED still are, at the
+// same scores.
+func TestNoInputEndsInsufficient(t *testing.T) {
+	for _, in := range []Input{
+		{},
+		{Link: sig(10, 1.0)},
+		{AI: sig(30, 1.0)},
+		{ELA: sig(10, 1.0)},
+		{Link: sig(40, 1.0), ELA: sig(0, 1.0)},
+		{UploadedImage: true, AI: sig(20, 1.0)},
+		{Video: true, AI: sig(30, 1.0)},
+	} {
+		v := Compute(in)
+		if v.Status != models.StatusSafe || v.Score == nil || *v.Score > SafeMax {
+			t.Errorf("%+v -> %s %v", in, v.Status, v.Score)
+		}
+	}
+}
+
+func TestThinEvidenceFloorsStillDecideAsBefore(t *testing.T) {
+	for _, tt := range []struct {
+		name   string
+		in     Input
+		status models.Status
+		score  int
+	}{
+		{"link strong alone", Input{Link: sig(70, 1.0)}, models.StatusTampered, 70},
+		{"fact contradicted alone", Input{FactContradicted: true}, models.StatusTampered, 85},
+		{"ai provenance on an upload, nothing else", Input{UploadedImage: true, AI: sig(10, 1.0), AIDeclared: DeclaredAIGenerated}, models.StatusTampered, 85},
+		{"ai edited on an upload", Input{UploadedImage: true, AI: sig(10, 1.0), AIDeclared: DeclaredAIEdited}, models.StatusTampered, 70},
+		{"ai likely on an upload", Input{UploadedImage: true, AI: sig(85, 1.0)}, models.StatusSuspicious, 45},
+		{"ai likely on a video, lower line", Input{Video: true, AI: sig(60, 1.0)}, models.StatusSuspicious, 45},
+		{"video manipulated", Input{Video: true, AI: sig(5, 1.0), VideoManipulation: 75}, models.StatusSuspicious, 45},
+		{"video context mismatch", Input{Video: true, AI: sig(5, 1.0), VideoContext: 90}, models.StatusSuspicious, 45},
+		{"injection guard", Input{AI: sig(5, 1.0), InjectionSuspected: true}, models.StatusSuspicious, 40},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			v := Compute(tt.in)
+			if v.Status != tt.status || v.Score == nil || *v.Score != tt.score {
+				t.Fatalf("got %s %v, want %s %d (floors %v)", v.Status, v.Score, tt.status, tt.score, v.FloorsApplied)
+			}
+		})
 	}
 }

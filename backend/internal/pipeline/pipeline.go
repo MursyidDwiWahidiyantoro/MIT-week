@@ -10,8 +10,10 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"image"
+	"log/slog"
 	"net/http"
 	"regexp"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -55,6 +57,9 @@ type Result struct {
 	// Video is the downloaded social video's analysis (video links only).
 	Video    *models.VideoAnalysis
 	Degraded bool
+	// Failed lists the checks that apply to this input and did not finish (ela,
+	// ai, fact). A check that does not apply (ELA on a link) is never listed.
+	Failed []string
 	// InjectionSuspected is set when the model output or the input was
 	// flagged, so the scorer raises INJECTION_GUARD (TECH_SPEC §3.3 floor 5).
 	InjectionSuspected bool
@@ -225,19 +230,25 @@ func (p *Pipeline) RunStream(ctx context.Context, req Request, emit func(Event))
 
 	res.InputType = req.InputType
 	g, gctx := errgroup.WithContext(ctx)
+	// A panic in one pillar must not take the audit down: the verdict is still
+	// built from the other pillars.
+	go_ := func(fn func() error) { g.Go(guard(fn)) }
 
 	// ELA: JPEG and PNG uploads. Error level analysis re-compresses the image
 	// as JPEG, which says nothing about a WebP file's history.
 	if req.InputType == models.InputFile && len(req.Image) > 0 && req.ImageFormat != "webp" {
 		elaRan = true
 		tracker.start(PillarELA)
-		g.Go(func() error {
+		go_(func() error {
 			pillar, hotspots, src, ok := p.runELA(gctx, req.Image)
 			decoded <- src
 			mu.Lock()
 			res.Pillars.ELA = pillar
 			res.ELAHotspots = hotspots
 			elaFailed = !ok
+			if !ok {
+				res.Failed = append(res.Failed, "ela")
+			}
 			mu.Unlock()
 			if ok {
 				tracker.done(PillarELA, pillar)
@@ -261,7 +272,7 @@ func (p *Pipeline) RunStream(ctx context.Context, req Request, emit func(Event))
 	if linkTarget != "" {
 		linkRan = true
 		tracker.start(PillarLink)
-		g.Go(func() error {
+		go_(func() error {
 			pillar, malicious, ok := p.runLink(gctx, linkTarget)
 			mu.Lock()
 			res.Pillars.Link = pillar
@@ -278,7 +289,7 @@ func (p *Pipeline) RunStream(ctx context.Context, req Request, emit func(Event))
 	// model on the same image.
 	tracker.start(PillarAI)
 	tracker.start(PillarFact)
-	g.Go(func() error {
+	go_(func() error {
 		tacticSource := ""
 		in := llm.Input{Type: string(req.InputType)}
 		var (
@@ -440,6 +451,9 @@ func (p *Pipeline) RunStream(ctx context.Context, req Request, emit func(Event))
 			if ok {
 				tracker.done(PillarAI, ai)
 			} else {
+				mu.Lock()
+				res.Failed = append(res.Failed, "ai")
+				mu.Unlock()
 				tracker.fail(PillarAI)
 			}
 		} else {
@@ -469,6 +483,9 @@ func (p *Pipeline) RunStream(ctx context.Context, req Request, emit func(Event))
 					return nil
 				}
 			}
+			mu.Lock()
+			res.Failed = append(res.Failed, "fact")
+			mu.Unlock()
 			tracker.fail(PillarFact)
 			return nil
 		}
@@ -588,6 +605,19 @@ func (p *Pipeline) RunStream(ctx context.Context, req Request, emit func(Event))
 		p.toCache(key, res)
 	}
 	return res
+}
+
+// guard turns a panic into a logged, ignored failure of that goroutine.
+func guard(fn func() error) func() error {
+	return func() (err error) {
+		defer func() {
+			if r := recover(); r != nil {
+				slog.Error("pipeline goroutine panic recovered") // never log the value: it may hold content
+				err = nil
+			}
+		}()
+		return fn()
+	}
 }
 
 // runELA returns the pillar, its grid hotspots and the decoded image (nil
@@ -843,7 +873,20 @@ func Verdict(res Result, injectionSuspected bool) models.Verdict {
 			}
 		}
 	}
-	return scoring.Compute(in)
+	v := scoring.Compute(in)
+	// not_checked names only the checks that apply to this input and failed.
+	// ELA never runs on a link or a video, so it is never listed for them.
+	notChecked := []string{}
+	for _, c := range v.NotChecked {
+		if slices.Contains(res.Failed, c) {
+			notChecked = append(notChecked, c)
+		}
+	}
+	v.NotChecked = notChecked
+	if v.Status == models.StatusSafe {
+		v.ExplanationSimple = safeSimple(res)
+	}
+	return v
 }
 
 func factScore(s models.FactStatus) int {
@@ -1048,8 +1091,11 @@ func (t *tracker) end(pillar, status string, data any) {
 }
 
 func (t *tracker) done(pillar string, data any) { t.end(pillar, "done", data) }
-func (t *tracker) fail(pillar string)           { t.end(pillar, "failed", nil) }
-func (t *tracker) skip(pillar string)           { t.end(pillar, "skipped", nil) }
+
+// fail ends a pillar that did not finish. It is reported as skipped: the reader
+// gets a verdict from what was checked, not an error event per pillar.
+func (t *tracker) fail(pillar string) { t.end(pillar, "skipped", nil) }
+func (t *tracker) skip(pillar string) { t.end(pillar, "skipped", nil) }
 
 // finish closes every pillar that never reached a terminal state, so the
 // client's progress list always settles.

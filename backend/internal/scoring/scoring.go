@@ -19,12 +19,9 @@ const (
 	WeightFact = 0.35
 	WeightLink = 0.20
 
-	// MinWeight is the smallest total effective weight that yields a numeric
-	// score. Below it the result is INSUFFICIENT unless a floor fires.
+	// MinWeight is the smallest total effective weight that yields a weighted
+	// score. Below it the verdict is SAFE (score held at SafeMax) unless a floor fires.
 	MinWeight = 0.30
-
-	// SafeMinWeight is the total effective weight SAFE requires.
-	SafeMinWeight = 0.50
 
 	// LinkStrongMin is the link score from which link evidence alone may
 	// produce a verdict when nothing else is available (product decision,
@@ -59,6 +56,9 @@ const (
 	VideoAILikelyMin     = 55
 	VideoManipulationMin = 70
 	VideoContextMin      = 85
+
+	// SafeMax is the highest score of a SAFE verdict.
+	SafeMax = 20
 
 	// weightEpsilon absorbs binary floating-point error in the weight sums.
 	// 0.35 + 0.15 is 0.49999999999999994, which must still count as 0.50.
@@ -145,16 +145,18 @@ type Input struct {
 // Explanation are presentation copy filled by the caller.
 func Compute(in Input) models.Verdict {
 	v := models.Verdict{
-		Basis:         []string{},
+		Basis: []string{},
+		// NotChecked lists the pillars that had no result; the pipeline narrows it
+		// to the checks that apply to the input and failed.
 		NotChecked:    []string{},
 		FloorsApplied: []string{},
 	}
 
 	// One-sided ELA: an inconclusive image analysis is reported as checked
 	// but carries no weight in the score.
-	wELA, elaCoverage := effWeight(in.ELA, WeightELA), 0.0
+	wELA := effWeight(in.ELA, WeightELA)
 	if in.ELA.Score < ELAEvidenceMin {
-		wELA, elaCoverage = 0, wELA
+		wELA = 0
 	}
 	wAI := effWeight(in.AI, WeightAI)
 	wFact := effWeight(in.Fact, WeightFact)
@@ -258,6 +260,20 @@ func Compute(in Input) models.Verdict {
 		v.Basis = append(v.Basis, "llm_untrusted")
 	}
 
+	// A finished audit always ends in a verdict (Sir, 10 Nov: no "belum cukup
+	// data"). Evidence too thin for a weighted score and no floor: SAFE, with the
+	// weighted score of what was checked held at or below the SAFE line. The
+	// floors above ran on a nil score, so they decide exactly as before.
+	if score == nil {
+		s := 0
+		if totalW > 0 {
+			raw := (wELA*float64(in.ELA.Score) + wAI*float64(in.AI.Score) +
+				wFact*float64(in.Fact.Score) + wLink*float64(in.Link.Score)) / totalW
+			s = min(int(math.Floor(raw+0.5)), SafeMax)
+		}
+		score = &s
+	}
+
 	if score != nil {
 		s := *score
 		if s < 0 {
@@ -270,14 +286,8 @@ func Compute(in Input) models.Verdict {
 	}
 
 	switch {
-	case score == nil:
-		v.Status = models.StatusInsufficient
-	case *score <= 20:
+	case *score <= SafeMax:
 		v.Status = models.StatusSafe
-		if totalW+elaCoverage+weightEpsilon < SafeMinWeight || !safePillarSet(in) {
-			v.Status = models.StatusInsufficient
-			score = nil
-		}
 	case *score <= 60:
 		v.Status = models.StatusSuspicious
 	default:
@@ -344,8 +354,8 @@ func explanationSimple(status models.Status, floors []string, video bool) string
 		// score can reach TAMPERED without one (e.g. ELA 69 + AI 100 +
 		// UNVERIFIED + link 89), so keep a calm, non-certain fallback.
 		return "Beberapa tanda bahaya ditemukan. Cek dulu sebelum menyebarkan."
-	default:
-		return "Informasinya belum cukup untuk dipastikan."
+	default: // INSUFFICIENT: only in old payloads
+		return "Tidak ditemukan tanda bahaya, tapi tetap bijak sebelum menyebarkan."
 	}
 }
 
@@ -404,13 +414,6 @@ func otherPillarAtLeast50(in Input) bool {
 	return (in.AI.Available && in.AI.Score >= 50) ||
 		(in.Fact.Available && in.Fact.Score >= 50) ||
 		(in.Link.Available && in.Link.Score >= 50)
-}
-
-// safePillarSet: "no evidence of risk" is only SAFE when a fact check ran.
-// Image analysis cannot vouch for an image (ELAEvidenceMin), and a clean link
-// says nothing about the claim around it.
-func safePillarSet(in Input) bool {
-	return in.Fact.Available
 }
 
 func boxesOverlap(hotspots, anomalies []Box) bool {

@@ -145,7 +145,7 @@
           ],
           "minimum": 0,
           "maximum": 100,
-          "description": "RISK score, not confidence. Null when INSUFFICIENT."
+          "description": "RISK score, not confidence. Always present on new results (null only in old INSUFFICIENT payloads)."
         },
         "status": {
           "$ref": "#/$defs/Status"

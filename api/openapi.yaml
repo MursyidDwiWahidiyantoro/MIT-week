@@ -230,6 +230,7 @@ components:
 
   schemas:
     Status:
+      description: INSUFFICIENT is kept for old payloads and is no longer emitted.
       type: string
       enum: [SAFE, SUSPICIOUS, TAMPERED, INSUFFICIENT]
 
@@ -300,7 +301,7 @@ components:
           nullable: true
           minimum: 0
           maximum: 100
-          description: RISK score, not confidence. Null when INSUFFICIENT.
+          description: RISK score, not confidence. Always present on new results (null only in old INSUFFICIENT payloads).
         status: { $ref: "#/components/schemas/Status" }
         short_title: { type: string }
         explanation: { type: string, maxLength: 400 }
@@ -309,6 +310,7 @@ components:
           type: array
           items: { type: string, enum: [ela, ai, fact, link, llm_untrusted] }
         not_checked:
+          description: Only checks that apply to the input and failed (ELA is never listed for a link or a video).
           type: array
           items: { type: string, enum: [ela, ai, fact, link] }
         floors_applied:

@@ -97,7 +97,7 @@ func TestURLDossierCarriesSourceMetadata(t *testing.T) {
 	if d.SourceMetadata == nil || d.SourceMetadata.Status != models.MetadataUnavailable {
 		t.Fatalf("source_metadata = %+v", d.SourceMetadata)
 	}
-	if !strings.Contains(d.Verdict.Explanation, "tidak dapat dibaca") {
+	if !strings.Contains(d.Verdict.Explanation, "tidak menampilkan isi") {
 		t.Fatalf("explanation should mention the unreadable page: %q", d.Verdict.Explanation)
 	}
 
@@ -111,7 +111,8 @@ func TestExplanationUsesPlainNames(t *testing.T) {
 	rec := postJSON(t, "/api/v1/audit/url", `{"url":"https://example.org/x"}`, "")
 	var d models.Dossier
 	_ = json.Unmarshal(rec.Body.Bytes(), &d)
-	if strings.Contains(d.Verdict.Explanation, " ela") || !strings.Contains(d.Verdict.Explanation, "teks ditimpa") {
+	if strings.Contains(d.Verdict.Explanation, " ela") || !strings.Contains(d.Verdict.Explanation, "keamanan tautan") ||
+		strings.Contains(strings.ToLower(d.Verdict.Explanation), "tidak dapat diperiksa") || strings.Contains(d.Verdict.Explanation, "teks ditimpa") {
 		t.Fatalf("explanation should name pillars in plain words: %q", d.Verdict.Explanation)
 	}
 }

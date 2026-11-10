@@ -241,7 +241,9 @@ func TestNewsSupportCannotMakeAVideoSafe(t *testing.T) {
 	if shown != 2 {
 		t.Fatalf("support is still shown: %+v", fact.Sources)
 	}
-	if v := Verdict(res, false); v.Status == models.StatusSafe {
+	// The audit still concludes, and the line says the articles do not settle it.
+	v := Verdict(res, false)
+	if v.Status != models.StatusSafe || !strings.Contains(v.ExplanationSimple, "belum ada yang memutuskan") {
 		t.Fatalf("verdict = %+v", v)
 	}
 }
@@ -264,9 +266,13 @@ func TestNewsSupportCountsForTheOfficialAccount(t *testing.T) {
 		if got := res.Pillars.Fact.Status; got != tc.want {
 			t.Errorf("%q: status = %s, want %s", tc.uploader, got, tc.want)
 		}
-		safe := Verdict(res, false).Status == models.StatusSafe
-		if safe != (tc.want == models.FactSupports) {
-			t.Errorf("%q: safe = %v with status %s", tc.uploader, safe, res.Pillars.Fact.Status)
+		v := Verdict(res, false)
+		if v.Status != models.StatusSafe {
+			t.Errorf("%q: status = %s, every unflagged audit is SAFE", tc.uploader, v.Status)
+		}
+		agrees := strings.Contains(v.ExplanationSimple, "sejalan")
+		if agrees != (tc.want == models.FactSupports) {
+			t.Errorf("%q: line = %q with status %s", tc.uploader, v.ExplanationSimple, res.Pillars.Fact.Status)
 		}
 	}
 }

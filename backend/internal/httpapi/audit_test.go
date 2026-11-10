@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/amba/amba/backend/internal/models"
+	"github.com/amba/amba/backend/internal/pipeline"
 )
 
 func postJSON(t *testing.T, path, body string, accept string) *httptest.ResponseRecorder {
@@ -261,10 +262,10 @@ func isArrayField(key string) bool {
 func TestExplanationSkipsTheBlockedPreviewWhenTheVideoWasAnalysed(t *testing.T) {
 	md := &models.SourceMetadata{Status: models.MetadataBlocked}
 	v := models.Verdict{Basis: []string{"ai"}}
-	if got := explanation(v, md, false); !strings.Contains(got, "tidak mengizinkan pembacaan otomatis") {
+	if got := explanation(v, pipeline.Result{Metadata: md}); !strings.Contains(got, "tidak mengizinkan pembacaan otomatis") {
 		t.Fatalf("without a video: %q", got)
 	}
-	if got := explanation(v, md, true); strings.Contains(got, "tidak mengizinkan") {
+	if got := explanation(v, pipeline.Result{Metadata: md, Video: &models.VideoAnalysis{Status: models.VideoOK}}); strings.Contains(got, "tidak mengizinkan") {
 		t.Fatalf("with an analysed video: %q", got)
 	}
 }

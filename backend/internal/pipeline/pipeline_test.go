@@ -135,13 +135,13 @@ func TestVerdictAppliesFloors(t *testing.T) {
 	}
 }
 
-func TestInsufficientWhenNothingAvailable(t *testing.T) {
+func TestNothingAvailableStillConcludes(t *testing.T) {
 	v := Verdict(Result{}, false)
-	if v.Status != models.StatusInsufficient {
-		t.Fatalf("status = %s, want INSUFFICIENT", v.Status)
+	if v.Status != models.StatusSafe || v.Score == nil || *v.Score != 0 {
+		t.Fatalf("status = %s score %v, want SAFE 0", v.Status, v.Score)
 	}
-	if v.Score != nil {
-		t.Fatalf("score = %v, want nil", v.Score)
+	if len(v.NotChecked) != 0 || v.ExplanationSimple == "" {
+		t.Fatalf("verdict = %+v", v)
 	}
 }
 

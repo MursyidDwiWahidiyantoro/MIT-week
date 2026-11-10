@@ -111,14 +111,16 @@ func (h *handlers) runAudit(w http.ResponseWriter, r *http.Request, req pipeline
 
 	stream := strings.Contains(r.Header.Get("Accept"), "text/event-stream")
 	var dossier models.Dossier
+	degraded := false
 	if stream {
 		var ok bool
-		dossier, ok = h.streamAudit(ctx, w, req)
+		dossier, degraded, ok = h.streamAudit(ctx, w, req)
 		if !ok {
 			return
 		}
 	} else {
 		res := h.pipeline.Run(ctx, req)
+		degraded = res.Degraded
 		dossier = h.buildDossier(res, req)
 		writeJSON(w, http.StatusOK, dossier)
 	}
@@ -131,7 +133,7 @@ func (h *handlers) runAudit(w http.ResponseWriter, r *http.Request, req pipeline
 	for _, reason := range dossier.Pillars.Link.Reasons {
 		h.metrics.Inc("amba_link_reasons_total", "reason", reason.Code)
 	}
-	if dossier.Degraded {
+	if degraded {
 		h.metrics.Inc("amba_audits_degraded_total")
 	}
 	h.metrics.Observe("amba_audit_duration_seconds", time.Since(started))
@@ -141,11 +143,11 @@ func (h *handlers) runAudit(w http.ResponseWriter, r *http.Request, req pipeline
 // pillar's events are sent the moment that pillar starts and finishes, so a
 // fast pillar (the link check) reaches the user before the slow model call.
 // A ": ping" comment every 10 s keeps proxies from closing a quiet stream.
-func (h *handlers) streamAudit(ctx context.Context, w http.ResponseWriter, req pipeline.Request) (models.Dossier, bool) {
-	flusher, ok := w.(http.Flusher)
-	if !ok {
+func (h *handlers) streamAudit(ctx context.Context, w http.ResponseWriter, req pipeline.Request) (dossier models.Dossier, degraded, ok bool) {
+	flusher, canFlush := w.(http.Flusher)
+	if !canFlush {
 		writeError(w, errInternal)
-		return models.Dossier{}, false
+		return models.Dossier{}, false, false
 	}
 
 	w.Header().Set("Content-Type", "text/event-stream")
@@ -170,7 +172,9 @@ func (h *handlers) streamAudit(ctx context.Context, w http.ResponseWriter, req p
 		return true
 	}
 	send := func(event string, payload any) bool {
-		if ctx.Err() != nil {
+		// Stop only when the client left. The hard timeout is not a reason to
+		// withhold the verdict: it is built from whatever finished.
+		if errors.Is(ctx.Err(), context.Canceled) {
 			return false
 		}
 		data, err := json.Marshal(payload)
@@ -206,15 +210,16 @@ func (h *handlers) streamAudit(ctx context.Context, w http.ResponseWriter, req p
 	})
 	close(pingDone)
 
-	dossier := h.buildDossier(res, req)
+	dossier = h.buildDossier(res, req)
+	degraded = res.Degraded
 	if !send("verdict", dossier) {
-		return dossier, true
+		return dossier, degraded, true
 	}
 	send("done", struct{}{})
 	mu.Lock()
 	closed = true
 	mu.Unlock()
-	return dossier, true
+	return dossier, degraded, true
 }
 
 func (h *handlers) heartbeat() time.Duration {
@@ -267,14 +272,17 @@ func BuildDossier(key []byte, res pipeline.Result, req pipeline.Request) models.
 		Timestamp:       time.Now().UTC().Format(time.RFC3339),
 		InputType:       req.InputType,
 		SourceReference: sourceReference(req),
-		Degraded:        res.Degraded,
-		IsDemo:          false,
-		Verdict:         verdict,
-		Pillars:         res.Pillars,
-		Tactics:         res.Tactics,
-		SourceMetadata:  res.Metadata,
-		OCRText:         res.OCRText,
-		Video:           res.Video,
+		// Every audit ends in a verdict; a lookup that failed along the way is not
+		// something the reader can act on, so the wire flag stays false (res.Degraded
+		// still keeps the result out of the cache and feeds the metrics).
+		Degraded:       false,
+		IsDemo:         false,
+		Verdict:        verdict,
+		Pillars:        res.Pillars,
+		Tactics:        res.Tactics,
+		SourceMetadata: res.Metadata,
+		OCRText:        res.OCRText,
+		Video:          res.Video,
 	}
 	// The wire contract says these are arrays. Go marshals a nil slice as
 	// null, which every strict client rejects; normalise before signing.
@@ -297,7 +305,7 @@ func BuildDossier(key []byte, res pipeline.Result, req pipeline.Request) models.
 	d.Verdict.FloorsApplied = nonNilStrings(d.Verdict.FloorsApplied)
 	d.Verdict.ShortTitle = shortTitle(verdict.Status)
 	if d.Verdict.Explanation == "" {
-		d.Verdict.Explanation = explanation(verdict, res.Metadata, res.Video != nil && res.Video.Status == models.VideoOK)
+		d.Verdict.Explanation = explanation(verdict, res)
 	}
 	if token, err := Sign(key, d); err == nil {
 		d.ShareToken = token
@@ -322,10 +330,8 @@ func shortTitle(s models.Status) string {
 		return "Terindikasi Hoax/Manipulasi"
 	case models.StatusSuspicious:
 		return "Perlu diperiksa lebih lanjut"
-	case models.StatusSafe:
+	default: // SAFE, and INSUFFICIENT in old payloads
 		return "Tidak ditemukan tanda bahaya"
-	default:
-		return "Belum cukup data"
 	}
 }
 
@@ -350,20 +356,20 @@ func names(codes []string) string {
 	return strings.Join(out, ", ")
 }
 
-// explanation is the Indonesian verdict note. A platform that blocks the
-// preview is only worth mentioning when the video itself was not analysed
-// either; otherwise the post's content was checked after all.
-func explanation(v models.Verdict, md *models.SourceMetadata, videoAnalysed bool) string {
+// explanation is the Indonesian verdict note: what was checked and what was
+// found. It never says that something "cannot be checked": the strength of the
+// evidence is described, not the gaps (Sir, 10 Nov).
+func explanation(v models.Verdict, res pipeline.Result) string {
+	videoAnalysed := res.Video != nil && res.Video.Status == models.VideoOK
 	var parts []string
-	if md != nil {
+	if md := res.Metadata; md != nil {
 		switch md.Status {
 		case models.MetadataBlocked:
-			if videoAnalysed {
-				break
+			if !videoAnalysed {
+				parts = append(parts, "Platform tidak mengizinkan pembacaan otomatis, jadi pemeriksaan memakai tautan, keterangan, dan pencarian web. Unggah tangkapan layar untuk hasil lebih rinci.")
 			}
-			parts = append(parts, "Platform tidak mengizinkan pembacaan otomatis, jadi isi unggahannya belum diperiksa. Unggah tangkapan layarnya untuk pemeriksaan lengkap.")
 		case models.MetadataUnavailable:
-			parts = append(parts, "Isi halaman tautan tidak dapat dibaca.")
+			parts = append(parts, "Halaman tautan tidak menampilkan isi, jadi pemeriksaan memakai alamat tautannya.")
 		}
 	}
 	basis := make([]string, 0, len(v.Basis))
@@ -375,8 +381,11 @@ func explanation(v models.Verdict, md *models.SourceMetadata, videoAnalysed bool
 	if len(basis) > 0 {
 		parts = append(parts, fmt.Sprintf("Diperiksa: %s.", names(basis)))
 	}
-	if len(v.NotChecked) > 0 {
-		parts = append(parts, fmt.Sprintf("Tidak dapat diperiksa: %s.", names(v.NotChecked)))
+	if n := pipeline.VideoNote(res); n != "" {
+		parts = append(parts, n)
+	}
+	if n := pipeline.FactNote(res); n != "" {
+		parts = append(parts, n)
 	}
 	parts = append(parts, "Hasil ini indikatif, bukan bukti pasti.")
 	return truncateRunes(strings.Join(parts, " "), 400)
