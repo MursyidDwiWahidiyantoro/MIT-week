@@ -420,3 +420,37 @@ func TestExtraBodyIsMergedButCannotOverrideTheContract(t *testing.T) {
 		t.Fatalf("reasoning = %v", req["reasoning"])
 	}
 }
+
+// A gateway that ignores the schema (9router -> Antigravity) fences the
+// object, writes reasoning before it, and prints integers as 85.0.
+func TestStripFenceFindsTheAnswer(t *testing.T) {
+	cases := map[string]string{
+		"plain":          `{"ai_score": 85, "claim": "x"}`,
+		"fenced float":   "```json\n{\"ai_score\": 85.0, \"claim\": \"x\"}\n```",
+		"reasoning":      "The user wants JSON {not json}.\nPlan:\n```json\n{\"ai_score\": 85, \"claim\": \"x\"}\n```",
+		"prose first":    "Analis video forensik.\nTugas: isi JSON.\n{\"ai_score\": 84.6, \"claim\": \"x\"} selesai",
+		"example before": `Contoh {"a": 1}. Jawaban: {"ai_score": 85, "claim": "x", "ocr_text": "{bukan json}"}`,
+	}
+	for name, in := range cases {
+		var got struct {
+			AIScore int    `json:"ai_score"`
+			Claim   string `json:"claim"`
+		}
+		if err := json.Unmarshal([]byte(stripFence(in)), &got); err != nil || got.AIScore != 85 || got.Claim != "x" {
+			t.Errorf("%s: got %+v, err %v", name, got, err)
+		}
+	}
+	if got := stripFence("maaf, tidak bisa"); got != "maaf, tidak bisa" {
+		t.Errorf("an answer without an object must stay as it is, got %q", got)
+	}
+}
+
+func TestVideoAnswerWithFloatScoresDecodes(t *testing.T) {
+	raw := "```json\n{\"summary\":\"s\",\"transcript\":\"\",\"claim\":\"\",\"search_query\":\"\",\"ai_score\":0.0," +
+		"\"ai_indicators\":[],\"ai_watermark\":\"none\",\"manipulation_score\":65.0,\"manipulation_indicators\":[]," +
+		"\"context_mismatch_score\":75.0,\"context_indicators\":[],\"ocr_text\":\"\",\"tactics\":[],\"injection_suspected\":false}\n```"
+	var vf VideoFindings
+	if err := decodeRequired(stripFence(raw), &vf, videoRequired...); err != nil || vf.ManipulationScore != 65 || vf.ContextMismatchScore != 75 {
+		t.Fatalf("got %+v, err %v", vf, err)
+	}
+}
