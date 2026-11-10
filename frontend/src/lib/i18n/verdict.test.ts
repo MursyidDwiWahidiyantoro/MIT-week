@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { simpleSentence, aiLines } from './verdict';
+import { simpleSentence, aiLines, explanation } from './verdict';
 import { locale } from './index.svelte';
 import type { DossierParsed } from '$lib/api/schemas';
 
@@ -69,5 +69,16 @@ describe('Jejak AI card for a video link', () => {
       'Kemungkinan dibuat dengan AI: tinggi.'
     ]);
     expect(aiLines(ai, 'URL')[0]).toBe('Yang diperiksa: gambar pratinjau tautan ini.');
+  });
+});
+
+describe('explanation for a link whose preview is blocked', () => {
+  beforeEach(() => locale.set('en'));
+  const blocked = (video: boolean) =>
+    ({ ...dossier([], video), source_metadata: { status: 'BLOCKED' } }) as unknown as DossierParsed;
+
+  it('mentions the blocked preview only when the video was not analysed either', () => {
+    expect(explanation(blocked(false))).toContain('does not allow automated reading');
+    expect(explanation(blocked(true))).not.toContain('does not allow automated reading');
   });
 });

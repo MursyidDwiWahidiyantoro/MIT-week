@@ -42,7 +42,8 @@ export function explanation(d: DossierParsed): string {
   if (locale.value === 'id') return d.verdict.explanation;
   const parts: string[] = [];
   const md = d.source_metadata;
-  if (md?.status === 'BLOCKED') parts.push(t('expl.blocked'));
+  // A blocked preview matters only when the video was not analysed either.
+  if (md?.status === 'BLOCKED' && d.video?.status !== 'OK') parts.push(t('expl.blocked'));
   if (md?.status === 'UNAVAILABLE') parts.push(t('expl.unavailable'));
   const basis = d.verdict.basis.filter((b) => b !== 'llm_untrusted');
   if (basis.length) parts.push(t('expl.checked', { list: basis.map((b) => t(`expl.pillar.${b}` as MessageKey)).join(', ') }));

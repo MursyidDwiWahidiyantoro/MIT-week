@@ -307,3 +307,16 @@ func isArrayField(key string) bool {
 	}
 	return false
 }
+
+// A TikTok link blocks the preview, but the downloaded video is the post's
+// content: the note must not say the content went unchecked.
+func TestExplanationSkipsTheBlockedPreviewWhenTheVideoWasAnalysed(t *testing.T) {
+	md := &models.SourceMetadata{Status: models.MetadataBlocked}
+	v := models.Verdict{Basis: []string{"ai"}}
+	if got := explanation(v, md, false); !strings.Contains(got, "tidak mengizinkan pembacaan otomatis") {
+		t.Fatalf("without a video: %q", got)
+	}
+	if got := explanation(v, md, true); strings.Contains(got, "tidak mengizinkan") {
+		t.Fatalf("with an analysed video: %q", got)
+	}
+}

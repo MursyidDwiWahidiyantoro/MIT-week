@@ -296,7 +296,7 @@ func BuildDossier(key []byte, res pipeline.Result, req pipeline.Request) models.
 	d.Verdict.FloorsApplied = nonNilStrings(d.Verdict.FloorsApplied)
 	d.Verdict.ShortTitle = shortTitle(verdict.Status)
 	if d.Verdict.Explanation == "" {
-		d.Verdict.Explanation = explanation(verdict, res.Metadata)
+		d.Verdict.Explanation = explanation(verdict, res.Metadata, res.Video != nil && res.Video.Status == models.VideoOK)
 	}
 	if token, err := Sign(key, d); err == nil {
 		d.ShareToken = token
@@ -349,11 +349,17 @@ func names(codes []string) string {
 	return strings.Join(out, ", ")
 }
 
-func explanation(v models.Verdict, md *models.SourceMetadata) string {
+// explanation is the Indonesian verdict note. A platform that blocks the
+// preview is only worth mentioning when the video itself was not analysed
+// either; otherwise the post's content was checked after all.
+func explanation(v models.Verdict, md *models.SourceMetadata, videoAnalysed bool) string {
 	var parts []string
 	if md != nil {
 		switch md.Status {
 		case models.MetadataBlocked:
+			if videoAnalysed {
+				break
+			}
 			parts = append(parts, "Platform tidak mengizinkan pembacaan otomatis, jadi isi unggahannya belum diperiksa. Unggah tangkapan layarnya untuk pemeriksaan lengkap.")
 		case models.MetadataUnavailable:
 			parts = append(parts, "Isi halaman tautan tidak dapat dibaca.")
