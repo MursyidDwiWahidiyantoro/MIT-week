@@ -60,3 +60,27 @@ func TestTavilySearcherFailsClosed(t *testing.T) {
 		t.Fatalf("disabled searcher returned %v, %v", res, err)
 	}
 }
+
+func TestTavilyWebSearchUsesItsOwnPrefixAndWiderAllowlist(t *testing.T) {
+	var got map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewDecoder(r.Body).Decode(&got)
+		_, _ = w.Write([]byte(`{"results":[
+			{"title":"Fact check: video is AI","url":"https://www.reuters.com/fact-check/x","content":"AI"},
+			{"title":"Blog","url":"https://blog.example/x","content":"x"}]}`))
+	}))
+	defer srv.Close()
+	s := NewTavilySearcher("tvly-k", New(WebAllowlist), WebAllowlist)
+	s.Endpoint, s.Prefix = srv.URL, ""
+	res, err := s.Search(context.Background(), "banjir jakarta video AI")
+	if err != nil || len(res) != 1 || res[0].Publisher != "reuters.com" {
+		t.Fatalf("results = %+v, err = %v", res, err)
+	}
+	if got["query"] != "banjir jakarta video AI" {
+		t.Fatalf("query = %v, want no prefix", got["query"])
+	}
+	// The claim fact check keeps its narrower list: Reuters is not on it.
+	if New(DefaultAllowlist).HostAllowed("https://www.reuters.com/x") {
+		t.Fatal("DefaultAllowlist must not widen")
+	}
+}

@@ -552,3 +552,42 @@ func TestGarbledVideoAnswerKeepsTheGatewayInUse(t *testing.T) {
 		t.Fatal("a garbled answer must not put the gateway in its cooldown")
 	}
 }
+
+func TestClassifyWebMapsVerdictsAndDefaultsToUnrelated(t *testing.T) {
+	var req map[string]any
+	srv := gateway(t, `{"matches":[{"index":0,"says":"ai"},{"index":1,"says":"HOAX"},{"index":2,"says":"REAL"},{"index":9,"says":"AI"},{"index":3,"says":"MAYBE"}]}`, &req)
+	defer srv.Close()
+	c := New(srv.URL, "k", "m", false)
+	got, err := c.ClassifyWeb(context.Background(), "Banjir Jakarta", []Evidence{{Title: "a"}, {Title: "b"}, {Title: "c"}, {Title: "d"}, {Title: "e"}})
+	if err != nil || strings.Join(got, ",") != "AI,HOAX,REAL,UNRELATED,UNRELATED" {
+		t.Fatalf("got %v, %v", got, err)
+	}
+}
+
+func TestClassifyWebReadsFencesAndPlainLines(t *testing.T) {
+	for name, answer := range map[string]string{
+		"fence": "```json\n{\"matches\":[{\"index\":0,\"says\":\"AI\"},{\"index\":1,\"says\":\"HOAX\"}]}\n```",
+		"lines": "Hasil:\n[0] AI\n[1]: **hoax**\n[7] REAL",
+	} {
+		srv := gateway(t, answer, nil)
+		c := New(srv.URL, "k", "m", false)
+		got, err := c.ClassifyWeb(context.Background(), "v", []Evidence{{}, {}})
+		srv.Close()
+		if err != nil || strings.Join(got, ",") != "AI,HOAX" {
+			t.Fatalf("%s: got %v, %v", name, got, err)
+		}
+	}
+}
+
+func TestClassifyWebFailureAndMock(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusBadGateway) }))
+	defer srv.Close()
+	got, err := New(srv.URL, "k", "m", false).ClassifyWeb(context.Background(), "v", []Evidence{{}, {}})
+	if err == nil || strings.Join(got, ",") != "UNRELATED,UNRELATED" {
+		t.Fatalf("got %v err=%v", got, err)
+	}
+	m, _ := New("", "", "", true).ClassifyWeb(context.Background(), "v", []Evidence{{Title: "Video ini buatan AI"}, {Rating: "Hoaks"}, {Title: "Berita biasa"}})
+	if strings.Join(m, ",") != "AI,HOAX,UNRELATED" {
+		t.Fatalf("mock got %v", m)
+	}
+}

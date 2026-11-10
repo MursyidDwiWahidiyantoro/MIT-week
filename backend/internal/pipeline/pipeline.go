@@ -117,7 +117,13 @@ type Pipeline struct {
 	// VideoFetchDeadline bounds one download with its frame extraction.
 	Video              VideoSource
 	VideoFetchDeadline time.Duration
-	videoSlots         chan struct{}
+	// WebSearch finds news and fact-check pages about a video from its own
+	// title and description (nil: off). WebGrounder is its allowlist.
+	WebSearch           grounding.Searcher
+	WebGrounder         *grounding.Grounder
+	WebSearchDeadline   time.Duration
+	WebClassifyDeadline time.Duration
+	videoSlots          chan struct{}
 	// Stats feeds /ops/status.
 	Stats Stats
 
@@ -279,6 +285,9 @@ func (p *Pipeline) RunStream(ctx context.Context, req Request, emit func(Event))
 			clip     *video.Clip // a downloaded social video, judged instead of the preview image
 			// disclosure is what the creator says about AI in the post.
 			disclosure video.Disclosure
+			// webCh delivers the web provenance search started with the download.
+			webCh <-chan webOutcome
+			web   webOutcome
 		)
 
 		switch req.InputType {
@@ -303,6 +312,7 @@ func (p *Pipeline) RunStream(ctx context.Context, req Request, emit func(Event))
 			if c != nil {
 				clip, judged = c, true
 				disclosure = video.DetectDisclosure(c.Title, c.Description, c.Tags, c.Uploader)
+				webCh = p.startWebProvenance(gctx, c)
 				mu.Lock()
 				res.Video.CreatorDisclosure = models.CreatorDisclosure{Level: disclosure.Level, Phrase: disclosure.Phrase}
 				mu.Unlock()
@@ -371,6 +381,19 @@ func (p *Pipeline) RunStream(ctx context.Context, req Request, emit func(Event))
 			cancel()
 		}
 		modelOK := err == nil
+
+		if clip != nil {
+			web = awaitWeb(gctx, webCh)
+			mu.Lock()
+			if len(web.Evidence) > 0 {
+				res.Video.WebEvidence = web.Evidence
+			}
+			mu.Unlock()
+			if ai := web.says(llm.WebAI); len(ai) > 0 && prov.Kind != provenance.AIGenerated {
+				// Reputable newsrooms say this video is AI-made.
+				prov = provenance.Result{Kind: provenance.AIGenerated, Source: "web", Generator: provenance.GeneratorIn(ai[0].Title)}
+			}
+		}
 
 		if judged {
 			ocr := f.OCRText
@@ -452,12 +475,22 @@ func (p *Pipeline) RunStream(ctx context.Context, req Request, emit func(Event))
 		}
 
 		if f.Claim == "" {
+			if len(web.says(llm.WebHoax)) > 0 {
+				// No claim of its own, but fact-checkers call this video a hoax.
+				fact := addWebHoax(models.FactPillar{}, web, web.Phrase)
+				mu.Lock()
+				res.Pillars.Fact = fact
+				mu.Unlock()
+				tracker.done(PillarFact, fact)
+				return nil
+			}
 			// No checkable claim: the fact pillar is unavailable, never SAFE
 			// by omission (PRD F3 AC).
 			tracker.skip(PillarFact)
 			return nil
 		}
 		fact, failed := p.checkClaim(gctx, f.Claim, f.SearchQuery)
+		fact = addWebHoax(fact, web, f.Claim)
 		mu.Lock()
 		res.Pillars.Fact = fact
 		searchFailed = failed

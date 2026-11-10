@@ -28,6 +28,9 @@ type TavilySearcher struct {
 	Grounder   *Grounder
 	Domains    []string
 	MaxResults int
+	// Prefix is put in front of every query ("cek fakta " by default). The
+	// web provenance search sets it to "" and sends its own wording.
+	Prefix string
 }
 
 // NewTavilySearcher builds a searcher; an empty key disables it.
@@ -39,6 +42,7 @@ func NewTavilySearcher(key string, g *Grounder, domains []string) *TavilySearche
 		Grounder:   g,
 		Domains:    domains,
 		MaxResults: 5,
+		Prefix:     "cek fakta ",
 	}
 }
 
@@ -60,7 +64,7 @@ func (s *TavilySearcher) Search(ctx context.Context, query string) ([]Result, er
 		query = string(r[:200])
 	}
 	payload, err := json.Marshal(map[string]any{
-		"query":           "cek fakta " + query,
+		"query":           s.Prefix + query,
 		"search_depth":    "basic",
 		"max_results":     10,
 		"include_domains": s.Domains,

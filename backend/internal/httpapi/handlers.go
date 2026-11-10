@@ -100,6 +100,13 @@ func NewDeps(cfg *config.Config) Deps {
 		}
 		p.Searcher = newsSearcher{ns}
 	}
+	if cfg.TavilyKey != "" {
+		// Video provenance: the same Tavily key, but a wider newsroom list and
+		// the video's own words instead of a "cek fakta" query.
+		ws := grounding.NewTavilySearcher(cfg.TavilyKey, grounding.New(grounding.WebAllowlist), grounding.WebAllowlist)
+		ws.Prefix = ""
+		p.WebSearch, p.WebGrounder = ws, ws.Grounder
+	}
 	return Deps{Pipeline: p, Replies: reply.New(client), Metrics: metrics.New(), Key: key}
 }
 

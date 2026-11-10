@@ -23,6 +23,17 @@ var DefaultAllowlist = []string{
 	"tirto.id",
 }
 
+// / WebAllowlist is the wider set the video web-provenance search may cite:
+// Indonesian and international newsrooms and fact-checkers. It is not used
+// for the claim fact check, which keeps DefaultAllowlist.
+var WebAllowlist = []string{
+	"kompas.com", "detik.com", "cnnindonesia.com", "tempo.co", "liputan6.com", "antaranews.com",
+	"tribunnews.com", "kumparan.com", "suara.com", "okezone.com", "cnbcindonesia.com",
+	"turnbackhoax.id", "cekfakta.com", "komdigi.go.id", "kominfo.go.id", "tirto.id",
+	"bbc.com", "bbc.co.uk", "reuters.com", "apnews.com", "factcheck.afp.com", "snopes.com",
+	"politifact.com", "leadstories.com", "factcheck.org", "fullfact.org",
+}
+
 // Grounder verifies candidate sources against an allowlist.
 type Grounder struct {
 	allowed map[string]bool
