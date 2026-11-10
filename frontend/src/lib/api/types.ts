@@ -60,7 +60,7 @@ export interface Verdict {
 
 /** What the image declares about its origin (Jejak AI). */
 export type ProvenanceKind = 'AI_GENERATED' | 'AI_EDITED' | 'CAMERA' | 'NONE';
-export type ProvenanceSource = 'c2pa' | 'xmp' | 'png_text' | 'exif' | 'watermark' | '';
+export type ProvenanceSource = 'c2pa' | 'xmp' | 'png_text' | 'exif' | 'watermark' | 'creator' | 'web' | '';
 
 export interface Provenance {
   kind: ProvenanceKind;
@@ -110,6 +110,15 @@ export interface VideoSignal {
   indicators: string[];
 }
 
+export type CreatorDisclosureLevel = 'none' | 'weak' | 'strong';
+
+export interface WebEvidence {
+  title: string;
+  url: string;
+  publisher: string;
+  says: 'AI' | 'REAL' | 'HOAX';
+}
+
 /** Frame-by-frame analysis of a social video link; its AI score is in pillars.ai. */
 export interface VideoAnalysis {
   status: 'OK' | 'UNAVAILABLE';
@@ -124,6 +133,9 @@ export interface VideoAnalysis {
   transcript: string;
   manipulation: VideoSignal;
   context: VideoSignal;
+  /** Absent when the server predates the field. */
+  creator_disclosure?: { level: CreatorDisclosureLevel; phrase: string } | null;
+  web_evidence?: WebEvidence[] | null;
 }
 
 export interface ErrorEnvelope {

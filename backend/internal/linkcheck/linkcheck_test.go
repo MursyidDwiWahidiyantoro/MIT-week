@@ -339,3 +339,49 @@ func TestWithPage(t *testing.T) {
 		t.Fatalf("the bank's own login page: %+v", got)
 	}
 }
+
+// Lookalikes of the supported platforms are not rejected: they are flagged
+// as dangerous, because spotting phishing links is part of the product.
+func TestPlatformLookalikesAreFlagged(t *testing.T) {
+	for _, raw := range []string{
+		"https://tlktok.com/@a/video/1",
+		"https://tiktok.com.evil.xyz/@a/video/1",
+		"https://www.tiktok.com.login-verify.net/x",
+		"https://tіktok.com/@a/video/1", // Cyrillic i
+		"https://youtubee.com/watch?v=abc",
+		"https://youtube-login.com/watch?v=abc",
+		"https://www.youtube.com.evil.xyz/watch?v=abc",
+		"https://instagrarn.com/reel/abc",
+		"https://faceb00k.com/watch",
+		"https://twitter-support.com/x/status/1",
+		"https://tiktok-hadiah.top/",
+	} {
+		t.Run(raw, func(t *testing.T) {
+			got := Analyze(raw)
+			var high bool
+			for _, f := range got.Findings {
+				if HighSeverity(f.Code) {
+					high = true
+				}
+			}
+			if !high {
+				t.Fatalf("no high-severity finding for %s: %+v", raw, got.Findings)
+			}
+		})
+	}
+}
+
+func TestExactPlatformHostsAreNotFlagged(t *testing.T) {
+	for _, raw := range []string{
+		"https://www.tiktok.com/@a/video/1", "https://vt.tiktok.com/ZS1/", "https://vm.tiktok.com/ZM1/",
+		"https://www.youtube.com/watch?v=abc", "https://youtu.be/abc", "https://m.youtube.com/shorts/abc",
+		"https://www.instagram.com/reel/abc/", "https://www.facebook.com/watch/?v=1", "https://fb.watch/abc/",
+		"https://x.com/a/status/1", "https://twitter.com/a/status/1",
+	} {
+		for _, f := range Analyze(raw).Findings {
+			if HighSeverity(f.Code) {
+				t.Errorf("%s flagged: %+v", raw, f)
+			}
+		}
+	}
+}

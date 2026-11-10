@@ -186,6 +186,16 @@ func TestPlatform(t *testing.T) {
 		{"https://fakeyoutube.com/shorts/123", "", false},
 		{"https://fakex.com/user/status/123", "", false},
 
+		// Reject: lookalikes and tricks
+		{"https://tlktok.com/@a/video/1", "", false},
+		{"https://www.tiktok.com@evil.com/video/1", "", false},
+		{"https://tiktok.com.evil.xyz/@a/video/1", "", false},
+		{"https://youtube.com.evil.xyz/shorts/abc", "", false},
+		{"https://tіktok.com/@a/video/1", "", false},
+		{"https://xn--tktok-n2e.com/@a/video/1", "", false},
+		{"https://youtu.be.evil.com/abc", "", false},
+		{"javascript:alert(1)", "", false},
+
 		// Reject: unsupported paths on valid hosts
 		{"https://www.youtube.com/channel/UC1234567890", "", false},
 		{"https://www.youtube.com/feed/trending", "", false},

@@ -132,6 +132,31 @@ describe('parseDossier', () => {
     expect(parseDossier(minimalDossier({ video: unavailable })).video?.frames).toEqual([]);
   });
 
+  it('reads the creator disclosure and the web evidence of a video', () => {
+    const v = {
+      ...video([]),
+      creator_disclosure: { level: 'strong', phrase: '#aivideo' },
+      web_evidence: [{ title: '[HOAKS] Video ini buatan AI', url: 'https://turnbackhoax.id/x', publisher: 'turnbackhoax.id', says: 'AI' }]
+    };
+    const d = parseDossier(minimalDossier({ video: v }));
+    expect(d.video?.creator_disclosure).toEqual({ level: 'strong', phrase: '#aivideo' });
+    expect(d.video?.web_evidence?.[0]?.says).toBe('AI');
+    // A server that predates the fields still parses.
+    expect(parseDossier(minimalDossier({ video: video([]) })).video?.creator_disclosure).toBeUndefined();
+  });
+
+  it('rejects web evidence that is not an https link or has an unknown verdict', () => {
+    const item = { title: 't', url: 'https://example.org/a', publisher: 'p', says: 'AI' };
+    for (const bad of [
+      { ...item, url: 'javascript:alert(1)' },
+      { ...item, url: 'http://example.org/a' },
+      { ...item, says: 'MAYBE' }
+    ]) {
+      expect(() => parseDossier(minimalDossier({ video: { ...video([]), web_evidence: [bad] } }))).toThrow();
+    }
+    expect(() => parseDossier(minimalDossier({ video: { ...video([]), creator_disclosure: { level: 'huge', phrase: '' } } }))).toThrow();
+  });
+
   it('maps a missing video to null, as for every result made before videos', () => {
     expect(parseDossier(minimalDossier()).video).toBeNull();
     expect(parseDossier(minimalDossier({ video: null })).video).toBeNull();

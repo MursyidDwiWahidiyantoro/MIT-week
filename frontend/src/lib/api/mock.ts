@@ -416,7 +416,16 @@ function videoDossier(url: string, platform: VideoPlatform): DossierParsed {
           'Frame 3: rambu jalan tidak berbahasa Indonesia, padahal keterangan menyebut Jakarta',
           'Frame 5: bentuk bangunan dan kendaraan tidak seperti di Jakarta'
         ]
-      }
+      },
+      creator_disclosure: { level: 'weak', phrase: '#ai' },
+      web_evidence: [
+        {
+          title: '[HOAKS] Video banjir Jakarta pagi ini adalah hasil AI',
+          url: 'https://example.org/cek-fakta/banjir-jakarta-ai',
+          publisher: 'turnbackhoax.id',
+          says: 'AI'
+        }
+      ]
     }
   });
 }

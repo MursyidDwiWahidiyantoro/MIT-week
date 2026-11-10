@@ -20,20 +20,21 @@ var (
 
 // Clip holds the downloaded video metadata, keyframes, subtitles, and optional audio.
 type Clip struct {
-	Platform    string  // tiktok, youtube, instagram, x, facebook
-	ID          string  // platform-specific video ID
-	Title       string  // title capped to 300 runes
-	Description string  // description capped to 2000 runes
-	Uploader    string  // channel/account name
-	UploadDate  string  // YYYYMMDD
-	DurationSec float64 // total duration in seconds
-	ViewCount   int64   // view count if provided by platform
-	Width       int     // video width in pixels
-	Height      int     // video height in pixels
-	AILabel     bool    // true only if platform metadata marks the post as AI-generated
-	Subtitles   string  // plain text from .vtt (tags/timestamps stripped, deduplicated), <= 4000 runes
-	Frames      []Frame // extracted keyframes
-	Audio       []byte  // optional mono 16 kHz mp3 of first AudioMaxSec, <= 1 MB; nil if unavailable
+	Platform    string   // tiktok, youtube, instagram, x, facebook
+	ID          string   // platform-specific video ID
+	Title       string   // title capped to 300 runes
+	Description string   // description capped to 2000 runes
+	Uploader    string   // channel/account name
+	Tags        []string // creator tags, capped (yt-dlp "tags")
+	UploadDate  string   // YYYYMMDD
+	DurationSec float64  // total duration in seconds
+	ViewCount   int64    // view count if provided by platform
+	Width       int      // video width in pixels
+	Height      int      // video height in pixels
+	AILabel     bool     // true only if platform metadata marks the post as AI-generated
+	Subtitles   string   // plain text from .vtt (tags/timestamps stripped, deduplicated), <= 4000 runes
+	Frames      []Frame  // extracted keyframes
+	Audio       []byte   // optional mono 16 kHz mp3 of first AudioMaxSec, <= 1 MB; nil if unavailable
 }
 
 // Frame represents one extracted keyframe image.

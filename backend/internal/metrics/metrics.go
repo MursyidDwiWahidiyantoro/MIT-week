@@ -41,7 +41,6 @@ func New() *Registry {
 	r.help["amba_audits_total"] = "Completed audits by input type and verdict status."
 	r.help["amba_audits_degraded_total"] = "Audits where at least one pillar failed."
 	r.help["amba_rate_limited_total"] = "Requests refused by the rate limiter or the in-flight cap."
-	r.help["amba_replies_total"] = "Balas Sopan replies by source (llm or template)."
 	r.help["amba_verifications_total"] = "Share-token verifications by result."
 	r.help["amba_telegram_updates_total"] = "Telegram updates handled, by kind."
 	r.help["amba_floors_total"] = "Verdict floors applied, by floor code."

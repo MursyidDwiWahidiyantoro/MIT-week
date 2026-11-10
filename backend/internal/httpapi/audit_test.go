@@ -202,58 +202,6 @@ func TestVerifyRejectsTamperedToken(t *testing.T) {
 	}
 }
 
-func TestReplyRequiresValidToken(t *testing.T) {
-	rec := postJSON(t, "/api/v1/reply", `{"token":"nonsense","tone":"hormat"}`, "")
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("status = %d, want 400", rec.Code)
-	}
-	var env models.ErrorEnvelope
-	if err := json.Unmarshal(rec.Body.Bytes(), &env); err != nil {
-		t.Fatal(err)
-	}
-	if env.Error.Message != "Laporan tidak sah." {
-		t.Errorf("message = %q", env.Error.Message)
-	}
-}
-
-func TestReplyReturnsTemplate(t *testing.T) {
-	router := testRouter(t)
-	rec := postImage(t, router, "")
-	var d models.Dossier
-	_ = json.Unmarshal(rec.Body.Bytes(), &d)
-
-	body := `{"token":"` + d.ShareToken + `","tone":"santai"}`
-	rr := postJSONTo(t, router, "/api/v1/reply", body, "")
-	if rr.Code != http.StatusOK {
-		t.Fatalf("status = %d, body = %s", rr.Code, rr.Body.String())
-	}
-	var out struct {
-		Text   string `json:"text"`
-		Source string `json:"source"`
-	}
-	if err := json.Unmarshal(rr.Body.Bytes(), &out); err != nil {
-		t.Fatal(err)
-	}
-	if out.Text == "" || len([]rune(out.Text)) > 280 {
-		t.Errorf("reply text invalid: %q", out.Text)
-	}
-	if out.Source != "template" {
-		t.Errorf("source = %q, want template", out.Source)
-	}
-	for _, banned := range []string{"pasti", "100%", "terbukti"} {
-		if strings.Contains(strings.ToLower(out.Text), banned) {
-			t.Errorf("reply contains certainty word %q: %s", banned, out.Text)
-		}
-	}
-}
-
-func TestReplyRejectsUnknownTone(t *testing.T) {
-	rec := postJSON(t, "/api/v1/reply", `{"token":"x","tone":"marah"}`, "")
-	if rec.Code != http.StatusBadRequest {
-		t.Errorf("status = %d, want 400", rec.Code)
-	}
-}
-
 func TestAuditFileRejectsNonImage(t *testing.T) {
 	body := strings.NewReader("not an image at all, just text")
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/audit/file", body)
@@ -318,5 +266,24 @@ func TestExplanationSkipsTheBlockedPreviewWhenTheVideoWasAnalysed(t *testing.T) 
 	}
 	if got := explanation(v, md, true); strings.Contains(got, "tidak mengizinkan") {
 		t.Fatalf("with an analysed video: %q", got)
+	}
+}
+
+func TestAuditURLAttackStringsGetIndonesianInvalidURL(t *testing.T) {
+	for _, u := range []string{
+		"javascript:alert(1)", "data:text/html,<script>alert(1)</script>", "vbscript:x",
+		"https://user:pw@example.org/", "https://example.org/<script>", "https://example.org/a%22b",
+		"https://example.org:8080/", "https://example.org/a b", "ftp://example.org/x",
+	} {
+		b, _ := json.Marshal(map[string]string{"url": u})
+		rec := postJSON(t, "/api/v1/audit/url", string(b), "")
+		if rec.Code != http.StatusBadRequest {
+			t.Errorf("%q: status = %d, want 400", u, rec.Code)
+			continue
+		}
+		var env models.ErrorEnvelope
+		if err := json.Unmarshal(rec.Body.Bytes(), &env); err != nil || env.Error.Code != models.CodeInvalidURL || env.Error.Message == "" {
+			t.Errorf("%q: envelope = %s", u, rec.Body.String())
+		}
 	}
 }

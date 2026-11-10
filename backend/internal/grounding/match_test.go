@@ -43,3 +43,53 @@ func TestSameTopic(t *testing.T) {
 		}
 	}
 }
+
+func TestSameTopicIndonesianMorphology(t *testing.T) {
+	for _, tc := range []struct {
+		name, claim, text string
+		want              bool
+	}{
+		{"gibran mundur vs mengundurkan diri",
+			"Gibran mundur dari wapres", "Wakil Presiden Gibran mengundurkan diri, benarkah?", true},
+		{"gibran pengunduran",
+			"Wapres Gibran mundur setelah demo", "Hoaks: pengunduran diri Wakil Presiden Gibran Rakabuming", true},
+		{"gibran claim long form",
+			"Gibran Rakabuming mundur sebagai wakil presiden", "[HOAKS] Video Wapres Gibran Mengundurkan Diri", true},
+		{"tewas meninggal",
+			"Artis Vidi Aldiano tewas dalam kecelakaan", "Vidi Aldiano meninggal dunia? Ini faktanya", true},
+		{"hoax hoaks spelling",
+			"Hoax bansos Rp 600 ribu cair lewat WhatsApp", "Hoaks bansos 600 ribu dicairkan lewat WhatsApp", true},
+		{"prefix me- pe-",
+			"Polisi menangkap pelaku pembunuhan di Bekasi", "Penangkapan pembunuh di Bekasi oleh kepolisian", true},
+		{"entity plus one stem",
+			"Prabowo meresmikan bendungan", "Presiden Prabowo's bendungan baru diresmikan", true},
+		{"different person same verb",
+			"Gibran mundur dari wapres", "Menteri Keuangan mengundurkan diri dari kabinet", false},
+		{"same person other event",
+			"Gibran mundur dari wapres", "Gibran meresmikan sekolah baru di Solo", false},
+		{"only a shared generic word",
+			"Harga cabai naik di Jakarta", "Harga emas dunia turun hari ini", false},
+		{"one shared acronym only",
+			"BP melepas bisnis SPBU", "Harga BBM di SPBU Pertamina turun", false},
+		{"english unrelated",
+			"Tiktok video shows tsunami in Japan", "Fact check: Tokyo marathon winner banned", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := SameTopic(tc.claim, tc.text); got != tc.want {
+				t.Fatalf("SameTopic = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestStem(t *testing.T) {
+	for in, want := range map[string]string{
+		"mengundurkan": "undur", "pengunduran": "undur", "mundur": "undur",
+		"wapres": "wapres", "wafat": "tewas", "meninggal": "tewas", "hoax": "hoaks",
+		"gibran": "gibran", "kecelakaan": "celaka",
+	} {
+		if got := stem(in); got != want {
+			t.Errorf("stem(%q) = %q, want %q", in, got, want)
+		}
+	}
+}

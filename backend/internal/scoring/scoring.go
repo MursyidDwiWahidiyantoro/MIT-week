@@ -47,10 +47,18 @@ const (
 	// 71-100 for clear signs (malformed hands, gibberish lettering, impossible
 	// objects, AI labels); a configured detector shares the score.
 	AILikelyMin = 80
-	// VideoSignalMin is the model's 0-100 video signal (edited to mislead, or a
-	// caption the footage does not support) from which a video is SUSPICIOUS.
-	// No outside source confirms these, so they never reach TAMPERED alone.
-	VideoSignalMin = 70
+	// The video thresholds were calibrated on 33 labelled clips (11 real
+	// news, 10 AI, 12 hoax) scored in three runs (10 Nov 2026; numbers in
+	// BE-NOTES.md). The model ranks AI clips well (AUC 0.90) but scores the
+	// realistic ones 65-75, so a video needs a lower AI line than an image:
+	// at 80 only 23% of AI clips were flagged, at 55 53% were, with 1 of 33
+	// real-news readings (3%) flagged. Real news never scored above 60 for
+	// manipulation, but twice scored 75-80 for context mismatch, so that
+	// signal needs a higher line. None of these is confirmed by an outside
+	// source, so they stop at SUSPICIOUS.
+	VideoAILikelyMin     = 55
+	VideoManipulationMin = 70
+	VideoContextMin      = 85
 
 	// weightEpsilon absorbs binary floating-point error in the weight sums.
 	// 0.35 + 0.15 is 0.49999999999999994, which must still count as 0.50.
@@ -218,7 +226,7 @@ func Compute(in Input) models.Verdict {
 		case in.AIDeclared == DeclaredAIEdited:
 			score = atLeast(score, 70)
 			v.FloorsApplied = append(v.FloorsApplied, FloorAIEdited)
-		case in.AI.Score >= AILikelyMin:
+		case in.AI.Score >= aiLikelyMin(in):
 			score = atLeast(score, 45)
 			v.FloorsApplied = append(v.FloorsApplied, FloorAILikely)
 		}
@@ -226,11 +234,11 @@ func Compute(in Input) models.Verdict {
 	// A video edited to mislead, or a caption its footage does not support:
 	// the model's own signals, so they stop at SUSPICIOUS.
 	if in.Video {
-		if in.VideoManipulation >= VideoSignalMin {
+		if in.VideoManipulation >= VideoManipulationMin {
 			score = atLeast(score, 45)
 			v.FloorsApplied = append(v.FloorsApplied, FloorVideoManipulated)
 		}
-		if in.VideoContext >= VideoSignalMin {
+		if in.VideoContext >= VideoContextMin {
 			score = atLeast(score, 45)
 			v.FloorsApplied = append(v.FloorsApplied, FloorVideoContextMismatch)
 		}
@@ -279,6 +287,15 @@ func Compute(in Input) models.Verdict {
 	v.Score = score
 	v.ExplanationSimple = explanationSimple(v.Status, v.FloorsApplied, in.Video)
 	return v
+}
+
+// / aiLikelyMin is the AI score from which visible signs alone are enough:
+// the lower video line for a downloaded clip, AILikelyMin for an image.
+func aiLikelyMin(in Input) int {
+	if in.Video {
+		return VideoAILikelyMin
+	}
+	return AILikelyMin
 }
 
 // ExplanationSimple returns the deterministic lead sentence from TECH_SPEC

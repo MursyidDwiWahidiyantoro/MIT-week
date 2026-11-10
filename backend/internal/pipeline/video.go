@@ -44,8 +44,10 @@ func (p *Pipeline) fetchVideo(ctx context.Context, rawURL string) (clip *video.C
 	}
 	va = &models.VideoAnalysis{
 		Status: models.VideoUnavailable, Platform: platform, Frames: []models.VideoFrame{},
-		Manipulation: models.VideoSignal{Indicators: []string{}},
-		Context:      models.VideoSignal{Indicators: []string{}},
+		Manipulation:      models.VideoSignal{Indicators: []string{}},
+		Context:           models.VideoSignal{Indicators: []string{}},
+		CreatorDisclosure: models.CreatorDisclosure{Level: models.DisclosureNone},
+		WebEvidence:       []models.WebEvidence{},
 	}
 	select {
 	case p.videoSlots <- struct{}{}:

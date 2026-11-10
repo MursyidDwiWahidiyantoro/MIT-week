@@ -9,6 +9,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/amba/amba/backend/internal/llm"
 	"github.com/amba/amba/backend/internal/models"
 	"github.com/amba/amba/backend/internal/scoring"
 	"github.com/amba/amba/backend/internal/video"
@@ -81,10 +82,10 @@ func TestVideoLinkIsJudgedOnItsFrames(t *testing.T) {
 	}
 	// Whatever the mock found, the floors must follow the video's findings.
 	floors := Verdict(res, false).FloorsApplied
-	if (res.Pillars.AI.Score >= scoring.AILikelyMin) != slices.Contains(floors, scoring.FloorAILikely) {
+	if (res.Pillars.AI.Score >= scoring.VideoAILikelyMin) != slices.Contains(floors, scoring.FloorAILikely) {
 		t.Fatalf("AI score %d, floors %v", res.Pillars.AI.Score, floors)
 	}
-	if (v.Context.Score >= scoring.VideoSignalMin) != slices.Contains(floors, scoring.FloorVideoContextMismatch) {
+	if (v.Context.Score >= scoring.VideoContextMin) != slices.Contains(floors, scoring.FloorVideoContextMismatch) {
 		t.Fatalf("context %d, floors %v", v.Context.Score, floors)
 	}
 }
@@ -171,5 +172,76 @@ func TestVideoReasonCodes(t *testing.T) {
 	}
 	if isoDate("20261109") != "2026-11-09" || isoDate("2026110") != "" || isoDate("2026-11-") != "" {
 		t.Fatal("isoDate")
+	}
+}
+
+func TestStrongCreatorDisclosureIsProvenance(t *testing.T) {
+	p, srv := pipelineWithFetch(t, true, ogPage)
+	defer srv.Close()
+	clip := testClip(t)
+	clip.Title = "Epic Fan-Made AI Creation #aivideo"
+	clip.Uploader = "HaiperAI"
+	p.Video = &fakeVideo{clip: clip}
+
+	res := p.Run(context.Background(), Request{InputType: models.InputURL, URL: tiktokURL})
+	if d := res.Video.CreatorDisclosure; d.Level != models.DisclosureStrong || d.Phrase == "" {
+		t.Fatalf("disclosure = %+v", d)
+	}
+	pv := res.Pillars.AI.Provenance
+	if pv.Kind != models.ProvenanceAIGenerated || pv.Source != "creator" || pv.Generator != "Haiper" {
+		t.Fatalf("provenance = %+v", pv)
+	}
+	if v := Verdict(res, false); !slices.Contains(v.FloorsApplied, scoring.FloorAIProvenance) {
+		t.Fatalf("verdict = %+v", v)
+	}
+}
+
+func TestPlatformLabelOutranksCreatorDisclosure(t *testing.T) {
+	p, srv := pipelineWithFetch(t, true, ogPage)
+	defer srv.Close()
+	clip := testClip(t)
+	clip.AILabel, clip.Title = true, "Dibuat dengan AI"
+	p.Video = &fakeVideo{clip: clip}
+	res := p.Run(context.Background(), Request{InputType: models.InputURL, URL: tiktokURL})
+	if res.Pillars.AI.Provenance.Source != "watermark" {
+		t.Fatalf("provenance = %+v", res.Pillars.AI.Provenance)
+	}
+}
+
+func TestWeakDisclosureOnlyBoostsAndNewsAboutAIIsIgnored(t *testing.T) {
+	level := func(title, uploader string) string {
+		p, srv := pipelineWithFetch(t, true, ogPage)
+		defer srv.Close()
+		clip := testClip(t)
+		clip.Title, clip.Uploader = title, uploader
+		p.Video = &fakeVideo{clip: clip}
+		res := p.Run(context.Background(), Request{InputType: models.InputURL, URL: tiktokURL})
+		if res.Pillars.AI.Provenance.Kind == models.ProvenanceAIGenerated {
+			return "provenance"
+		}
+		return res.Video.CreatorDisclosure.Level
+	}
+	if got := level("Banjir besar hari ini", "akun"); got != models.DisclosureNone {
+		t.Fatalf("plain: %s", got)
+	}
+	if got := level("Banjir besar hari ini #ai", "akun"); got != models.DisclosureWeak {
+		t.Fatalf("weak: %s", got)
+	}
+	if got := level("Waspada video AI palsu, ini aturannya", "Kompas.com"); got != models.DisclosureNone {
+		t.Fatalf("news about AI: %s", got)
+	}
+}
+
+func TestWeakDisclosureAddsASmallBoost(t *testing.T) {
+	ev := aiEvidence{modelOK: true, findings: llm.Findings{AIScore: 30}}
+	base, _ := buildAIPillar(ev)
+	ev.weakDisclosure = true
+	boosted, _ := buildAIPillar(ev)
+	if boosted.Score != base.Score+weakDisclosureBoost {
+		t.Fatalf("boosted %d, base %d", boosted.Score, base.Score)
+	}
+	ev.findings.AIScore = 98
+	if top, _ := buildAIPillar(ev); top.Score != 100 {
+		t.Fatalf("score %d, want it capped at 100", top.Score)
 	}
 }

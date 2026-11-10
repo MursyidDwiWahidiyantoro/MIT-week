@@ -129,39 +129,6 @@ paths:
                             m: { $ref: "#/components/schemas/FactStatus" }
                 required: [valid]
 
-  /reply:
-    post:
-      operationId: reply
-      summary: Draft a polite reply from a share token
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                token: { type: string }
-                tone:
-                  type: string
-                  enum: [hormat, santai, singkat]
-              required: [token, tone]
-      responses:
-        "200":
-          description: Reply text
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  text: { type: string, maxLength: 280 }
-                  source:
-                    type: string
-                    enum: [llm, template]
-                    description: llm = model draft that passed validation; template = deterministic fallback
-                required: [text, source]
-        "400": { $ref: "#/components/responses/BadRequest" }
-        "429": { $ref: "#/components/responses/RateLimited" }
-
   /ops/status:
     get:
       operationId: getOpsStatus
@@ -412,11 +379,13 @@ components:
       description: >
         What the image declares about its origin: Content Credentials (c2pa),
         IPTC/XMP metadata (xmp), generator settings in PNG text (png_text),
-        EXIF (exif), or an AI label visible on the image (watermark). Missing
+        EXIF (exif), an AI label visible on the image (watermark), what the
+        creator says in the post of a video (creator), or what reputable news
+        sites say about the video (web). Missing
         metadata proves nothing; camera data is a hint, not proof.
       properties:
         kind: { type: string, enum: [AI_GENERATED, AI_EDITED, CAMERA, NONE] }
-        source: { type: string, enum: [c2pa, xmp, png_text, exif, watermark, ""] }
+        source: { type: string, enum: [c2pa, xmp, png_text, exif, watermark, creator, web, ""] }
         generator: { type: string }
         camera: { type: string }
         c2pa: { type: boolean }
@@ -505,8 +474,37 @@ components:
         transcript: { type: string, maxLength: 800 }
         manipulation: { $ref: "#/components/schemas/VideoSignal" }
         context: { $ref: "#/components/schemas/VideoSignal" }
+        creator_disclosure: { $ref: "#/components/schemas/CreatorDisclosure" }
+        web_evidence:
+          type: array
+          maxItems: 5
+          description: >
+            Reputable news and fact-check pages found by searching the
+            video's own title and description. Only pages judged to be about
+            this video are listed.
+          items: { $ref: "#/components/schemas/WebEvidence" }
       required: [status, reason, platform, duration_sec, upload_date, platform_ai_label,
                  frames, audio_analyzed, summary, transcript, manipulation, context]
+
+    CreatorDisclosure:
+      type: object
+      description: >
+        What the creator says about AI in the post (title, description, tags,
+        account name). strong: names AI or a generator as the maker. weak: only
+        mentions AI. none: nothing, or news about AI.
+      properties:
+        level: { type: string, enum: [none, weak, strong] }
+        phrase: { type: string, maxLength: 60, description: "The matched text, empty for none" }
+      required: [level, phrase]
+
+    WebEvidence:
+      type: object
+      properties:
+        title: { type: string, maxLength: 200 }
+        url: { type: string, pattern: "^https://" }
+        publisher: { type: string, maxLength: 80 }
+        says: { type: string, enum: [AI, REAL, HOAX], description: "AI: the page says the video is AI-made. REAL: it reports it as genuine. HOAX: it calls the claim or video a hoax." }
+      required: [title, url, publisher, says]
 
     VideoFrame:
       type: object

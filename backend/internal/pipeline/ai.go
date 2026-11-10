@@ -42,6 +42,9 @@ const (
 	// maxAIIndicators bounds the clues shown on the card.
 	maxAIIndicators = 5
 
+	// weakDisclosureBoost is added when the creator only mentions AI.
+	weakDisclosureBoost = 8
+
 	aiCaveat = "Indikatif, bukan bukti pasti"
 )
 
@@ -67,6 +70,8 @@ type aiEvidence struct {
 	// ocr is the text read in the image, to confirm a visible AI label.
 	ocr string
 	det detection
+	// weakDisclosure: the creator only mentions AI (#ai). A small boost.
+	weakDisclosure bool
 }
 
 // aiLabel matches the explicit "made with AI" labels that generators and
@@ -124,6 +129,8 @@ func buildAIPillar(ev aiEvidence) (models.AIPillar, bool) {
 		p.Provenance.Generator = provenance.GeneratorIn(ev.findings.AIWatermark)
 	case ev.prov.Kind == provenance.Camera:
 		score = min(score, cameraCap)
+	case ev.weakDisclosure && ev.modelOK:
+		score += weakDisclosureBoost
 	}
 	p.Available, p.Score, p.Reliability = true, min(max(score, 0), 100), rel
 	return p, true

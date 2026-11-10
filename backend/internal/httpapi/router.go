@@ -54,7 +54,6 @@ func NewRouterWith(cfg *config.Config, deps Deps, extra func(chi.Router)) http.H
 		r.Post("/audit/url", h.auditURL)
 		r.Post("/audit/file", h.auditFile)
 		r.Post("/verify", h.verify)
-		r.Post("/reply", h.reply)
 	})
 	if extra != nil {
 		extra(r)

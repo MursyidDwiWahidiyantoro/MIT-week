@@ -11,7 +11,6 @@ func TestCountersAndExposition(t *testing.T) {
 	r := New()
 	r.Inc("amba_audits_total", "input_type", "URL", "status", "TAMPERED")
 	r.Inc("amba_audits_total", "input_type", "URL", "status", "TAMPERED")
-	r.Inc("amba_replies_total", "source", "template")
 	r.Observe("amba_audit_duration_seconds", 1500*time.Millisecond)
 
 	rec := httptest.NewRecorder()
@@ -19,7 +18,6 @@ func TestCountersAndExposition(t *testing.T) {
 	body := rec.Body.String()
 	for _, want := range []string{
 		`amba_audits_total{input_type="URL",status="TAMPERED"} 2`,
-		`amba_replies_total{source="template"} 1`,
 		`amba_audit_duration_seconds_bucket{le="2"} 1`,
 		`amba_audit_duration_seconds_count 1`,
 		"# TYPE amba_uptime_seconds gauge",
