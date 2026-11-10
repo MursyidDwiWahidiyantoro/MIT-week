@@ -110,7 +110,7 @@ func (s *TBHSearcher) Search(ctx context.Context, query string) ([]Result, error
 	if limit <= 0 {
 		limit = 5
 	}
-	out := ParseTBHSearch(string(body), limit)
+	out := RelevantToQuery(query, ParseTBHSearch(string(body), 20), limit)
 	s.store(key, out)
 	return out, nil
 }
@@ -164,11 +164,17 @@ func ParseTBHSearch(page string, limit int) []Result {
 	if err != nil {
 		return nil
 	}
+	if strings.Contains(page, "Tidak ada hasil yang ditemukan") {
+		return nil
+	}
 	var order []string
 	cards := map[string]*tbhCard{}
-	var walk func(n *html.Node)
-	walk = func(n *html.Node) {
-		if n.Type == html.ElementNode && n.Data == "a" {
+	var walk func(n *html.Node, inCard bool)
+	walk = func(n *html.Node, inCard bool) {
+		if n.Type == html.ElementNode && strings.Contains(attr(n, "class"), "news-card") {
+			inCard = true
+		}
+		if inCard && n.Type == html.ElementNode && n.Data == "a" {
 			if link := articleLink(attr(n, "href")); link != "" {
 				c := cards[link]
 				if c == nil {
@@ -181,10 +187,10 @@ func ParseTBHSearch(page string, limit int) []Result {
 			}
 		}
 		for ch := n.FirstChild; ch != nil; ch = ch.NextSibling {
-			walk(ch)
+			walk(ch, inCard)
 		}
 	}
-	walk(doc)
+	walk(doc, false)
 
 	var out []Result
 	for _, link := range order {
@@ -207,6 +213,28 @@ func ParseTBHSearch(page string, limit int) []Result {
 			Snippet:   truncate(c.snippet(), 300),
 			Rating:    truncate(rating, 60),
 		})
+	}
+	return out
+}
+
+// RelevantToQuery keeps the results whose title or snippet shares at least one
+// keyword stem with query, at most limit. The site searches the full text of its
+// articles, so a common word ("video", "instagram") returns articles that have
+// nothing to do with the claim (10 Nov). A query with no keyword keeps nothing.
+func RelevantToQuery(query string, res []Result, limit int) []Result {
+	want := keyTerms(query)
+	var out []Result
+	for _, r := range res {
+		if len(out) >= limit {
+			break
+		}
+		have := keyTerms(r.Title + " " + r.Snippet)
+		for w := range want {
+			if have[w] {
+				out = append(out, r)
+				break
+			}
+		}
 	}
 	return out
 }
