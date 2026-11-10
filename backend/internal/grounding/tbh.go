@@ -81,7 +81,7 @@ func (s *TBHSearcher) Search(ctx context.Context, query string) ([]Result, error
 	if res, ok := s.cached(key); ok {
 		return res, nil
 	}
-	ctx, cancel := context.WithTimeout(ctx, 6*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 7*time.Second) // the site often needs more than 6 s
 	defer cancel()
 	q := url.Values{}
 	q.Set("query", query)

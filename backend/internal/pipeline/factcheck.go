@@ -72,16 +72,24 @@ func handleKey(s string) string {
 	}, strings.TrimSpace(s))
 }
 
-// factQueries are the TurnBackHoax queries for a claim: its own keywords,
-// then the keywords of the title or caption, without repeats.
+// factQueries are the TurnBackHoax queries for a claim. The site's search
+// needs every word of the query in a title, so a five-word query from a
+// descriptive claim finds nothing ("purbaya didampingi sumpah gubernur bank"),
+// while "purbaya gubernur" finds the debunk. The queries are therefore short:
+// the claim's two strongest keywords, the title's two, then the claim's three,
+// without repeats and at most three in all.
 func factQueries(claim string, c factContext) []string {
 	var out []string
-	for _, text := range []string{claim, c.Title} {
-		q := grounding.Keywords(text, 5)
-		if q != "" && !containsString(out, q) {
+	add := func(text string, n int) {
+		q := grounding.Keywords(text, n)
+		if q != "" && !containsString(out, q) && len(out) < 3 {
 			out = append(out, q)
 		}
 	}
+	add(claim, 2)
+	add(c.Title, 2)
+	add(claim, 3)
+	add(c.Title, 3)
 	return out
 }
 

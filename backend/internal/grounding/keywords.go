@@ -19,7 +19,10 @@ func init() {
 	for _, w := range strings.Fields(`menurut sebuah seorang beberapa terlihat tampak menampilkan memperlihatkan menghadiri
 		mengenakan memakai menggunakan sedang sambil ketika setelah sebelum kemudian namun tetapi serta
 		peringatan acara kegiatan rekaman seragam diduga disebut disebutkan mengklaim dikatakan
-		saat lagi masih sudah akan bisa harus bahkan setiap semua`) {
+		saat lagi masih sudah akan bisa harus bahkan setiap semua
+		pak bu bapak ibu mas mbak kak bang om tante
+		detik-detik momen begini inilah heboh viral beredar terungkap fakta kabar info update
+		akhirnya breaking terbaru resmi mendampingi didampingi`) {
 		queryStop[w] = true
 	}
 }

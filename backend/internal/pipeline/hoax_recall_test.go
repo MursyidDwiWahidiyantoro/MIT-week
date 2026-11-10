@@ -183,7 +183,7 @@ func TestDebunkFoundByTheFactCheckersOwnSearch(t *testing.T) {
 	if len(general.queries) != 1 {
 		t.Fatalf("general queries = %v", general.queries)
 	}
-	if len(site.queries) == 0 || len(site.queries) > 2 {
+	if len(site.queries) == 0 || len(site.queries) > 3 {
 		t.Fatalf("site queries = %v", site.queries)
 	}
 	for _, q := range site.queries {
@@ -314,18 +314,31 @@ func TestFactCheckContradictionBeatsNewsSupport(t *testing.T) {
 	}
 }
 
+// TurnBackHoax needs every query word in a title: live, "purbaya didampingi
+// sumpah gubernur bank" found nothing while "purbaya gubernur" found the
+// debunk. Queries stay at two or three words, at most three of them.
 func TestFactQueriesAreShortAndDistinct(t *testing.T) {
 	qs := factQueries("Purbaya menghadiri peringatan HUT Bea Cukai dengan seragam", factContext{Title: "Purbaya jadi bos baru Bea Cukai? #fyp"})
-	if len(qs) != 2 {
-		t.Fatalf("queries = %v", qs)
+	if want := []string{"purbaya hut", "purbaya bea", "purbaya hut bea"}; strings.Join(qs, "|") != strings.Join(want, "|") {
+		t.Fatalf("queries = %q, want %q", qs, want)
 	}
 	for _, q := range qs {
-		if len(strings.Fields(q)) > 5 {
-			t.Errorf("query %q has more than five words", q)
+		if len(strings.Fields(q)) > 3 {
+			t.Errorf("query %q has more than three words", q)
 		}
 	}
-	if got := factQueries("Gunung Lewotobi erupsi", factContext{Title: "Gunung Lewotobi erupsi"}); len(got) != 1 {
-		t.Fatalf("identical claim and title give one query: %v", got)
+	bi := factQueries("Purbaya didampingi saat menghadiri acara pembacaan sumpah Gubernur Bank Indonesia.",
+		factContext{Title: "Mendampingi Pak Purbaya di Acara Pembacaan Sumpah Gubernur Bank Indonesia"})
+	if len(bi) == 0 || bi[0] != "purbaya gubernur" {
+		t.Fatalf("the Gubernur BI case must lead with the query that finds the debunk: %q", bi)
+	}
+	for _, q := range bi {
+		if strings.Contains(q, "pak") {
+			t.Errorf("honorific in query %q", q)
+		}
+	}
+	if got := factQueries("Gunung Lewotobi erupsi", factContext{Title: "Gunung Lewotobi erupsi"}); len(got) != 2 {
+		t.Fatalf("identical claim and title add no query of their own: %v", got)
 	}
 	if got := factQueries("", factContext{}); len(got) != 0 {
 		t.Fatalf("nothing to search: %v", got)
