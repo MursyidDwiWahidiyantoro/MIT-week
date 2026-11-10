@@ -21,10 +21,7 @@
             "fact",
             "link"
           ],
-          "not_checked": [
-            "ela",
-            "ai"
-          ],
+          "not_checked": [],
           "floors_applied": [
             "FACT_CONTRADICTED"
           ]
@@ -123,9 +120,7 @@
             "ai",
             "fact"
           ],
-          "not_checked": [
-            "link"
-          ],
+          "not_checked": [],
           "floors_applied": [
             "FACT_CONTRADICTED",
             "ELA_CORROBORATED"
@@ -223,10 +218,7 @@
             "ela",
             "ai"
           ],
-          "not_checked": [
-            "fact",
-            "link"
-          ],
+          "not_checked": [],
           "floors_applied": [
             "AI_PROVENANCE"
           ]
@@ -296,11 +288,7 @@
           "basis": [
             "link"
           ],
-          "not_checked": [
-            "ela",
-            "ai",
-            "fact"
-          ],
+          "not_checked": [],
           "floors_applied": [
             "LINK_STRONG"
           ]
@@ -398,15 +386,12 @@
           "status": "SAFE",
           "short_title": "Contoh: tautan situs resmi",
           "explanation": "Tautan mengarah ke situs pemerintah tanpa tanda penipuan, dan klaim di halamannya didukung sumber contoh. Tetap cek tanggal dan isi halamannya. Ini data simulasi.",
-          "explanation_simple": "Tidak ditemukan tanda bahaya, tapi tetap bijak sebelum menyebarkan.",
+          "explanation_simple": "Tidak ditemukan bantahan cek fakta atau tanda bahaya pada tautan. Artikel terpercaya sejalan dengan klaim ini.",
           "basis": [
             "fact",
             "link"
           ],
-          "not_checked": [
-            "ela",
-            "ai"
-          ],
+          "not_checked": [],
           "floors_applied": []
         },
         "pillars": {
