@@ -81,6 +81,8 @@ const textPairs = [
    * fill of a finished step (text --on-indigo-text). */
   ['on-brand', 'brand'], ['on-indigo-text', 'indigo'],
   ['ink', 'card'], ['body-2', 'card'], ['muted', 'card'], ['indigo-text', 'card'],
+  /* The dashboard frame and its work sheet. */
+  ['ink', 'frame'], ['body-2', 'frame'], ['muted', 'frame'], ['ink', 'sheet'], ['body-2', 'sheet'], ['muted', 'sheet'], ['indigo-text', 'sheet'],
   ['ink', 'paper'], ['ink', 'white'],
   ['ink', 'indigo-soft'], ['ink', 'indigo-tint'], ['on-fill', 'safe'],
   ['ink', 'coral-tint'], ['ink', 'yellow-tint'],

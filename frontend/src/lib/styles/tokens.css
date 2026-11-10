@@ -25,6 +25,13 @@
   --ink-soft: #5f6368;
   --border: #c4c7c5;
   --border-strong: #747775;
+  --border-soft: #e3e6ea;
+
+  /* ---- the dashboard: a tinted L frame (sidebar + top bar) around the
+   * work sheet, tinted blue-grey from the product's own blue ---- */
+  --frame: #eef2f8;
+  --sheet: #ffffff;
+  --sheet-edge: #dfe4eb;
 
   /* ---- the accent: a light-blue pill, blue text for links ---- */
   --brand: #9dd2ff;
@@ -189,6 +196,11 @@ html[data-theme='dark'] {
   --ink-soft: #8e918f;
   --border: #444746;
   --border-strong: #8e918f;
+  --border-soft: #2a2c30;
+
+  --frame: #17191c;
+  --sheet: #0f1011;
+  --sheet-edge: #2a2d32;
 
   --brand: #c2e7ff;
   --brand-hover: #d6efff;
