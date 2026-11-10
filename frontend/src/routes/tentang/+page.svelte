@@ -4,6 +4,14 @@
 
   const PRINCIPLES = ['about.p1', 'about.p2', 'about.p3', 'about.p4'] as const;
 
+  // Order set by Sir (10 Nov 2026): Bagus, Jeri, Ridho, Mursyid.
+  const TEAM = [
+    { id: 'bagus', name: 'Bagus Joshua P.', role: 'Golang Backend Lead' },
+    { id: 'jeri', name: 'Jericho M. T.', role: 'Frontend Lead' },
+    { id: 'ridho', name: 'M. Ridho A.', role: 'UI/UX Lead' },
+    { id: 'mursyid', name: 'Mursyid D. W.', role: 'PM & Lead Architect' }
+  ] as const;
+
   const LIMITS = ['about.l1', 'about.l2', 'about.l3', 'about.l4', 'about.l5'] as const;
 </script>
 
@@ -21,10 +29,14 @@
   <h2 class="h2" id="team-title">{t('about.teamTitle')}</h2>
   <p class="lede team-lede">{t('about.teamLede')}</p>
   <ul class="team-grid">
-    <li><strong>Mursyid D. W.</strong><span>PM &amp; Lead Architect</span></li>
-    <li><strong>M. Ridho A.</strong><span>UI/UX Lead</span></li>
-    <li><strong>Bagus Joshua P.</strong><span>Golang Backend Lead</span></li>
-    <li><strong>Jericho M. T.</strong><span>Frontend Lead</span></li>
+    {#each TEAM as m (m.id)}
+      <li class="member">
+        <div class="photo">
+          <img src={`/tim/${m.id}.webp`} alt={m.name} width="300" height="375" loading="lazy" decoding="async" />
+        </div>
+        <div class="who"><strong>{m.name}</strong><span>{m.role}</span></div>
+      </li>
+    {/each}
   </ul>
 </section>
 
@@ -87,24 +99,43 @@
   .team-lede { margin-top: var(--space-3); }
   .team-grid {
     display: grid;
-    grid-template-columns: 1fr;
-    gap: var(--space-3);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-4);
     margin: var(--space-5) 0 0;
     padding: 0;
     list-style: none;
   }
-  @media (min-width: 48rem) { .team-grid { grid-template-columns: repeat(4, 1fr); } }
-  .team-grid li {
+  @media (min-width: 48rem) { .team-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-5); } }
+  .member {
     display: grid;
-    gap: var(--space-1);
-    padding: var(--space-4);
+    align-content: start;
+    overflow: hidden;
+    padding: 0;
+    gap: 0;
     background: var(--white);
     border: var(--border-width) solid var(--border);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-lg);
     box-shadow: var(--shadow-hard-xs);
+    transition: transform var(--dur-base) var(--ease-out), box-shadow var(--dur-base) var(--ease-out);
   }
-  .team-grid strong { font-family: var(--font-display); font-size: 1.05em; }
-  .team-grid span { color: var(--body-2); font-size: var(--text-sm); }
+  .photo {
+    aspect-ratio: 4 / 5;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    overflow: hidden;
+    background:
+      radial-gradient(120% 90% at 50% 0%, color-mix(in srgb, var(--brand) 38%, transparent), transparent 70%),
+      var(--indigo-soft);
+  }
+  .photo img { width: 100%; height: 100%; object-fit: cover; object-position: center bottom; display: block; transition: transform var(--dur-slow, 400ms) var(--ease-out); }
+  .who { display: grid; gap: var(--space-1); padding: var(--space-3) var(--space-4) var(--space-4); text-align: center; }
+  .who strong { font-family: var(--font-display); font-size: 1.05em; }
+  .who span { color: var(--body-2); font-size: var(--text-sm); }
+  @media (hover: hover) and (prefers-reduced-motion: no-preference) {
+    .member:hover { transform: translateY(-4px); }
+    .member:hover .photo img { transform: scale(1.04); }
+  }
 
   .data { padding: clamp(1.25rem, 3vw, 2rem); }
   dl { display: grid; gap: var(--space-5); margin: var(--space-5) 0 0; }
