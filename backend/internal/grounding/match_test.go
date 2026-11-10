@@ -93,3 +93,22 @@ func TestStem(t *testing.T) {
 		}
 	}
 }
+
+func TestSharesEntityNeedsTheSubjectsName(t *testing.T) {
+	subject := "Apa yang kita sampaikan harus berdasarkan kebenaran dan fakta | Kang Dedi Mulyadi"
+	if SharesEntity(subject, "Hoaks! Video Anies jadi pemimpin aksi penolakan hasil Pemilu 2024") {
+		t.Error("a debunk about someone else must not count")
+	}
+	if SharesEntity(subject, "Pemerintah harus antisipasi hoaks diproduksi AI selama Pilkada berdasarkan kebenaran") {
+		t.Error("shared everyday words must not count")
+	}
+	if !SharesEntity(subject, "[SALAH] Video Dedi Mulyadi Minta Maaf ke Presiden") {
+		t.Error("the subject's own name must count")
+	}
+	if !SharesEntity("MBG kok begini amat programnya", "[SALAH] Video Mahasiswa Tolak Program MBG Selama Ramadan") {
+		t.Error("an all-caps programme name must count")
+	}
+	if SharesEntity("detik-detik banjir menerjang desa", "Banjir di Desa") {
+		t.Error("a subject that names nobody has no entity to share")
+	}
+}

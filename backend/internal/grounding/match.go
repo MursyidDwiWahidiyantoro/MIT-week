@@ -144,6 +144,40 @@ func entities(claim string) []string {
 	return out
 }
 
+// SharesEntity reports whether text names one of subject's proper nouns, as a
+// whole word. Everyday words ("berdasarkan", "kebenaran") match any debunk, so
+// a page that calls a video a hoax must at least name who or what the video is
+// about (10 Nov: a real Dedi Mulyadi video was "contradicted" by debunks about
+// Anies and the Pilkada). False when subject names nobody.
+func SharesEntity(subject, text string) bool {
+	ents := namedEntities(subject)
+	if len(ents) == 0 {
+		return false
+	}
+	have := map[string]bool{}
+	for _, tok := range strings.Fields(strings.ToLower(text)) {
+		have[strings.TrimFunc(tok, func(r rune) bool { return !unicode.IsLetter(r) && !unicode.IsDigit(r) })] = true
+	}
+	for _, e := range ents {
+		if have[e] {
+			return true
+		}
+	}
+	return false
+}
+
+// namedEntities are subject's proper nouns without search filler such as
+// honorifics and clickbait openers ("Kang", "Viral", "Breaking").
+func namedEntities(subject string) []string {
+	var out []string
+	for _, e := range entities(subject) {
+		if !queryStop[e] {
+			out = append(out, e)
+		}
+	}
+	return out
+}
+
 func isAllCaps(tok string) bool {
 	letters := 0
 	for _, r := range tok {

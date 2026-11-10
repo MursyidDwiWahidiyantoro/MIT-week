@@ -2,10 +2,12 @@ package pipeline
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/amba/amba/backend/internal/grounding"
+	"github.com/amba/amba/backend/internal/llm"
 	"github.com/amba/amba/backend/internal/models"
 )
 
@@ -148,5 +150,25 @@ func TestNoWebSearchWhenOffOrNothingToSearch(t *testing.T) {
 	clip.Title, clip.Description = "#fyp", ""
 	if ch := p.startWebProvenance(context.Background(), clip); ch != nil || len(s.queries) != 0 {
 		t.Fatal("search started with no usable words")
+	}
+}
+
+func TestOnSubjectNeedsTheSubjectsNameBeforeAHoaxCounts(t *testing.T) {
+	topic := "Apa yang kita sampaikan harus berdasarkan kebenaran dan fakta . Apa yang kita sampaikan harus berdasarkan kebenaran dan fakta | Kang Dedi Mulyadi"
+	ev := []models.WebEvidence{
+		{Title: "Hoaks! Video Anies jadi pemimpin aksi penolakan hasil Pemilu 2024 - ANTARA News", URL: "https://www.antaranews.com/a", Says: llm.WebHoax},
+		{Title: "Pemerintah harus antisipasi hoaks diproduksi AI selama Pilkada - ANTARA News", URL: "https://www.antaranews.com/b", Says: llm.WebHoax},
+		{Title: "[SALAH] Video Dedi Mulyadi Minta Maaf ke Presiden", URL: "https://turnbackhoax.id/articles/1-salah", Says: llm.WebHoax},
+	}
+	got := onSubject(ev, topic)
+	if len(got) != 1 || got[0].URL != "https://turnbackhoax.id/articles/1-salah" {
+		t.Fatalf("kept %+v", got)
+	}
+}
+
+func TestCorePhraseDropsFacebookCounts(t *testing.T) {
+	got := corePhrase("249 rb tayangan · 16 rb tanggapan | Apa yang kita sampaikan harus berdasarkan kebenaran dan fakta | Kang Dedi Mulyadi", "")
+	if strings.Contains(got, "tayangan") || strings.Contains(got, "249") || !strings.HasPrefix(got, "Apa yang kita") {
+		t.Fatalf("corePhrase = %q", got)
 	}
 }

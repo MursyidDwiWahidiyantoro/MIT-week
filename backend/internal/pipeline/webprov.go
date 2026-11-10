@@ -53,6 +53,10 @@ var (
 	hashRe    = regexp.MustCompile(`[#@][\p{L}\p{N}_]+`)
 	spacesRe  = regexp.MustCompile(`\s+`)
 	phraseCut = regexp.MustCompile(`[|\n\r]`)
+	// fbCounts is the view and reaction count Facebook puts before a title
+	// ("249 rb tayangan · 16 rb tanggapan | ..."): searching on it finds
+	// unrelated pages.
+	fbCounts = regexp.MustCompile(`(?i)^\s*[\d.,]+\s*(rb|jt|k|m)?\s*(tayangan|views?)\s*[·•|-]\s*[\d.,]+\s*(rb|jt|k|m)?\s*(tanggapan|reactions?|komentar|comments?)\s*[|·•-]\s*`)
 )
 
 // corePhrase is the searchable heart of a post: the title (or, with no
@@ -60,6 +64,7 @@ var (
 // and punctuation, at most webPhraseWords words. It returns "" when fewer
 // than three words remain: a search on that would find unrelated news.
 func corePhrase(title, description string) string {
+	title = fbCounts.ReplaceAllString(title, "")
 	for _, text := range []string{title, firstSentence(description)} {
 		text = urlRe.ReplaceAllString(text, " ")
 		text = hashRe.ReplaceAllString(text, " ")
@@ -233,16 +238,22 @@ func truncateRunes(s string, n int) string {
 }
 
 // onSubject keeps the evidence that is about this video once the model has
-// read it: a page calling it a hoax always stays, any other page must share
-// the video's subject (claim, title, summary) in its own title. At most
-// webMaxEvidence.
+// read it, at most webMaxEvidence: a page must share the video's subject
+// (claim, title, summary) in its own title. A page calling the video a hoax
+// may instead name one of the subject's people or places. The model's "hoax"
+// alone is not enough, since it becomes a contradiction (10 Nov: debunks about
+// Anies and the Pilkada turned a real Dedi Mulyadi video into "dibantah", 85).
 func onSubject(ev []models.WebEvidence, topic string) []models.WebEvidence {
 	out := make([]models.WebEvidence, 0, len(ev))
 	for _, e := range ev {
 		if len(out) >= webMaxEvidence {
 			break
 		}
-		if e.Says == llm.WebHoax || grounding.SameTopic(topic, e.Title) {
+		keep := grounding.SameTopic(topic, e.Title)
+		if !keep && e.Says == llm.WebHoax {
+			keep = grounding.SharesEntity(topic, e.Title)
+		}
+		if keep {
 			out = append(out, e)
 		}
 	}

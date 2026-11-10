@@ -148,7 +148,9 @@ func TestModelCallsPerAudit(t *testing.T) {
 		want       int
 		wantBefore int
 	}{
-		{"video, no disclosure, web and fact find the same pages", urlReq, testClip(t), onTopicPages, onTopicPages, 2, 3},
+		// 3, not 2: the claim classifier judges every page again (v2), since reusing the
+		// web check's verdicts let unrelated "hoax" pages contradict a real video (10 Nov).
+		{"video, no disclosure, web and fact find the same pages", urlReq, testClip(t), onTopicPages, onTopicPages, 3, 3},
 		{"video, no disclosure, web and fact find different pages", urlReq, testClip(t), onTopicPages[:1],
 			[]grounding.Result{{Title: "[HOAKS] Banjir besar Jakarta hari ini hoaks", Publisher: "turnbackhoax.id", URL: "https://turnbackhoax.id/articles/9-x"}}, 3, 3},
 		{"video, strong creator disclosure", urlReq, strong, onTopicPages, onTopicPages, 2, 3},
