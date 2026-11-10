@@ -1,5 +1,5 @@
 # AMBA — Technical Specification v10.1
-Companion to `PRD_AMBA_v10.md`. This file is the source of truth for contracts, algorithms and security. If it conflicts with v9 or v10.0, **this file wins**. Deployment, hosting, domain and Docker are out of scope for now (local development only).
+Companion to `PRD_AMBA_v10.md`. This file is the source of truth for contracts, algorithms and security. If it conflicts with v9 or v10.0, **this file wins**. Deployment entered scope on 2026-11-08: the SPA on Vercel, the API on Fly.io or Railway (`docs/DEPLOY.md`); Docker remains the local/LAN stack.
 
 ---
 
@@ -35,13 +35,12 @@ amba/
     ├── security-headers.json                      # single source for CSP etc. (host-specific emit deferred)
     ├── static/manifest.webmanifest  src/service-worker.ts  # PWA + share target (§8.1)
     └── src/
-        ├── routes/ (+layout.svelte, +page.svelte, deteksi/, hasil/, edukasi/, tentang/, cek-cepat/)  # SvelteKit file routing; ssr=false, adapter-static fallback
+        ├── routes/ (+layout.svelte, +page.svelte, deteksi/, hasil/, edukasi/, tentang/)  # SvelteKit file routing; ssr=false, adapter-static fallback
         ├── lib/components/ (*.svelte: layout/, home/, deteksi/, hasil/, edukasi/, shared/, a11y/ReadAloud, a11y/TextSize, share/WhatsAppButton, mode/ModeSwitch)
         ├── lib/ (api/, audit.svelte.ts [runes state + SSE], mode.svelte.ts, sse.ts, forensics/ela.worker.ts, token.ts, a11y.ts, styles/tokens.css)
         ├── lib/data/demo-cases.json    # identical copy of backend demo data (CI diff check)
         ├── lib/data/reply-templates.json  # copy of configs/reply_templates.json (CI diff check)
         ├── lib/data/tactics.json          # static tactic labels + explanations (Indonesian)
-        ├── lib/data/quickcheck.json       # Cek Cepat questions/weights/advice + safe-word list
         └── tests/
 ```
 
@@ -62,7 +61,6 @@ Codes: `INVALID_URL, BLOCKED_TARGET, UNSUPPORTED_MEDIA, PAYLOAD_TOO_LARGE, RATE_
 |---|---|---|---|
 | `/audit/url` | POST | `{"url": string}` (≤2048) | |
 | `/audit/file` | POST | multipart: `file`; optional `ocr_text` | ≤10 MB; client ELA score is **ignored** |
-| `/audit/text` | POST | `{"text": string}` (≤5000) | |
 | `/verify` | POST | `{"token": string}` | returns `{valid, payload?}` |
 | `/reply` | POST | `{"token": string, "tone": "hormat\|santai\|singkat"}` | returns `{text, source: "llm\|template"}`; see §6.2 |
 | `/demo/{id}` | GET | – | `^[a-z0-9-]{4,40}$` |
@@ -86,7 +84,7 @@ Heartbeat comment `: ping` every 10 s. Frontend uses `fetch` + `ReadableStream` 
   "schema_version": 2,
   "id": "AMBA-20261030-7F3K",          // date + 4 base32 chars
   "timestamp": "2026-10-30T07:22:15Z", // UTC ISO; UI formats to WITA
-  "input_type": "URL|FILE|TEXT",
+  "input_type": "URL|FILE",              // AMBA checks a link or an uploaded image (scope 2026-11-09)
   "source_reference": "string",         // display only; truncated 200 chars
   "degraded": false,
   "is_demo": false,
@@ -99,8 +97,11 @@ Heartbeat comment `: ping` every 10 s. Frontend uses `fetch` + `ReadableStream` 
   },
   "pillars": {
     "ela":  {"available":true,"score":88,"reliability":1.0,"reliability_note":null,
-             "anomalies":[{"bounding_box":[ymin,xmin,ymax,xmax],"extracted_text":"","reason":""}]},
-    "ai":   {"available":true,"score":95,"indicators":["..."],"caveat":"Indikatif, bukan bukti pasti"},
+             "anomalies":[{"bounding_box":[ymin,xmin,ymax,xmax],"extracted_text":"","reason":"","evidence":91}]},  // evidence: Timpa Teks 0-100, null if unmeasured
+    "ai":   {"available":true,"score":95,"reliability":1.0,"indicators":["..."],"caveat":"Indikatif, bukan bukti pasti",
+             "provenance":{"kind":"AI_GENERATED|AI_EDITED|CAMERA|NONE","source":"c2pa|xmp|png_text|exif|watermark|",
+                           "generator":"OpenAI","camera":"","c2pa":true},
+             "detector":{"name":"sightengine","score":97}},   // detector null unless configured and answered
     "fact": {"available":true,"claim":"...","status":"CONTRADICTS|SUPPORTS|UNVERIFIED",
              "sources":[{"title":"","publisher":"","url":"","match":"CONTRADICTS|SUPPORTS|UNVERIFIED"}]},
     "link": {"available":true,"score":71,"final_url":"","redirect_chain":["..."],
@@ -123,14 +124,15 @@ Each pillar → `Signal{Available bool, Score int(0-100), Reliability float64(0-
 
 | Pillar | Base weight | Score definition | Reliability |
 |---|---|---|---|
-| ELA | 0.30 | server ELA variance normalized 0–100 (see §3.4) | 1.0 JPEG-origin; 0.5 PNG/WebP-lossless or screenshot-like; 0.0 if image < 64 px |
-| AI | 0.15 | LLM 0–100 likelihood | 0.7 image, 0.5 text (LLM self-report is weak) |
-| Fact | 0.35 | CONTRADICTS=100, UNVERIFIED=40, SUPPORTS=0; **unavailable if no checkable claim** | 1.0 |
+| ELA | 0.30 | server ELA variance normalized 0–100 (see §3.4); **one-sided**: counts only from 50 (below that it is reported as checked but carries no weight) | 1.0 JPEG-origin; 0.5 PNG/WebP-lossless or screenshot-like; 0.0 if image < 64 px |
+| AI ("Jejak AI") | 0.15 | likelihood 0–100 that the image (the upload, or a link's preview image) was made with AI, computed in Go (§3.6) | from the strongest evidence (§3.6): 1.0 declared in the file, 0.9 visible AI label confirmed by OCR, 0.8 detector, 0.5 model only; unavailable for a link without a preview image |
+| Fact | 0.35 | CONTRADICTS=100, UNVERIFIED=40, SUPPORTS=0; **unavailable if no checkable claim**. Since 2026-11-09 (team decision) an `UNVERIFIED` claim, one no fact-checker has ruled on, is shown but enters the score as unavailable (`pipeline.Verdict`): counted as 40 it made all 11 real news videos and 16/20 untouched graphics `SUSPICIOUS`. The vectors below keep testing the formula with 40. | 1.0 |
 | Link | 0.20 | `linkcheck` capped sum | 1.0 |
 
 ### 3.2 Formula
 ```
 eff_w_i  = base_w_i * reliability_i      (only for Available pillars)
+eff_w_ELA = 0 when S_ELA < 50            (one-sided ELA, 2026-11-09; its weight only counts as SAFE coverage)
 W        = Σ eff_w_i
 if W < 0.30  → status INSUFFICIENT, score = null
 raw      = Σ(eff_w_i * score_i) / W
@@ -141,14 +143,23 @@ score    = round_half_up(raw)            # Go: int(math.Floor(raw + 0.5))
 Apply in this order, then clamp 0–100:
 1. `FACT_CONTRADICTED`: ≥1 source with `match=CONTRADICTS`, host on allowlist, URL came from search tool → `score = max(score, 85)`.
 2. `LINK_MALICIOUS`: Safe Browsing hit or `S_Link ≥ 90` → `score = max(score, 85)`.
-3. `ELA_CORROBORATED`: `S_ELA ≥ 70` **and** an LLM text anomaly box overlapping an ELA hotspot (IoU ≥ 0.1 or centre inside) → `score = max(score, 70)`.
-4. `ELA_SOLO_CAP`: if **no** other pillar has score ≥ 50 and no floor 1–3 applied → `score = min(score, 60)`.
+3. `ELA_CORROBORATED`: `S_ELA ≥ 70` **and** an LLM text anomaly box overlapping an ELA hotspot (IoU ≥ 0.1 or centre inside) → `score = max(score, 70)`. Since 2026-11-09 a model box whose Timpa Teks evidence (§3.4) is ≥ 70 is itself a hotspot and raises `S_ELA` to its evidence, so the model and the measurement pointing at the same text corroborate each other.
+3b. `LINK_STRONG` (added 2026-11-08, team decision "strong link evidence is enough"): if there is still **no** score (W < 0.30, e.g. a bare-URL audit) and the link pillar is available with `S_Link ≥ 45` → `score = min(S_Link, 85)`. 45 is a brand-impersonating host on its own; tuned on a public phishing feed on 2026-11-09 (was 50). The cap keeps a link-only verdict at or below the `LINK_MALICIOUS` floor, so a score never rises as evidence gets thinner. It can never produce `SAFE`. Lead sentence: "Tautan ini punya tanda penipuan. Sebaiknya jangan diklik."
+3c. AI floors (added 2026-11-09), **uploaded images only** (a link's preview image may be an honest illustration), applied after `LINK_STRONG` so a risky link in the image keeps its score, at most one of:
+   - `AI_PROVENANCE`: the image declares AI generation (provenance `AI_GENERATED`, from metadata or a visible AI label) → `score = max(score, 85)`. Lead sentence: "Ada tanda jelas gambar ini dibuat dengan AI. Jangan anggap sebagai foto asli."
+   - `AI_EDITED`: the image declares an AI edit (`AI_EDITED`) → `score = max(score, 70)`. "Ada tanda jelas gambar ini diedit dengan AI. Jangan langsung percaya."
+   - `AI_LIKELY`: nothing declared, but `S_AI ≥ 80` (`scoring.AILikelyMin`; the prompt reserves 71–100 for clear visible signs, a detector shares the score) → `score = max(score, 45)`. "Gambar ini tampak buatan AI. Cek dulu sebelum menyebarkan."
+   - Since 2026-11-09 the same AI floors apply to a **downloaded social video** (`video` in the Dossier): its AI pillar is the model's judgement of the keyframes, and `AI_GENERATED` comes from the platform's AI label or a visible AI mark. The sentences say "video" and "rekaman asli" instead of "gambar" and "foto asli".
+3d. Video floors (added 2026-11-09), social videos only, from the model's frame-by-frame findings, so they stop at `SUSPICIOUS`: `VIDEO_MANIPULATED` (manipulation signal ≥ 70, `scoring.VideoSignalMin`) → `score = max(score, 45)`, "Video ini tampak disunting untuk menyesatkan. Cek dulu sebelum menyebarkan."; `VIDEO_CONTEXT_MISMATCH` (context-mismatch signal ≥ 70) → `score = max(score, 45)`, "Keterangan video ini tidak cocok dengan isi rekamannya. Cek dulu sebelum menyebarkan."
+4. `ELA_SOLO_CAP`: if **no** other pillar has score ≥ 50 and no floor 1–3c applied → `score = min(score, 60)`.
 5. `INJECTION_GUARD`: if LLM output was flagged by the injection detector → `score = max(score, 40)` and `basis` adds `"llm_untrusted"`.
 
-Status: 0–20 `SAFE`, 21–60 `SUSPICIOUS`, 61–100 `TAMPERED`. `SAFE` additionally requires `W ≥ 0.50` (else downgrade to `INSUFFICIENT`) and at least one pillar with `Fact` or `ELA`+`Link` available — "no evidence of risk" ≠ "verified safe" (UI text: "Tidak ditemukan tanda bahaya", never "pasti asli").
+Status: 0–20 `SAFE`, 21–60 `SUSPICIOUS`, 61–100 `TAMPERED`. `SAFE` additionally requires coverage `W + eff_w` of an inconclusive ELA `≥ 0.50` (else downgrade to `INSUFFICIENT`) and an available `Fact` pillar — "no evidence of risk" ≠ "verified safe" (UI text: "Tidak ditemukan tanda bahaya", never "pasti asli"). Until 2026-11-09 `ELA`+`Link` could also reach `SAFE`; on real images the ELA mean was 0 for untouched and 0–14 for edited photos, so a low ELA cannot vouch for an image.
 
 ### 3.4 Server-side ELA (`internal/forensics`)
-Decode (limit dimensions via `image.DecodeConfig` first; reject > 4096 px side or > 16 MP) → re-encode JPEG q=90 → mean absolute RGB difference → `variance = mean * 3.5` → clamp 0–100. Also compute a coarse 16×16 grid of cell means for hotspot overlap. Mark `reliability` by source decoder format. Add a unit test with a synthetic image (flat gray + pasted noisy patch) asserting score ordering.
+Decode (limit dimensions via `image.DecodeConfig` first; reject > 4096 px side or > 16 MP) → re-encode JPEG q=90 → mean absolute RGB difference → `variance = mean * 3.5` → clamp 0–100. Also compute a coarse 16×16 grid of cell means for hotspot overlap. Mark `reliability` by source decoder format. Add a unit test with a synthetic image (flat gray + pasted noisy patch) asserting score ordering. WebP uploads skip ELA.
+
+**Timpa Teks (`forensics.TextEvidence`, 2026-11-09).** The global mean cannot see a retyped price: it is dominated by the photo. For each text box the model marks (at most 4, 1.5 s after the model answers, on the image the ELA step decoded), compare how the text inside reacts to one more JPEG compression with how the image's **other text** reacts: in a grid-aligned band of rows around the box (or the whole image up to 6 MP when the band holds too little text), re-encode at q75 and q90, take `Σ ELA / Σ |∇luma|` inside the box over the median of the same ratio on 16×16 "text-like" blocks outside it (strong edges, two-tone histogram), keep the larger ratio. Evidence = `(ratio − 1.2) / 0.5 × 100`, clamped; −1 (null) when the box holds no lettering or fewer than 4 reference blocks exist. `S_ELA = max(global, evidence)`; evidence ≥ 70 makes the box a hotspot (`pipeline.TextHotspotMin`). Benchmark (`tools/textbench/gen.py` on 34 real camera photos, two independently generated sets, `TEXTBENCH=… go test ./internal/forensics -run TestTextBenchmark`): no original line reached 50; retyped lines reached 50 in 65 % and 41 % of pairs (71 % and 50 % when not forwarded after the edit, 54 % and 31 % when forwarded). High evidence is a strong sign; low evidence says little.
 
 ### 3.5 Test vectors (must pass)
 | # | ELA (s,r) | AI (s,r) | Fact | Link | Expected score / status |
@@ -156,14 +167,34 @@ Decode (limit dimensions via `image.DecodeConfig` first; reject > 4096 px side o
 | 1 | 88, 1.0 | 95, 0.7 | CONTRADICTS (allowlisted) | n/a | raw = (26.4+9.975+35)/0.755 ≈ 94.5 → 95 → TAMPERED |
 | 2 | n/a | 20, 0.5 | UNVERIFIED | n/a | (0.075·20 + 0.35·40)/0.425 ≈ 36.5 → 36 → SUSPICIOUS |
 | 3 | 80, 0.5 | 10, 0.7 | SUPPORTS | n/a | (12+1.05+0)/0.605 ≈ 21.6 → 22 → SUSPICIOUS |
-| 4 | 10, 1.0 | 10, 0.7 | CONTRADICTS (allowlisted) | n/a | raw ≈ 51.7 → 52 → floor 85 → TAMPERED |
+| 4 | 10, 1.0 | 10, 0.7 | CONTRADICTS (allowlisted) | n/a | ELA 10 carries no weight: W=0.455, raw ≈ 79.2 → 79 → floor 85 → TAMPERED |
 | 5 | 95, 1.0 | n/a | n/a | n/a | W=0.30 → raw 95 → ELA_SOLO_CAP → 60 → SUSPICIOUS |
 | 6 | n/a | n/a | n/a | n/a | W=0 → INSUFFICIENT |
 | 7 | n/a | n/a | SUPPORTS | 5 | (0+1.0)/0.55 ≈ 1.8 → 2 → W=0.55 → SAFE |
 | 8 | n/a | n/a | n/a | 95 | S_Link ≥ 90 → floor 85 → TAMPERED (W=0.20 → floor still applies; status TAMPERED) |
+| 9 | n/a | n/a | n/a | 85 | W=0.20 → no weighted score; S_Link 85 < 90 → LINK_STRONG → 85 → TAMPERED |
+| 10 | n/a | 20, 0.5 | n/a | 55 | W=0.075+0.20=0.275 < 0.30 → LINK_STRONG → 55 → SUSPICIOUS |
+| 11 | n/a | n/a | n/a | 40 | S_Link < 45 → no floor → INSUFFICIENT |
+| 11b | n/a | n/a | n/a | 45 | LINK_STRONG → 45 → SUSPICIOUS (a brand lookalike alone) |
+| 12 | n/a | n/a | n/a | 89 | LINK_STRONG → min(89, 85) = 85 → TAMPERED |
+| 15 | 5, 1.0 | 30, 0.7 | n/a | 10 | ELA no weight: W=0.305, raw ≈ 16.9 → 17, but no fact check → INSUFFICIENT (was SAFE) |
+| 16 | 5, 1.0 | 80, 0.7 | UNVERIFIED | n/a | W=0.455, raw=(8.4+14)/0.455 ≈ 49.2 → 49 → SUSPICIOUS (the two-sided mean gave 32) |
+| 17 | 3, 1.0 | 0, 0.7 | SUPPORTS | n/a | W=0.455, raw 0; coverage 0.755 ≥ 0.50 and fact available → SAFE |
+| 18 | 10, 0.7 | 95, 1.0, declared AI_GENERATED, upload | n/a | n/a | W=0.15, no weighted score → AI_PROVENANCE → 85 → TAMPERED |
+| 19 | 0, 0.7 | 85, 0.5, upload | n/a | n/a | W=0.075 → AI_LIKELY → 45 → SUSPICIOUS (79 would stay INSUFFICIENT) |
+| 20 | n/a | 85, 0.5, upload | n/a | 75 | W=0.275 → LINK_STRONG 75, then AI_LIKELY keeps 75 → TAMPERED |
+| 21 | n/a | 95, 1.0, declared, link preview | 40 (UNVERIFIED) | 30 | W=0.70, raw ≈ 48.9 → 49 → SUSPICIOUS, no AI floor for a link |
 
 Row 8 note: floors may rescue an otherwise-`INSUFFICIENT` input to `SUSPICIOUS/TAMPERED` (never to `SAFE`).
 **Agent must recompute vectors 1–7 in tests and fix the table here if arithmetic differs.**
+
+### 3.6 Jejak AI: is the image AI-made? (`internal/provenance`, `internal/aidetect`, `pipeline/ai.go`)
+Three kinds of evidence, strongest first, for the uploaded image or a link's preview image:
+1. **What the file declares** (`provenance.Scan`, metadata blocks only, no decoding, microseconds): Content Credentials (C2PA JUMBF in JPEG APP11, PNG `caBX`, WebP `C2PA`) and IPTC/XMP `DigitalSourceType` (`trainedAlgorithmicMedia` and `algorithmicMedia` → `AI_GENERATED`; `compositeWithTrainedAlgorithmicMedia`, `compositeSynthetic` → `AI_EDITED`; `digitalCapture`, `computationalCapture` → `CAMERA`), a generator as XMP `CreatorTool` or EXIF `Software`, generator settings in PNG text (Stable Diffusion/Fooocus `parameters`, ComfyUI `prompt`/`workflow`, InvokeAI, NovelAI, Midjourney) or in the EXIF user comment, and camera make/model (`CAMERA`, a hint, not proof). A visible AI label ("Imagined with AI", "AI generated", "Dibuat dengan AI", "AI生成") counts as declared (`source: watermark`) only when the model reports it in `ai_watermark` **and** the image's OCR text contains one. Missing metadata proves nothing: WhatsApp and social networks strip it.
+2. **A dedicated detector** (optional, `SIGHTENGINE_API_USER`/`_SECRET`, model `genai`, 4 s budget, runs beside the model): `score = round(0.7·detector + 0.3·model)`; a failed call is not evidence and shows no detector line.
+3. **The model's visible clues** (`ai_score`, `ai_indicators`, §6).
+
+Score: model alone (reliability 0.5), detector (0.8), then `AI_GENERATED` → `max(score, 95)` (1.0), `AI_EDITED` → `max(score, 80)` (1.0), a confirmed label → `max(score, 90)` (0.9), `CAMERA` without an AI marker → `min(score, 50)`. The pillar is unavailable when nothing could judge (model down, no detector answer, nothing declared). Uploading the bundled demo picture to the live app reaches the demo's verdict from its own bytes (Playwright `ai.spec.ts`).
 
 ---
 
@@ -171,13 +202,20 @@ Row 8 note: floors may rescue an otherwise-`INSUFFICIENT` input to `SUSPICIOUS/T
 
 ```
 request ctx (12 s hard deadline)
- ├─ validate + hash (SHA-256) → cache hit? return immediately (TTL 10 min, max 500 entries, LRU)
- ├─ errgroup (each pillar has its own sub-deadline & never fails the group):
- │    ela    : 0.8 s  (FILE only)
- │    link    : 2.5 s  (URL or URLs extracted from text/OCR)
- │    llm     : 9 s    (single structured call w/ tools; yields ai + fact + anomalies + claim)
- ├─ each finished pillar → SSE `partial`
- └─ scoring.Compute → sign token → SSE `verdict`
+ ├─ validate + hash (SHA-256) → cache hit? replay stage/partial events, then verdict (TTL 10 min, max 500 entries, LRU)
+ ├─ errgroup (each step has its own budget, bounded by the hard deadline minus a 300 ms reserve; no step fails the group):
+ │    ela      : 4 s    (JPEG and PNG uploads; server ELA on up to 16 MP; WebP skips it: re-compressing as JPEG says nothing about a WebP file's history)
+ │    link     : 2.5 s  (URL, or the first link in an image: the client's OCR hint, then the model's OCR; also one written without a scheme such as `bit.ly/x` or `bri-verifikasi.my.id`, read as https; an e-mail address is not a link) → unroll ≤ 3 hops → heuristics on first and final host → Safe Browsing on the chain
+ │    metadata : 2.5 s  (URL only; oEmbed for YouTube/TikTok/X, else OpenGraph, via the SSRF client) → `source_metadata`
+ │    preview  : 1.5 s  (URL only; the og:image/twitter:image/oEmbed thumbnail, ≤ 5 MB, via the SSRF client, validated like an upload) → Jejak AI of the preview image
+ │    provenance       (FILE, or the preview image: metadata blocks only, synchronous) → Jejak AI
+ │    detector : 4 s    (optional, beside the model, same image) → Jejak AI
+ │    llm      : 9 s    (HARD_TIMEOUT_MS - 3 s when that is larger; with LLM_FALLBACK_* the first gateway gets all but the last 9 s, never under half, and a failure hands the call to the fallback and skips the first gateway for 60 s; one structured call: claim, search_query, ai score, anomalies, OCR, tactics)
+ │    text     : 1.5 s  (after the model, on its anomaly boxes: Timpa Teks evidence, §3.4)
+ │    search   : 6 s    (Fact Check Tools `claims:search` with the model's `search_query`, or Tavily restricted to the allowlisted hosts when only TAVILY_API_KEY is set; allowlist-filtered)
+ │    classify : 10 s   (second structured call: CONTRADICTS/SUPPORTS/UNVERIFIED per search result; 3 s timed out on every gateway we use)
+ ├─ every pillar emits exactly one terminal `stage` event; finished pillars → SSE `partial`; `: ping` heartbeat while waiting
+ └─ scoring.Compute → sign token → SSE `verdict` → `done`
 ```
 - A pillar error/timeout → `available=false` + entry in `verdict.not_checked`; if any pillar degraded, `degraded=true`.
 - Never return cached/demo data for a live request. Cache stores only final Dossier JSON (no raw input).
@@ -200,19 +238,34 @@ Deterministic, each rule adds capped points; final `S_Link = min(100, Σ)`.
 | `AT_SIGN` / `DEEP_SUBDOMAIN` | `@` in authority; > 4 labels | 20 / 10 |
 | `NO_HTTPS` | scheme http | 10 |
 | `SAFE_BROWSING` | Google Safe Browsing v4 Lookup hit (optional, env key) | → 100 |
+| `PAGE_ASKS_SECRET` | the destination page (not on an official domain) has a field for a password, PIN, OTP, card number or CVV | 20 |
+| `PAGE_IMPERSONATION` | the same form on a page whose title or site name names a brand from the list (as a word or inside a product name such as "KlikBCA") | 45 |
+| `NEW_DOMAIN` / `YOUNG_DOMAIN` | the youngest registrable domain on the redirect chain was registered ≤ 30 / ≤ 180 days ago (RDAP) | 25 / 10 |
 
 Redirect unrolling: max 3 hops through the SSRF-safe client, `HEAD` then `GET` with `Range: bytes=0-0` fallback, record chain. Official-domain allowlist (e.g. `kompas.com`, `antaranews.com`, `go.id`) reduces `LOOKALIKE_BRAND` false positives. Table tests with ≥ 25 URLs (good and bad).
+
+Implementation notes (2026-11-08; the weights in `internal/linkcheck` and its table tests are the reference):
+- `LOOKALIKE_BRAND` matches hostname **tokens** after folding Cyrillic and Greek look-alike letters to Latin (a short reviewed table): an exact brand token, a brand plus affix (`bri-verifikasi`), or Levenshtein ≤ 1 (≤ 2 for brand names of 9+ letters). It never fires on a brand's official registrable domain, nor under suffixes only vetted institutions can register (`.go.id .ac.id .sch.id .mil.id .desa.id`). A folded host never gets the official-domain exemption.
+- Brands include the banks, e-wallets, marketplaces, couriers and agencies impersonated in Indonesian phishing (BRI/BRImo, BCA, BNI, BTN, Mandiri, BSI, DANA, OVO, GoPay, Shopee, Tokopedia, Kemensos, Prakerja, PLN, Telkomsel, J&T, JNE and others). Ordinary words that resemble a brand are deliberately absent.
+- `.my.id` and `.biz.id` are reported as `SUSPICIOUS_TLD`: in the phishing feed they hosted a third of the Indonesian-themed links and none of the popular legitimate sites.
+- `AT_SYMBOL` fires for an `@` outside the authority except a social handle path segment (`/@kompascom`): TikTok, YouTube and Medium links are not tricks; a pre-filled victim email is.
+- `UNPARSEABLE` (100): a URL that does not parse is never treated as safe.
+- `SHORTENER_HIDES` (+15) is added when the unrolled final host is a different site rated ≥ 30; the score is computed on the final URL.
+- A Safe Browsing hit on any URL of the redirect chain sets `S_Link = 100` and the `LINK_MALICIOUS` floor. A failed lookup is not a hit and is not reported as one.
+- A URL found in the model's OCR of a screenshot gets the same link pillar as a pasted URL.
+- Domain age (2026-11-09, `DOMAIN_AGE_LOOKUP`, default on): the registrable domain of the first and of the final host (not shorteners, not official domains) is looked up over RDAP, using IANA's bootstrap file (`data.iana.org/rdap/dns.json`, fetched once a day) to find the registry, through the SSRF-safe client and beside the redirect check, inside the link budget. Only the registrable domain is sent; answers are not kept. A registry without RDAP, a missing registration event or a timeout adds nothing. A young domain is never enough on its own for a link-only verdict (25 < `LinkStrongMin`).
+- Page check (2026-11-09): when the redirect chain ends on a host that is not official, the destination page is read once through the SSRF-safe client (≤ 512 KB, inside the link budget) and only its title, site name and input fields are looked at. It catches phishing on hacked or free-hosting sites, whose address has no tell-tale. "dana", "pajak", "qris" and "permata" are ordinary words in titles and do not count as brands there; "bri" and "ovo" only count at the end of a word. `PAGE_IMPERSONATION` is high severity. Not measured on live phishing pages yet (the development environment cannot reach them).
 
 ---
 
 ## 6. LLM integration (`internal/llm`)
 
-- Client speaks OpenAI-compatible API to `NINEROUTER_BASE_URL` using a **separate** `http.Client` (it must reach localhost/tunnel, so it is NOT the SSRF client). Model from `NINEROUTER_MODEL`; at startup call `GET /models` and log (without secrets) whether the model exists.
-- **One** call per audit, `response_format` = JSON schema `LLMFindings`:
-  `{claim, ai_score, ai_indicators[], text_anomalies[{bounding_box, extracted_text, reason}], fact_status, sources[], ocr_text, tactics[{code, phrase}], injection_suspected}`.
-- Tools executed by Go, never by the model: `inspect_social_url(url)` (oEmbed/OG via SSRF client, returns ≤ 2 KB metadata) and `search_verified_news(query)` (search grounding, returns title/publisher/url/snippet). Max 3 tool rounds.
+- Client speaks OpenAI-compatible API to `NINEROUTER_BASE_URL` using a **separate** `http.Client` (it must reach localhost/tunnel, so it is NOT the SSRF client). Model from `NINEROUTER_MODEL`; at startup call `GET /models` and log (without secrets) whether the model exists. Deployments default to OpenRouter's free vision model `nvidia/nemotron-3.5-super-vl:free`; `LLM_EXTRA_BODY` (a JSON object) adds gateway-specific fields to every request, such as OpenRouter's `models` fallback list and `reasoning: {enabled: false}`, and can never replace `model`, `messages`, `response_format` or `temperature`.
+- **Analyze** call per audit, `response_format` = strict JSON schema `LLMFindings`:
+  `{claim, search_query, ai_score, ai_indicators[], ai_watermark, text_anomalies[{bounding_box, extracted_text, reason}], ocr_text, tactics[{code, phrase}], injection_suspected}`. `ai_score` (since 2026-11-09) rates how strongly the **image** looks made or altered with generative AI, judging the picture, not the topic: 0–15 a camera photo with natural detail, a screenshot or ordinary graphic design; 16–40 one weak sign that a filter could also cause; 41–70 several signs together (waxy skin, melting detail, odd blur, typical AI style); 71–100 clear signs (malformed hands, teeth, eyes or ears; gibberish lettering on signs or clothes; merged or impossible objects; odd repetition; an AI label). An ordinary edit (pasted text, crop, filter) is not AI: it goes to `text_anomalies`. `ai_watermark` copies a visible AI label or watermark ("Imagined with AI", "Meta AI", "Grok", "Gemini" for the star logo) or is "". For a link, the image is its preview image and `ocr_text`/`text_anomalies` stay empty; without an image `ai_score` is 0 and Go ignores it. The UI calls this pillar "Jejak AI" (§3.6). Images are sent as an `image_url` data URI: a small JPEG as is, anything larger or PNG re-encoded as JPEG q85 with the longest side ≤ 1600 px (normalised 0–1000 boxes are unaffected), WebP passed through. The model never returns a fact status or sources.
+- Go runs the "tools" itself, before and after the model, instead of model-driven tool rounds: the link's public metadata (oEmbed/OG via the SSRF client, ≤ 2 KB) is fetched first and passed inside `<untrusted_content>`; the model's `search_query` goes to the search provider (Google Fact Check Tools `claims:search`, `languageCode=id`, max 5 allowlisted results); a second **Classify** call labels each returned result `CONTRADICTS | SUPPORTS | UNVERIFIED` against the claim. In mock mode Classify maps the fact-checker's own rating.
 - **Prompt-injection containment:** all external text wrapped in `<untrusted_content>…</untrusted_content>`; system prompt states content inside is data; model never emits a verdict/score (those fields do not exist in the schema); on schema violation → treat LLM pillars as failed (`available=false`), not retry loops; `injection_suspected` or regex hits on ("ignore previous", "system prompt", "set verdict") → flag `INJECTION_GUARD`.
-- **Source verification (`internal/grounding`):** accept a source only if (a) URL appears in the tool's own result set, (b) host (eTLD+1) is in `configs/trusted_sources.yaml`, (c) scheme https. Else downgrade that source to `UNVERIFIED`. Starter allowlist: turnbackhoax.id, cekfakta.com, komdigi.go.id, kominfo.go.id, antaranews.com, kompas.com, detik.com, tempo.co, cnnindonesia.com, liputan6.com, tirto.id (reviewed by team).
+- **Source verification (`internal/grounding`):** accept a source only if (a) URL appears in the search provider's own result set (no result set → nothing verifies: fail closed), (b) host (eTLD+1) is in `configs/trusted_sources.yaml`, (c) scheme https. Else downgrade that source to `UNVERIFIED`. Starter allowlist: turnbackhoax.id, cekfakta.com, komdigi.go.id, kominfo.go.id, antaranews.com, kompas.com, detik.com, tempo.co, cnnindonesia.com, liputan6.com, tirto.id (reviewed by team).
 - **`LLM_MOCK=true`:** deterministic fake responses keyed by input hash prefix so frontend/e2e work without 9router. Required for CI.
 
 ### 6.1 Tactics (`internal/tactics`) — informational, never scored
@@ -223,7 +276,7 @@ Server verification: normalize (NFKC, lowercase, collapse whitespace) both phras
 ### 6.2 Balas Sopan (`internal/reply`, `POST /reply`)
 - Input is the **signed share token** + tone; the server verifies the token and uses only its payload (`status, title, claim, srcs`). No raw user content is needed or accepted.
 - Small LLM call (schema `{text}`, 4 s timeout, rate-limited like audits). Prompt rules: Indonesian; polite; talks about the content, not the person; ≤ 280 chars; tone `hormat` (honorifics, soft), `santai`, `singkat` (one line); no invented facts; no certainty words ("pasti", "100%").
-- **Validation:** ≤ 280 chars; every URL must be in `{payload.srcs[].url, share link}` else strip the URL (and if text becomes empty/invalid → fallback); no profanity/shaming regex hits; no score or "terbukti" claims.
+- **Validation:** ≤ 280 chars; every URL must be in `payload.srcs[].url` else strip the URL (and if text becomes empty/invalid → fallback); no profanity/shaming regex hits; no score or "terbukti" claims. The share link is not given to the model: a full token does not fit in 280 characters, and the UI's share button already carries it.
 - **Fallback:** deterministic templates per status × tone in `configs/reply_templates.json` (embedded in Go; copied to `frontend/src/lib/data/reply-templates.json`, CI diff). Used when LLM is mock/unavailable, validation fails, or in the offline demo (client renders templates directly).
 - Cache by SHA-256(token+tone) for 10 min. `source` in the response tells the UI whether it was LLM or template.
 
@@ -280,22 +333,22 @@ func NewSafeClient(timeout time.Duration, maxHops int) *http.Client {
 Tests (table, `httptest` + custom resolver): 127.0.0.1, `localhost`, 10.x, 172.16.x, 192.168.x, 169.254.169.254, `[::1]`, `::ffff:127.0.0.1`, `2130706433` (decimal IP), `0x7f.1`, redirect-to-private, DNS name resolving to private, port 20128/22/6379, `file://`, `gopher://`, 3+ redirects. ≥ 15 cases.
 
 ### 7.2 Upload validation
-Read at most 10 MB + 1; verify magic bytes (JPEG `FFD8FF`, PNG `89504E47`, WebP `RIFF….WEBP`), ignore client MIME; `image.DecodeConfig` for dimensions before full decode; strip nothing server-side (never persisted); reject animated/oversized. Never write to disk (use `bytes.Reader`).
+Read at most 10 MB + 1; verify magic bytes (JPEG `FFD8FF`, PNG `89504E47`, WebP `RIFF….WEBP`), ignore client MIME; `image.DecodeConfig` for dimensions before full decode (WebP: the VP8/VP8L/VP8X header, since the standard library has no WebP decoder; AMBA never decodes WebP, it passes it to the model and the detector); strip nothing server-side (never persisted); reject animated/oversized. Never write to disk (use `bytes.Reader`). A link's preview image goes through the same validation.
 
 ### 7.3 Rate limiting & proxy trust
-`golang.org/x/time/rate`, 15 req/min/client, burst 5, plus global in-flight cap. Client key = forwarded-client header **only if** the immediate peer is in `TRUSTED_PROXY_CIDRS` (empty by default; hosting setup deferred), else `RemoteAddr`. Hash key with a salt rotated at boot; limiter map swept every 5 min (idle > 10 min evicted). Never log the key.
+`golang.org/x/time/rate`, 15 req/min/client, burst 5, plus global in-flight cap. Client key = forwarded-client header **only if** the immediate peer is in `TRUSTED_PROXY_CIDRS` (empty by default; `*` on Fly.io/Railway, whose machines are only reachable through their proxy), else `RemoteAddr`. The header is `CLIENT_IP_HEADER` when set (`Fly-Client-IP` on Fly.io, `X-Real-IP` on Railway: both overwritten by the edge), otherwise the **rightmost** `X-Forwarded-For` entry (the one the trusted proxy appended). `/healthz` is exempt. Hash key with a salt rotated at boot; limiter map swept every 5 min (idle > 10 min evicted). Never log the key.
 
 ### 7.4 Headers, CSP, CORS
 - Go API (JSON only): `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `Cache-Control: no-store`, `Content-Security-Policy: default-src 'none'; frame-ancestors 'none'`.
-- **Frontend** (authored once in `frontend/security-headers.json`; applied by a Vite dev/preview plugin now, to be emitted into a host-specific file when deployment enters scope): `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' <API_ORIGIN>; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'none'; object-src 'none'` + `Permissions-Policy: camera=(), microphone=(), geolocation=()`. (Remove `https:` wildcards; `img-src` for oEmbed thumbnails is **not** needed — never hotlink external images.)
-- CORS: allow only `PUBLIC_APP_URL` (+ `http://localhost:5173` in dev); methods GET/POST; no credentials.
+- **Frontend** (authored once in `frontend/security-headers.json`; applied by a Vite dev/preview plugin and mirrored in `frontend/vercel.json`, CI-checked by `npm run headers`; the CSP itself is emitted by SvelteKit with script hashes, and `connect-src` is generated from `VITE_API_BASE_URL` at build time): `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' <API_ORIGIN>; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'none'; object-src 'none'` + `Permissions-Policy: camera=(), microphone=(), geolocation=()`. (Remove `https:` wildcards; `img-src` for oEmbed thumbnails is **not** needed — never hotlink external images.)
+- CORS: allow only `PUBLIC_APP_URL` and the exact origins in `CORS_EXTRA_ORIGINS` (+ `http://localhost:5173` in dev); methods GET/POST; no credentials.
 
 ### 7.5 Signed tokens (`internal/token`)
 `v1.` + base64url(JSON payload) + `.` + base64url(HMAC-SHA256(key=`REPORT_SIGNING_KEY`, msg=`v1.`+payload)). Payload: `{id, ts, status, score, title(≤80), claim?(≤120), srcs:[{pub,url,m}] (≤3)}` ≤ 2 KB. Constant-time compare (`hmac.Equal`). Key ≥ 32 bytes, required in production (server refuses to start otherwise). Mini-token for QR = `{id, ts, status, score}`.
 Frontend puts token in the **URL fragment** (`/hasil#t=…`) so servers/CDNs never see it; it POSTs to `/verify` in the body.
 
 ### 7.6 Logging / metrics
-Only the anonymous line format from v9 §14.2 plus counters; no URLs, titles, IPs. Metrics on a separate internal listener (`METRICS_ADDR`, default off).
+Only the anonymous line format from v9 §14.2 plus counters; no URLs, titles, IPs. Metrics on a separate internal listener (`METRICS_ADDR`, default off; Prometheus text at `/metrics`, labels are fixed enums): audits by input type and status, degraded audits, durations, rate limiting, replies, verifications, Telegram updates, and per-rule counts by code (`amba_floors_total`, `amba_link_reasons_total`). A failed upstream call (LLM gateway, Fact Check Tools, Safe Browsing) logs only the service, a reason (`timeout | transport | http_status | unreadable_response`) and the HTTP status: never the request URL, which carries keys and user queries.
 
 ---
 
@@ -339,7 +392,7 @@ Only the anonymous line format from v9 §14.2 plus counters; no URLs, titles, IP
 - **One component tree, two presentations.** Components do not fork content; modes differ only in decoration density, motion, character moments, type size and layout density (Essential: single column, base text ≥ 18 px, more spacing, plainer labels). Forbidden differences: any data, control, destination or capability.
 - **Parity contract:** every information item carries `data-info-key="<key>"` (e.g. `verdict.score`, `verdict.sentence`, `pillar.ela`, `pillar.fact`, `sources`, `tactics`, `reply`, `share`, `proofcard`, `readaloud`). Playwright renders the same Dossier in both modes and asserts identical key sets and equal text per key.
 - Mode switching never resets input, progress or result (state lives in `AuditSession`, outside mode components). Test it mid-SSE and after the verdict.
-- `explanation_simple` is produced **in Go by deterministic templates** (no LLM): `FACT_CONTRADICTED` → "Kabar ini dibantah sumber terpercaya. Jangan disebarkan."; `LINK_MALICIOUS` → "Tautan ini mirip penipuan. Jangan diklik."; `ELA_CORROBORATED` → "Gambar ini terindikasi diedit. Jangan langsung percaya."; other `SUSPICIOUS` → "Belum jelas benar atau tidak. Cek dulu sebelum menyebarkan."; `INSUFFICIENT` → "Informasinya belum cukup untuk dipastikan."; `SAFE` → "Tidak ditemukan tanda bahaya, tapi tetap bijak sebelum menyebarkan." Unit-tested. It is the lead sentence of every result in both modes.
+- `explanation_simple` is produced **in Go by deterministic templates** (no LLM): `FACT_CONTRADICTED` → "Kabar ini dibantah sumber terpercaya. Jangan disebarkan."; `LINK_MALICIOUS` → "Tautan ini mirip penipuan. Jangan diklik."; `LINK_STRONG` → "Tautan ini punya tanda penipuan. Sebaiknya jangan diklik."; `ELA_CORROBORATED` → "Gambar ini terindikasi diedit. Jangan langsung percaya."; other `SUSPICIOUS` → "Belum jelas benar atau tidak. Cek dulu sebelum menyebarkan."; `INSUFFICIENT` → "Informasinya belum cukup untuk dipastikan."; `SAFE` → "Tidak ditemukan tanda bahaya, tapi tetap bijak sebelum menyebarkan." Unit-tested. It is the lead sentence of every result in both modes.
 - Read-aloud (and optional auto-read) is a setting independent of mode; it speaks `explanation_simple` first, then the explanation.
 
 ### 8.3 Tactic highlighter (F13)
@@ -348,17 +401,12 @@ Only the anonymous line format from v9 §14.2 plus counters; no URLs, titles, IP
 ### 8.4 Balas Sopan UI (F12)
 `ReplyCard`: tone chips (hormat/santai/singkat), editable preview, Copy and WhatsApp (`wa.me`) buttons. Fetch `/reply` on chip select; show template instantly while the LLM draft loads, then swap if valid. Demo/offline mode uses `reply-templates.json` only.
 
-### 8.5 Cek Cepat & Sandi Keluarga (F15, client-only)
-- `quickcheck.json`: six yes/no questions with weights — asked for money/transfer 3, urgent 2, keep secret 2, new number claiming to be someone you know 2, asked for OTP/PIN/password 4, could not verify via another channel 1 (max 14).
-- Levels: ≥ 6 **Tinggi**, 3–5 **Waspada**, ≤ 2 **Rendah**. Any "yes" to OTP/PIN forces **Tinggi**. Each level has 3 concrete Indonesian steps (e.g. "Hubungi nomor lama keluarga langsung", "Jangan kirim kode OTP/PIN ke siapa pun").
-- Sandi Keluarga: two words from an Indonesian word list of ≥ 256 common words using `crypto.getRandomValues`; printable card via print CSS (`@media print`), no network.
-- Unit tests: scoring thresholds, OTP override, word-list size/uniqueness, generator uses CSPRNG.
-
 ---
 
 ## 9. Demo data rules
 - `backend/internal/demo/demo-cases.json` is canonical; CI copies/diffs to `frontend/src/lib/data/demo-cases.json`.
-- Images: generate synthetic screenshots (script `tools/gen_demo_assets.*`), include **real** heatmaps computed from them, embed as small WebP/PNG data URIs (< 150 KB each).
+- Images: generated by `backend/cmd/gendemo` (`go run ./cmd/gendemo`), which draws the synthetic screenshot, runs the real forensics and scorer on it, and writes both demo-cases.json copies, `frontend/static/demo/berita-ig.jpg` and the Edukasi quiz images with their **real** ELA heat maps (`frontend/static/edukasi/`). Static files instead of data URIs keep the JSON small; CI regenerates them and fails on any diff.
+- Case IDs follow PRD F8 (`demo-tiktok`, `demo-berita-ig`, `demo-resmi`) plus `demo-tautan` for the link flow and `demo-gambar-ai` for Jejak AI; the earlier `contoh-*` IDs remain as aliases. `frontend/static/demo/gambar-ai.jpg` carries an unsigned, simulated C2PA segment (`claim_generator AMBA-contoh-simulasi`, `trainedAlgorithmicMedia`), so uploading it gives the demo's verdict; a Go test scans the bundled file.
 - Every demo Dossier: `is_demo: true`, visible watermark "CONTOH / SIMULASI", no real person/brand logos, no invented URLs for real publishers — use `https://example.org/contoh-cek-fakta` style placeholders with `publisher: "Sumber Contoh"`.
 - Validate demo JSON against the Dossier JSON Schema in both Go and Vitest tests.
 - Demo Dossiers include `tactics` (phrases must appear in the synthetic caption/OCR text) and `explanation_simple`; the demo Balas Sopan card renders from `reply-templates.json` with zero network calls.
@@ -368,22 +416,34 @@ Only the anonymous line format from v9 §14.2 plus counters; no URLs, titles, IP
 ## 10. Config (`.env.example`)
 ```bash
 SERVER_HOST=0.0.0.0
-SERVER_PORT=8080
-ENVIRONMENT=development            # production requires REPORT_SIGNING_KEY
+SERVER_PORT=8080                   # falls back to a PaaS-injected PORT, then 8080
+ENVIRONMENT=development            # production requires REPORT_SIGNING_KEY, an https PUBLIC_APP_URL and LLM_MOCK=false
 PUBLIC_APP_URL=http://localhost:5173
-TRUSTED_PROXY_CIDRS=               # leave empty until hosting is set up
-NINEROUTER_BASE_URL=http://localhost:20128/v1
-NINEROUTER_API_KEY=changeme
-NINEROUTER_MODEL=gemini-3.8-flash  # verify against /models at boot
-LLM_MOCK=true
+CORS_EXTRA_ORIGINS=                # optional exact origins, comma-separated
+TRUSTED_PROXY_CIDRS=               # "*" on Fly.io/Railway
+CLIENT_IP_HEADER=                  # Fly-Client-IP (Fly.io), X-Real-IP (Railway); empty = rightmost X-Forwarded-For
+NINEROUTER_BASE_URL=https://openrouter.ai/api/v1   # any OpenAI-compatible gateway (NineRouter, Gemini)
+NINEROUTER_API_KEY=                # secret: host secret or .env, never in git
+NINEROUTER_MODEL=nvidia/nemotron-3.5-super-vl:free  # verify against /models at boot
+LLM_EXTRA_BODY=                    # JSON object merged into model requests, e.g. OpenRouter {"models":[...],"reasoning":{"enabled":false}}
+LLM_MOCK=true                      # refused in production: the mock invents findings
 REPORT_SIGNING_KEY=                # >=32 random bytes, base64
-GOOGLE_SAFE_BROWSING_KEY=          # optional
+GOOGLE_API_KEY=                    # Fact Check Tools + Safe Browsing
+GOOGLE_FACTCHECK_KEY=              # optional override
+GOOGLE_SAFE_BROWSING_KEY=          # optional override
+DOMAIN_AGE_LOOKUP=true             # RDAP domain age for links (NEW_DOMAIN / YOUNG_DOMAIN); false to switch off
+SIGHTENGINE_API_USER=              # optional AI-image detector (Jejak AI); set both or neither
+SIGHTENGINE_API_SECRET=            # the image is sent to Sightengine: say so in the privacy notice
+TELEGRAM_BOT_TOKEN=                # optional (PRD P2); empty = disabled
+TELEGRAM_MODE=webhook              # webhook | polling | off
+TELEGRAM_WEBHOOK_SECRET=           # webhook: >=16 chars of A-Z a-z 0-9 _ -
+TELEGRAM_WEBHOOK_URL=              # webhook: https://<api>/telegram/webhook, registered at boot
 MAX_UPLOAD_SIZE_MB=10
 HARD_TIMEOUT_MS=12000
 CACHE_TTL_SECONDS=600
 METRICS_ADDR=                      # empty = disabled
 ```
-Frontend: `VITE_API_BASE_URL`.
+Frontend (build time): `VITE_API_BASE_URL`, `VITE_API_MODE=http|mock`.
 
 ## 11. Test matrix
 | Layer | Tool | Must cover |
@@ -398,11 +458,10 @@ Frontend: `VITE_API_BASE_URL`.
 | FE unit | Vitest + @testing-library/svelte | Zod parsing, token parse, bbox math, a11y helpers, mode store |
 | FE e2e | Playwright | demo (offline), link flow w/ `LLM_MOCK`, upload flow, share-token verify, tamper → invalid |
 | A11y | `@axe-core/playwright` | 0 serious/critical on all routes |
-| Perf | Lighthouse CI | ≥ 90 all, bundle ≤ 250 KB gz |
+| Perf | `tools/lighthouse.mjs` (CI job) | ≥ 90 performance/best-practices/SEO, ≥ 95 accessibility, CLS ≤ 0.1, median of 5 mobile runs per route; bundle ≤ 250 KB gz |
 | Design tokens | `tools/check-contrast.mjs` | all text/background token pairs ≥ 4.5:1 (UI/large ≥ 3:1) |
 | Security | headers test | CSP/CORS values present on SPA + API |
 | Tactics & reply | `go test` | phrase-substring verification, unknown codes dropped, `/reply` requires valid token, URL stripping, template fallback, length cap |
 | Explanation templates | `go test` | each status/floor → exact simple sentence |
 | Share target | Vitest + manual | SW handler unit test (URL extraction, size/type rejection, delete-on-read, 5-min sweep); manual Android Chrome checklist |
 | Presentation modes | Playwright | link flow ≤ 3 taps in both modes; **parity test** (identical `data-info-key` sets/text in Explore and Essential); mode switch mid-flow keeps input/result; reduced-motion forces calm motion; `speechSynthesis` (mocked) speaks `explanation_simple` |
-| Cek Cepat | Vitest + Playwright | thresholds, OTP override, safe-word generator, works offline, print stylesheet present |

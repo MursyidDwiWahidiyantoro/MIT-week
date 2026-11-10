@@ -4,7 +4,6 @@
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
   import { AuditSession } from '$lib/audit.svelte';
-  import { parseDossier } from '$lib/api/schemas';
   import { isMockMode } from '$lib/api/config';
   import { result } from '$lib/result.svelte';
   import { firstHttpUrl, readSharedItem } from '$lib/share-target';
@@ -15,20 +14,29 @@
   import ScanningRadar from '$lib/components/deteksi/ScanningRadar.svelte';
   import demoData from '$lib/data/demo-cases.json';
   import Icon from '$lib/components/ui/Icon.svelte';
+  import { t, type MessageKey } from '$lib/i18n/index.svelte';
 
   const session = new AuditSession();
 
   let kind = $state<InputKind>('url');
   let url = $state('');
-  let text = $state('');
   let file = $state<File | null>(null);
   let inputError = $state<string | null>(null);
   let sharedNotice = $state<string | null>(null);
 
-  // The home hero hands a pasted link over as ?q=.
-  $effect(() => {
-    const q = page.url.searchParams.get('q');
-    if (q && !url) url = q;
+  // The home hero hands a pasted link over as ?q= and the check starts at
+  // once, because submitting the hero form was the explicit action (PRD F1:
+  // a link check in as few taps as possible). The "upload a screenshot" call
+  // to action on a blocked link opens the image tab with ?tab=file.
+  onMount(() => {
+    const tab = page.url.searchParams.get('tab');
+    if (tab === 'file' || tab === 'url') kind = tab;
+    const q = page.url.searchParams.get('q')?.trim();
+    if (q && !page.url.searchParams.get('share')) {
+      kind = 'url';
+      url = q;
+      void tick().then(submit);
+    }
   });
 
   // A share-target redirect carries a one-time cache id. Read and delete it,
@@ -38,12 +46,21 @@
     if (id) void openShared(id);
   });
 
+  // The contract parser (Zod) is not needed to paint this page. Warm it once
+  // the browser is idle, so opening a demo still needs no network (PRD F8).
+  onMount(() => {
+    const warm = () => void import('$lib/api/schemas').catch(() => {});
+    const w = window as Window & { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number };
+    if (w.requestIdleCallback) w.requestIdleCallback(warm, { timeout: 3000 });
+    else setTimeout(warm, 300);
+  });
+
   async function openShared(id: string): Promise<void> {
-    sharedNotice = 'Membuka konten yang dibagikan…';
+    sharedNotice = t('det.sharedOpening');
     const item = await readSharedItem(id);
     if (!item) {
       sharedNotice = null;
-      inputError = 'Konten yang dibagikan tidak ditemukan atau sudah kedaluwarsa. Tempel manual di bawah.';
+      inputError = t('det.sharedMissing');
       return;
     }
 
@@ -53,15 +70,15 @@
     } else if (item.url) {
       kind = 'url';
       url = item.url;
-    } else if (item.text) {
-      const found = firstHttpUrl(item.text);
-      if (found) {
-        kind = 'url';
-        url = found;
-      } else {
-        kind = 'text';
-        text = item.text;
-      }
+    } else if (item.text && firstHttpUrl(item.text)) {
+      kind = 'url';
+      url = firstHttpUrl(item.text) ?? '';
+    } else {
+      // AMBA checks links and images only; shared text without a link has
+      // nothing to check.
+      sharedNotice = null;
+      inputError = t('det.sharedNoLink');
+      return;
     }
 
     sharedNotice = null;
@@ -88,7 +105,7 @@
 
       const value = (await navigator.clipboard.readText()).trim();
       if (!value) {
-        inputError = 'Clipboard kosong. Salin tautan atau teks terlebih dahulu.';
+        inputError = t('det.clipEmpty');
         return;
       }
       const found = firstHttpUrl(value);
@@ -96,20 +113,38 @@
         kind = 'url';
         url = found;
       } else {
-        kind = 'text';
-        text = value;
+        inputError = t('det.clipNoLink');
       }
     } catch {
-      inputError = 'Tidak bisa membaca clipboard. Tempel manual dengan Ctrl+V atau tekan lama lalu pilih Tempel.';
+      inputError = t('det.clipDenied');
     }
   }
 
-  // Bundled example dossiers. Loading one makes zero network calls (PRD F8).
-  const demos = demoData.cases.map((c) => ({ id: c.id, label: c.caption, dossier: c.dossier }));
+  // Bundled example dossiers. Loading one makes zero API calls (PRD F8); the
+  // screenshot demo reads its synthetic image from this app's own static
+  // files, which the service worker also keeps for offline use.
+  type DemoCase = { id: string; caption: string; image?: string; dossier: unknown };
+  const demos = (demoData.cases as DemoCase[]).map((c) => ({
+    id: c.id,
+    label: c.caption,
+    image: c.image ?? null,
+    dossier: c.dossier
+  }));
 
-  function openDemo(dossier: unknown): void {
+  async function openDemo(demo: (typeof demos)[number]): Promise<void> {
+    let image: File | null = null;
+    if (demo.image) {
+      try {
+        const res = await fetch(demo.image);
+        if (res.ok) image = new File([await res.blob()], 'contoh-simulasi.jpg', { type: 'image/jpeg' });
+      } catch {
+        // The verdict still opens; only the image viewer is skipped.
+      }
+    }
     try {
-      result.set(parseDossier(dossier), null);
+      const { parseDossier } = await import('$lib/api/schemas');
+      const dossier = parseDossier(demo.dossier);
+      result.set(dossier, image);
       void goto(resolve('/hasil'));
     } catch {
       // A bundled dossier that fails the contract is a build-time bug, not a
@@ -120,22 +155,18 @@
   function validate(): string | null {
     if (kind === 'url') {
       const value = url.trim();
-      if (!value) return 'Tempel tautan yang ingin diperiksa.';
-      if (!/^https?:\/\//i.test(value)) return 'Tautan harus dimulai dengan http:// atau https://';
-      if (value.length > 2048) return 'Tautan terlalu panjang.';
+      if (!value) return t('det.errUrlEmpty');
+      if (!/^https?:\/\//i.test(value)) return t('det.errUrlScheme');
+      if (value.length > 2048) return t('det.errUrlLong');
     }
-    if (kind === 'text') {
-      if (!text.trim()) return 'Tulis atau tempel pesan yang ingin diperiksa.';
-      if (text.length > 5000) return 'Teks terlalu panjang. Maksimal 5000 karakter.';
-    }
-    if (kind === 'file' && !file) return 'Pilih gambar terlebih dahulu.';
+    if (kind === 'file' && !file) return t('det.errFile');
     return null;
   }
 
   async function submit(): Promise<void> {
     inputError = validate();
     if (inputError) return;
-    await session.start(kind, { url: url.trim(), text: text.trim(), file: file ?? undefined });
+    await session.start(kind, { url: url.trim(), file: file ?? undefined });
     if (session.verdict) {
       // goto() keeps the in-memory result store; a location.href reload would
       // wipe it and land on "Hasil tidak tersimpan".
@@ -145,33 +176,27 @@
 </script>
 
 <svelte:head>
-  <title>Periksa konten — AMBA</title>
-  <meta
-    name="description"
-    content="Tempel tautan, teks pesan, atau unggah tangkapan layar. AMBA menjelaskan tanda bahaya dengan kata sederhana."
-  />
+  <title>{t('det.title')}</title>
+  <meta name="description" content={t('det.description')} />
 </svelte:head>
 
 <section class="head">
-  <p class="eyebrow">Pemeriksaan</p>
-  <h1 class="h1">Periksa konten</h1>
-  <p class="lede">
-    Pilih jenis konten, lalu jalankan pemeriksaan. Hasilnya indikatif, bukan bukti pasti.
-  </p>
+  <p class="eyebrow">{t('det.eyebrow')}</p>
+  <h1 class="h1">{t('det.h1')}</h1>
+  <p class="lede">{t('det.lede')}</p>
 </section>
 
 {#if isMockMode}
   <p class="notice" role="note">
-    <strong>Mode pratinjau.</strong> Pemeriksaan memakai aturan contoh di perangkat ini,
-    bukan server AMBA. Hasilnya diberi tanda CONTOH.
+    <strong>{t('det.previewTitle')}</strong> {t('det.previewBody')}
   </p>
 {/if}
 
-<section class="console card" aria-label="Formulir pemeriksaan">
+<section class="console card" aria-label={t('det.form')}>
   <div class="console-top">
     <ModeSelectorTabs selected={kind} onselect={(k) => { kind = k; inputError = null; }} />
     <Button variant="quiet" onclick={pasteClipboard}>
-      <Icon name="copy" size={18} /> Tempel dari clipboard
+      <Icon name="copy" size={18} /> {t('det.paste')}
     </Button>
   </div>
 
@@ -180,46 +205,33 @@
   {/if}
 
   {#if kind === 'url'}
-    <Field id="url" label="Tautan" type="url" bind:value={url} hint="Contoh: https://example.org/artikel" error={inputError ?? undefined} />
-  {:else if kind === 'text'}
-    <div class="field">
-      <label for="teks">Teks pesan</label>
-      <textarea
-        class="textarea"
-        id="teks"
-        rows="6"
-        bind:value={text}
-        aria-invalid={inputError ? 'true' : undefined}
-        placeholder="Tempel pesan yang Anda terima di sini."
-      ></textarea>
-      {#if inputError}<p class="error-text" role="alert">{inputError}</p>{/if}
-    </div>
+    <Field id="url" label={t('det.urlLabel')} type="url" bind:value={url} hint={t('det.urlHint')} error={inputError ?? undefined} />
   {:else}
     <DropzoneUploader onselect={(f) => { file = f; inputError = null; }} />
     {#if inputError}<p class="error-text" role="alert">{inputError}</p>{/if}
   {/if}
 
   <div class="demos">
-    <p class="demos-label">Coba contoh</p>
+    <p class="demos-label">{t('det.demos')}</p>
     <ul>
       {#each demos as demo (demo.id)}
         <li>
-          <button class="demo-btn" type="button" onclick={() => openDemo(demo.dossier)}>
-            {demo.label}
+          <button class="demo-btn" type="button" onclick={() => openDemo(demo)}>
+            {t(`demo.${demo.id}` as MessageKey) === `demo.${demo.id}` ? demo.label : t(`demo.${demo.id}` as MessageKey)}
           </button>
         </li>
       {/each}
     </ul>
-    <p class="demos-note">Contoh dimuat dari perangkat Anda, tanpa koneksi ke server.</p>
+    <p class="demos-note">{t('det.demosNote')}</p>
   </div>
 
   <div class="actions">
     <Button size="lg" onclick={submit} loading={session.running}>
       <Icon name="sparkle" size={18} />
-      {session.running ? 'Memeriksa…' : 'Mulai periksa'}
+      {session.running ? t('det.running') : t('det.start')}
     </Button>
     {#if session.running}
-      <Button variant="quiet" onclick={() => session.abort()}>Batalkan</Button>
+      <Button variant="quiet" onclick={() => session.abort()}>{t('det.cancel')}</Button>
     {/if}
   </div>
 
@@ -232,10 +244,10 @@
 
 {#if session.error}
   <div class="error-panel" role="alert">
-    <p class="error-title">Pemeriksaan tidak selesai</p>
+    <p class="error-title">{t('det.errTitle')}</p>
     <p>{session.error.message}</p>
     {#if session.error.retryAfter}
-      <p class="hint">Tunggu {session.error.retryAfter} detik sebelum mencoba lagi.</p>
+      <p class="hint">{t('det.wait', { n: session.error.retryAfter })}</p>
     {/if}
   </div>
 {/if}
@@ -265,8 +277,6 @@
   .console :global(.field) { margin-bottom: var(--space-5); }
   .console > :global(.field) { margin-bottom: var(--space-5); }
   .shared { margin: var(--space-3) 0 0; color: var(--body-2); font-size: var(--text-sm); }
-  .field { display: grid; gap: var(--space-2); margin-bottom: var(--space-5); }
-  label { font-weight: 700; }
   .actions { display: flex; gap: var(--space-3); margin: var(--space-5) 0 0; flex-wrap: wrap; }
   .live { min-height: 1.5em; color: var(--body-2); font-size: var(--text-sm); margin: var(--space-3) 0 0; }
   .error-panel {
@@ -310,13 +320,13 @@
 
   .console + :global(.radar) { margin-top: var(--space-5); }
 
-  /* Phone: the tab row gets the full width so three tabs share one line, and
+  /* Phone: the tab row gets the full width so both tabs share one line, and
    * the clipboard action drops below instead of squeezing them. */
   @media (max-width: 44rem) {
     .console-top { flex-direction: column; align-items: stretch; }
     .console-top :global(.tabs) { display: flex; width: 100%; }
     /* min-width:0 is required: flex-basis:0 alone still refuses to shrink
-     * below the icon+label intrinsic width, which wrapped the third tab. */
+     * below the icon+label intrinsic width, which wrapped the last tab. */
     .console-top :global(.tabs button) { flex: 1 1 0; min-width: 0; padding: 0 8px; }
     .console-top :global(.btn) { width: 100%; }
     .actions { flex-direction: column; }

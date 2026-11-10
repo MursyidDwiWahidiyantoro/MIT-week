@@ -1,8 +1,9 @@
 <script lang="ts">
+  import { t, locale } from '$lib/i18n/index.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import Icon from '$lib/components/ui/Icon.svelte';
   import templates from '$lib/data/reply-templates.json';
-  import { isMockMode } from '$lib/api/config';
+  import { isMockMode, API_BASE } from '$lib/api/config';
   import { isMockToken } from '$lib/api/mock';
   import type { Status } from '$lib/api/types';
 
@@ -16,10 +17,10 @@
   let { token, status, demo = false }: Props = $props();
 
   type Tone = 'hormat' | 'santai' | 'singkat';
-  const TONES: Array<{ value: Tone; label: string }> = [
-    { value: 'hormat', label: 'Hormat' },
-    { value: 'santai', label: 'Santai' },
-    { value: 'singkat', label: 'Singkat' }
+  const TONES: Array<{ value: Tone; label: 'reply.hormat' | 'reply.santai' | 'reply.singkat' }> = [
+    { value: 'hormat', label: 'reply.hormat' },
+    { value: 'santai', label: 'reply.santai' },
+    { value: 'singkat', label: 'reply.singkat' }
   ];
 
   let tone = $state<Tone>('hormat');
@@ -50,7 +51,7 @@
 
     loading = true;
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080/api/v1'}/reply`, {
+      const res = await fetch(`${API_BASE}/reply`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token, tone })
@@ -86,10 +87,11 @@
 
 <div class="reply">
   <p class="hint">
-    Balasan ini membahas isi pesannya, bukan orangnya. Tidak ada tuduhan dan tidak ada klaim pasti.
+    {t('reply.hint')}
+    {#if locale.value === 'en'}{t('reply.langNote')}{/if}
   </p>
 
-  <div class="tones" role="group" aria-label="Pilih nada balasan">
+  <div class="tones" role="group" aria-label={t('reply.tones')}>
     {#each TONES as option (option.value)}
       <button
         type="button"
@@ -101,25 +103,27 @@
           request();
         }}
       >
-        {option.label}
+        {t(option.label)}
       </button>
     {/each}
   </div>
 
   <label class="field">
-    <span>Draf balasan {loading ? '(menyusun…)' : ''}</span>
+    <span>{t('reply.draft')} {loading ? t('reply.drafting') : ''}</span>
     <textarea class="textarea" rows="4" bind:value={text} maxlength="280"></textarea>
   </label>
 
   <div class="actions">
     <Button variant="quiet" onclick={copy}>
       <Icon name={copied ? 'check' : 'copy'} size={18} />
-      {copied ? 'Tersalin' : 'Salin'}
+      {copied ? t('reply.copied') : t('reply.copy')}
     </Button>
     <Button variant="quiet" onclick={whatsapp}>
-      <Icon name="whatsapp" size={18} /> Kirim lewat WhatsApp
+      <Icon name="whatsapp" size={18} /> {t('reply.whatsapp')}
     </Button>
-    <span class="src">Sumber: {source === 'llm' ? 'draf model' : 'templat'}</span>
+    <span class="src">
+      {source === 'llm' ? t('reply.srcLlm') : t('reply.srcTemplate')}
+    </span>
   </div>
 </div>
 

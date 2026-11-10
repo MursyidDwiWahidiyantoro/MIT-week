@@ -38,18 +38,25 @@ func New(allowlist []string) *Grounder {
 	return &Grounder{allowed: m}
 }
 
-// Verified reports whether rawURL is https and its registrable host is
-// allowlisted. toolURLs is the set of URLs the model's own tools returned:
-// a source the model invented cannot pass even if its host is allowlisted.
+// Verified reports whether rawURL is https, its host is allowlisted AND it
+// is one of toolURLs: the URLs AMBA's own search returned (TECH_SPEC §6 (a)).
+// A source the model invented cannot pass even if its host is allowlisted.
+// A nil or empty tool set fails closed: no search, no verified source.
 func (g *Grounder) Verified(rawURL string, toolURLs map[string]bool) bool {
-	if rawURL == "" {
+	if rawURL == "" || len(toolURLs) == 0 || !toolURLs[rawURL] {
 		return false
 	}
+	return g.HostAllowed(rawURL)
+}
+
+// HostAllowed reports whether rawURL is https on an allowlisted host. It is
+// the filter applied to search results before anyone sees them.
+func (g *Grounder) HostAllowed(rawURL string) bool {
 	u, err := url.Parse(rawURL)
-	if err != nil || u.Scheme != "https" || u.Host == "" {
+	if err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil {
 		return false
 	}
-	if toolURLs != nil && !toolURLs[rawURL] {
+	if p := u.Port(); p != "" && p != "443" {
 		return false
 	}
 	return g.hostAllowed(strings.ToLower(u.Hostname()))

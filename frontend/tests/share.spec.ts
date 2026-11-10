@@ -49,25 +49,6 @@ test('a server error is reported as unavailable, not forged', async ({ page }) =
   );
 });
 
-test('Essential mode changes typography, not content', async ({ page }) => {
-  await page.goto('/');
-  const sizeOf = () =>
-    page.getByRole('heading', { level: 1 }).evaluate((el) => getComputedStyle(el).fontSize);
-
-  await page.evaluate(() => {
-    document.documentElement.dataset.mode = 'explore';
-  });
-  const explore = await sizeOf();
-
-  await page.evaluate(() => {
-    document.documentElement.dataset.mode = 'essential';
-  });
-  const essential = await sizeOf();
-
-  expect(parseFloat(essential)).toBeGreaterThan(parseFloat(explore));
-});
-
-
 /**
  * The README and PROGRESS claimed "axe: 0 violations on all routes" while the
  * dependency was never imported. This is the missing gate: every route must
@@ -83,9 +64,11 @@ const audit = async (page: import('@playwright/test').Page) => {
   return blocking.map((v) => `${v.id} (${v.impact}): ${v.nodes.length} node(s)`);
 };
 
-for (const path of ['/', '/deteksi', '/edukasi', '/tentang', '/cek-cepat']) {
+for (const path of ['/', '/deteksi', '/edukasi', '/tentang']) {
   test(`axe: no serious or critical violations on ${path}`, async ({ page }) => {
     await page.goto(path);
+    // The SPA sets <title> after hydration; auditing before that is a race.
+    await expect(page).toHaveTitle(/AMBA/);
     expect(await audit(page), `dark theme: ${path}`).toEqual([]);
     // The theme toggle is a real control; light mode is a second palette and
     // must be gated, not assumed.

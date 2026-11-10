@@ -5,15 +5,12 @@ import { test, expect } from '@playwright/test';
  * /hasil with a verdict. This is the regression guard for the contract bug
  * where the server serialised empty slices as null and the Zod schema threw.
  */
-test('a text audit reaches the result page with a verdict', async ({ page }) => {
+test('a link audit reaches the result page with a verdict', async ({ page }) => {
   const consoleErrors: string[] = [];
   page.on('pageerror', (e) => consoleErrors.push(e.message));
 
   await page.goto('/deteksi');
-  await page.getByRole('tab', { name: 'Teks' }).click();
-  await page.getByLabel('Teks pesan').fill(
-    'Bantuan Rp 500.000 dibagikan hari ini saja. Sebarkan ke 10 grup!'
-  );
+  await page.getByLabel('Tautan', { exact: true }).fill('https://bri-verifikasi.xyz/login');
   await page.getByRole('button', { name: 'Mulai periksa' }).click();
 
   await expect(page).toHaveURL(/\/hasil$/, { timeout: 20_000 });
@@ -29,8 +26,7 @@ test('a text audit reaches the result page with a verdict', async ({ page }) => 
 
 test('every pillar is accounted for on the result page', async ({ page }) => {
   await page.goto('/deteksi');
-  await page.getByRole('tab', { name: 'Teks' }).click();
-  await page.getByLabel('Teks pesan').fill('Akun Anda akan diblokir. Verifikasi sekarang.');
+  await page.getByLabel('Tautan', { exact: true }).fill('https://bri-verifikasi.xyz/login');
   await page.getByRole('button', { name: 'Mulai periksa' }).click();
 
   await expect(page).toHaveURL(/\/hasil$/, { timeout: 20_000 });
@@ -41,6 +37,13 @@ test('every pillar is accounted for on the result page', async ({ page }) => {
   const details = page.locator('details');
   await expect(details).toHaveCount(4);
   await expect(page.getByText('Tidak dapat diperiksa').first()).toBeVisible();
+});
+
+test('there is no text tab: AMBA checks links and images only', async ({ page }) => {
+  await page.goto('/deteksi');
+  await expect(page.getByRole('tab')).toHaveCount(2);
+  await expect(page.getByRole('tab', { name: 'Tautan' })).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'Gambar' })).toBeVisible();
 });
 
 test('a bundled demo loads without touching the network', async ({ page }) => {

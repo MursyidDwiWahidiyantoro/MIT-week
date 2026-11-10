@@ -4,6 +4,20 @@ import { defineConfig } from 'vitest/config';
 import { loadEnv } from 'vite';
 import type { sveltekit as sveltekitPlugin } from '@sveltejs/kit/vite';
 import { securityHeaders } from './tools/vite-security-headers.ts';
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+
+/**
+ * CSP hash of the inline pre-paint script in src/app.html. SvelteKit only
+ * hashes the scripts it injects itself, so this one is hashed here, from the
+ * file, and can never drift from its content.
+ */
+function appHtmlScriptHash(): `sha256-${string}` {
+  const html = readFileSync(new URL('./src/app.html', import.meta.url), 'utf8');
+  const match = html.match(/<script>([\s\S]*?)<\/script>/);
+  if (!match) throw new Error('src/app.html: inline pre-paint script not found');
+  return `sha256-${createHash('sha256').update(match[1]).digest('base64')}`;
+}
 
 /**
  * connect-src must name the real API origin. Hardcoding localhost meant a
@@ -49,7 +63,7 @@ export default defineConfig(({ mode }) => ({
         mode: 'hash',
         directives: {
           'default-src': ['self'],
-          'script-src': ['self'],
+          'script-src': ['self', appHtmlScriptHash()],
           'style-src': ['self', 'unsafe-inline'],
           'img-src': ['self', 'data:', 'blob:'],
           'font-src': ['self'],
@@ -70,5 +84,8 @@ export default defineConfig(({ mode }) => ({
     include: ['src/**/*.{test,spec}.{js,ts}'],
     environment: 'jsdom',
     setupFiles: ['./vitest-setup.ts']
-  }
+  },
+  // Component tests mount Svelte in jsdom, so Vitest must load Svelte's
+  // browser build; without this `mount` resolves to the server entry and throws.
+  resolve: process.env.VITEST ? { conditions: ['browser'] } : undefined
 }));

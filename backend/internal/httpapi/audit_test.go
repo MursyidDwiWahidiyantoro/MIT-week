@@ -1,7 +1,12 @@
 package httpapi
 
 import (
+	"bytes"
 	"encoding/json"
+	"image"
+	"image/color"
+	"image/jpeg"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -30,8 +35,40 @@ func postJSONTo(t *testing.T, r http.Handler, path, body string, accept string) 
 	return rec
 }
 
-func TestAuditTextReturnsDossier(t *testing.T) {
-	rec := postJSON(t, "/api/v1/audit/text", `{"text":"Bantuan dibagikan hari ini saja"}`, "")
+// postImage uploads a small JPEG to /audit/file through r.
+func postImage(t *testing.T, r http.Handler, accept string) *httptest.ResponseRecorder {
+	t.Helper()
+	img := image.NewRGBA(image.Rect(0, 0, 96, 96))
+	for y := 0; y < 96; y++ {
+		for x := 0; x < 96; x++ {
+			n := uint8((x*7 + y*13 + (x*y)%11) % 64)
+			img.SetRGBA(x, y, color.RGBA{60 + n, 90 + n/2, 120 + n/3, 255})
+		}
+	}
+	var pic bytes.Buffer
+	if err := jpeg.Encode(&pic, img, &jpeg.Options{Quality: 85}); err != nil {
+		t.Fatal(err)
+	}
+	var body bytes.Buffer
+	mw := multipart.NewWriter(&body)
+	fw, err := mw.CreateFormFile("file", "foto.jpg")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _ = fw.Write(pic.Bytes())
+	_ = mw.Close()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/audit/file", &body)
+	req.Header.Set("Content-Type", mw.FormDataContentType())
+	if accept != "" {
+		req.Header.Set("Accept", accept)
+	}
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	return rec
+}
+
+func TestAuditImageReturnsDossier(t *testing.T) {
+	rec := postImage(t, testRouter(t), "")
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
 	}
@@ -39,7 +76,7 @@ func TestAuditTextReturnsDossier(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &d); err != nil {
 		t.Fatalf("not a Dossier: %v", err)
 	}
-	if d.SchemaVersion != 2 || d.InputType != models.InputText {
+	if d.SchemaVersion != 2 || d.InputType != models.InputFile || !d.Pillars.ELA.Available {
 		t.Fatalf("unexpected dossier: %+v", d)
 	}
 	if d.IsDemo {
@@ -51,17 +88,19 @@ func TestAuditTextReturnsDossier(t *testing.T) {
 	if d.ShareToken == "" {
 		t.Error("expected a signed share token")
 	}
+	// An ordinary photo declares nothing; the contract still names the kind.
+	if !d.Pillars.AI.Available || d.Pillars.AI.Provenance.Kind != models.ProvenanceNone || d.Pillars.AI.Reliability <= 0 {
+		t.Errorf("ai pillar = %+v", d.Pillars.AI)
+	}
+	if !strings.Contains(rec.Body.String(), `"detector":null`) {
+		t.Error("an unconfigured detector must serialise as null")
+	}
 }
 
-func TestAuditTextRejectsEmptyAndOversize(t *testing.T) {
-	for _, body := range []string{`{"text":""}`, `{"text":"   "}`} {
-		if rec := postJSON(t, "/api/v1/audit/text", body, ""); rec.Code != http.StatusBadRequest {
-			t.Errorf("body %q: status = %d, want 400", body, rec.Code)
-		}
-	}
-	long := strings.Repeat("a", 5001)
-	if rec := postJSON(t, "/api/v1/audit/text", `{"text":"`+long+`"}`, ""); rec.Code != http.StatusBadRequest {
-		t.Errorf("oversize text: status = %d, want 400", rec.Code)
+// AMBA checks links and images only; there is no text route.
+func TestThereIsNoTextAudit(t *testing.T) {
+	if rec := postJSON(t, "/api/v1/audit/text", `{"text":"halo"}`, ""); rec.Code == http.StatusOK {
+		t.Fatalf("status = %d, the text route must not exist", rec.Code)
 	}
 }
 
@@ -87,10 +126,15 @@ func TestAuditURLAcceptsHTTPS(t *testing.T) {
 	if !d.Pillars.Link.Available {
 		t.Error("link pillar should be available for a URL audit")
 	}
+	// No preview image could be read, so there is no image to judge; the
+	// provenance kind is still a valid enum value, never "".
+	if d.Pillars.AI.Available || d.Pillars.AI.Provenance.Kind != models.ProvenanceNone {
+		t.Errorf("ai pillar = %+v", d.Pillars.AI)
+	}
 }
 
 func TestAuditSSEOrder(t *testing.T) {
-	rec := postJSON(t, "/api/v1/audit/text", `{"text":"Bantuan hari ini saja"}`, "text/event-stream")
+	rec := postJSON(t, "/api/v1/audit/url", `{"url":"https://example.org/bantuan"}`, "text/event-stream")
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d", rec.Code)
 	}
@@ -113,7 +157,7 @@ func TestAuditSSEOrder(t *testing.T) {
 }
 
 func TestAuditSSENeverEmitsHeartbeatAsProgress(t *testing.T) {
-	rec := postJSON(t, "/api/v1/audit/text", `{"text":"halo"}`, "text/event-stream")
+	rec := postImage(t, testRouter(t), "text/event-stream")
 	if strings.Contains(rec.Body.String(), "event: ping") {
 		t.Error("heartbeat must be a comment, never an event")
 	}
@@ -121,7 +165,7 @@ func TestAuditSSENeverEmitsHeartbeatAsProgress(t *testing.T) {
 
 func TestVerifyRoundTrip(t *testing.T) {
 	router := testRouter(t)
-	rec := postJSONTo(t, router, "/api/v1/audit/text", `{"text":"contoh untuk token"}`, "")
+	rec := postJSONTo(t, router, "/api/v1/audit/url", `{"url":"https://example.org/token"}`, "")
 	var d models.Dossier
 	if err := json.Unmarshal(rec.Body.Bytes(), &d); err != nil {
 		t.Fatal(err)
@@ -174,7 +218,7 @@ func TestReplyRequiresValidToken(t *testing.T) {
 
 func TestReplyReturnsTemplate(t *testing.T) {
 	router := testRouter(t)
-	rec := postJSONTo(t, router, "/api/v1/audit/text", `{"text":"contoh balasan"}`, "")
+	rec := postImage(t, router, "")
 	var d models.Dossier
 	_ = json.Unmarshal(rec.Body.Bytes(), &d)
 
@@ -223,15 +267,10 @@ func TestAuditFileRejectsNonImage(t *testing.T) {
 
 // The contract says arrays; a nil Go slice must never reach the wire as null.
 func TestAuditJSONNeverContainsNullArrays(t *testing.T) {
-	for _, body := range []string{
-		`{"text":"Bantuan dibagikan hari ini saja"}`,
-		`{"url":"https://example.org/artikel"}`,
+	for path, rec := range map[string]*httptest.ResponseRecorder{
+		"/api/v1/audit/url":  postJSON(t, "/api/v1/audit/url", `{"url":"https://example.org/artikel"}`, ""),
+		"/api/v1/audit/file": postImage(t, testRouter(t), ""),
 	} {
-		path := "/api/v1/audit/text"
-		if strings.Contains(body, `"url"`) {
-			path = "/api/v1/audit/url"
-		}
-		rec := postJSON(t, path, body, "")
 		if rec.Code != http.StatusOK {
 			t.Fatalf("%s: status = %d, body = %s", path, rec.Code, rec.Body.String())
 		}
@@ -267,4 +306,17 @@ func isArrayField(key string) bool {
 		return true
 	}
 	return false
+}
+
+// A TikTok link blocks the preview, but the downloaded video is the post's
+// content: the note must not say the content went unchecked.
+func TestExplanationSkipsTheBlockedPreviewWhenTheVideoWasAnalysed(t *testing.T) {
+	md := &models.SourceMetadata{Status: models.MetadataBlocked}
+	v := models.Verdict{Basis: []string{"ai"}}
+	if got := explanation(v, md, false); !strings.Contains(got, "tidak mengizinkan pembacaan otomatis") {
+		t.Fatalf("without a video: %q", got)
+	}
+	if got := explanation(v, md, true); strings.Contains(got, "tidak mengizinkan") {
+		t.Fatalf("with an analysed video: %q", got)
+	}
 }

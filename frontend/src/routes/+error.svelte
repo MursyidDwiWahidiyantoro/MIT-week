@@ -1,25 +1,25 @@
 <script lang="ts">
+  import { t } from '$lib/i18n/index.svelte';
   import { page } from '$app/state';
   import { resolve } from '$app/paths';
 </script>
 
-<svelte:head><title>Halaman tidak ditemukan — AMBA</title></svelte:head>
+<svelte:head><title>{t('error.title404')}</title></svelte:head>
 
 <section class="state">
-  <p class="eyebrow">{page.status === 404 ? '404' : 'Kendala'}</p>
-  <h1 class="h1">{page.status === 404 ? 'Halaman tidak ditemukan' : 'Ada kendala di halaman ini'}</h1>
+  <p class="eyebrow">{page.status === 404 ? '404' : t('error.eyebrow')}</p>
+  <h1 class="h1">{page.status === 404 ? t('error.h404') : t('error.hOther')}</h1>
   <p class="lede">
     {#if page.status === 404}
-      Alamat ini tidak ada. Mungkin tautannya salah ketik atau sudah dipindahkan.
+      {t('error.lede404')}
     {:else}
-      Halaman ini gagal dimuat. Coba muat ulang; kalau masih gagal, kembali ke
-      beranda dan mulai lagi.
+      {t('error.ledeOther')}
     {/if}
   </p>
 
   <div class="actions">
-    <a class="btn btn--primary" href={resolve('/')}>Kembali ke beranda</a>
-    <a class="btn btn--quiet" href={resolve('/deteksi')}>Periksa konten</a>
+    <a class="btn btn--primary" href={resolve('/')}>{t('error.home')}</a>
+    <a class="btn btn--quiet" href={resolve('/deteksi')}>{t('error.check')}</a>
   </div>
 </section>
 

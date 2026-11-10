@@ -1,7 +1,7 @@
 {
   "name": "AMBA — Periksa sebelum percaya",
   "short_name": "AMBA",
-  "description": "Periksa tautan, tangkapan layar, dan pesan yang mencurigakan. Hasilnya indikatif, bukan bukti pasti.",
+  "description": "Periksa gambar dan tautan yang mencurigakan: buatan AI atau asli, teks ditimpa, tautan asli atau jebakan. Hasilnya indikatif, bukan bukti pasti.",
   "lang": "id",
   "dir": "ltr",
   "start_url": "/",

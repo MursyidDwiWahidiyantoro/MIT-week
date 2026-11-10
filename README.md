@@ -1,29 +1,34 @@
-# AMBA — Aplikasi Mengenali & Bertindak Aman (IN DEVELOPMENT)
+# AMBA — Aplikasi Mengenali & Bertindak Aman
 
-Alat bantu literasi digital untuk memeriksa tautan, tangkapan layar, dan pesan
-yang mencurigakan. Hasil analisis bersifat **indikatif** — bukan bukti pasti,
-bukan alat bukti hukum.
+Alat bantu literasi digital untuk memeriksa **gambar** dan **tautan** yang
+mencurigakan: apakah gambar dibuat dengan AI atau asli, apakah teks di gambar
+ditimpa, dan apakah tautan itu asli atau jebakan/hoaks. Hasil analisis bersifat
+**indikatif** — bukan bukti pasti, bukan alat bukti hukum.
 
 ## Arsitektur
 
 ```
-Browser (SvelteKit SPA)
-   │  POST /api/v1/audit/{url,file,text}   (JSON or SSE)
-   ▼
+Browser (SvelteKit SPA, ID/EN)        Telegram
+   │  POST /api/v1/audit/{url,file}        │  POST /telegram/webhook
+   │  (SSE: stage → partial → verdict)     │
+   ▼                                       ▼
 Go API (chi)
-   ├── internal/security     SSRF-safe client, upload validation, rate limit, CORS
-   ├── internal/pipeline     errgroup, real per-pillar events, degradation, TTL cache
-   │      ├── forensics     server-side ELA (original bytes)
-   │      ├── pagefetch     reads the submitted page through the SSRF client
-   │      ├── llm           Maru via 9router, vision + structured findings (or mock)
-   │      ├── retrieval     fixed news endpoint, filtered by the allowlist
-   │      ├── grounding     allowlist source verification
-   │      └── imaging       downscale for the vision model
-   ├── internal/scoring      the ONLY place a score is computed
-   ├── internal/reply        Balas Sopan: validated model draft + templates
-   ├── internal/safebrowsing optional Safe Browsing v4 (placeholder without a key)
-   ├── internal/token        HMAC-signed share tokens
-   └── internal/demo         bundled example dossiers
+   ├── internal/security   SSRF-safe client, upload validation, rate limit, CORS
+   ├── internal/pipeline   per-step budgets, progressive SSE, degradation, LRU cache
+   │      ├── forensics    server-side ELA (original bytes)
+   │      ├── linkcheck    URL heuristics, redirect unrolling, Safe Browsing, domain age
+   │      ├── metadata     oEmbed / OpenGraph preview
+   │      ├── pagefetch    visible text of an ordinary web page, through the SSRF client
+   │      ├── video        yt-dlp + ffmpeg: keyframes and soundtrack of social videos
+   │      ├── llm          OpenAI-compatible gateway with fallback (or mock): analyze, classify, video
+   │      ├── grounding    fact-check search (Google, Tavily) and allowlist verification
+   │      └── retrieval    keyless news search fallback, filtered by the allowlist
+   ├── internal/scoring    the ONLY place a score is computed
+   ├── internal/reply      Balas Sopan drafts, validated, template fallback
+   ├── internal/token      HMAC-signed share tokens
+   ├── internal/telegram   bot entry point (PRD P2)
+   ├── internal/metrics    anonymous counters on an internal listener
+   └── internal/demo       generated example dossiers (cmd/gendemo)
 ```
 
 The model never returns a score or status. `internal/scoring` combines the
@@ -39,6 +44,9 @@ Cukup **Docker**. Tidak perlu memasang Go, Node, atau `make`.
 |---|---|
 | **Windows** | Klik dua kali **`start.bat`** |
 | **Linux / macOS** | Jalankan **`./start.sh`** (atau klik dua kali di file manager) |
+Deploy publik (Vercel + Fly.io atau Railway): ikuti [`docs/DEPLOY.md`](docs/DEPLOY.md).
+
+---
 
 Skrip mengecek Docker, menyalakan semuanya, menunggu sampai siap, lalu
 menampilkan alamatnya. Buka alamat itu di browser. Matikan dengan
@@ -134,7 +142,7 @@ VITE_API_MODE=http VITE_API_BASE_URL=http://localhost:8080/api/v1 \
 Cara memastikan sudah benar:
 
 - Banner kuning “Mode pratinjau” **hilang**.
-- Di DevTools → Network ada `POST http://localhost:8080/api/v1/audit/text`
+- Di DevTools → Network ada `POST http://localhost:8080/api/v1/audit/url`
   saat menekan **Mulai periksa**.
 - Halaman `/hasil` **tidak** menampilkan pita merah “CONTOH / SIMULASI”.
 
@@ -170,16 +178,16 @@ VITE_API_MODE=mock npm run build && npm run preview -- --port 4400
 
 Yang perlu dicek di preview:
 
-- Semua halaman terbuka: `/`, `/deteksi`, `/hasil`, `/edukasi`, `/cek-cepat`,
-  `/tentang`, dan satu URL ngawur untuk melihat 404.
+- Semua halaman terbuka: `/`, `/deteksi`, `/hasil`, `/edukasi`, `/tentang`,
+  dan satu URL ngawur untuk melihat 404.
 - Tidak ada scroll horizontal di 360px, 390px, 768px, 1280px.
 - Toggle **A / A+ / A++** memperbesar seluruh halaman dan tersimpan setelah reload.
 - Toggle **Jelajah / Esensial**: Esensial menjadi satu kolom dan tanpa animasi.
 - Tab / Shift+Tab: skip link **“Langsung ke isi utama”** muncul pertama, setiap
   perhentian punya ring fokus hitam 4px.
-- Tab **Pesan / Tautan** di kartu hero mengganti teks contoh, meter risiko,
-  dan tiga tanda bahaya.
-- Kuis “Asli atau scam?” memberi umpan balik lalu bisa diulang.
+- Tab **Gambar / Tautan** di kartu hero mengganti contoh, meter risiko, dan
+  tiga tanda bahaya.
+- Kuis “Asli atau jebakan?” memberi umpan balik lalu bisa diulang.
 
 ---
 
@@ -188,18 +196,23 @@ Yang perlu dicek di preview:
 ### Pemeriksaan statis (wajib lulus sebelum commit)
 
 ```bash
-cd backend  && go vet ./... && go test -race ./...
+cd backend  && gofmt -l . && go vet ./... && go test -race ./...
+cd backend  && go run ./cmd/gendemo && git status --porcelain   # harus kosong
 cd frontend && npm run typecheck && npm run lint && npm run test
-cd frontend && npm run build && npm run size && npm run contrast
+cd frontend && npm run build && npm run size && npm run contrast && npm run headers
 ```
 
 | Perintah | Menjaga apa |
 |---|---|
+| `go test -race ./...` | 385 test di 16 paket, termasuk vektor skor 1–12 |
+| `go run ./cmd/gendemo` | data demo dan gambar kuis dibuat ulang tanpa diff |
 | `npm run typecheck` | Svelte + TypeScript, 0 error / 0 warning |
 | `npm run lint` | ESLint, termasuk aturan a11y Svelte |
-| `npm run test` | 56 unit test (Vitest + jsdom) |
+| `npm run test` | 60 unit test (Vitest + jsdom), termasuk paritas kamus ID/EN |
 | `npm run contrast` | 82 pasang warna ≥ 4.5:1 di tema gelap dan terang, dibaca langsung dari `tokens.css` |
-| `npm run size` | JS awal ≤ 250 KB gzip |
+| `npm run size` | total JS ≤ 250 KB gzip (sekarang 142,0 KB) |
+| `npm run headers` | header di `vercel.json` sama dengan `security-headers.json` |
+| `npm run lighthouse` | dari folder `frontend` setelah build: performa/best practices/SEO ≥ 90, a11y ≥ 95, CLS ≤ 0,1 di setiap rute |
 
 ### End-to-end (membuktikan backend sungguhan)
 
@@ -209,10 +222,11 @@ npm run test:e2e            # sama dengan: npx playwright test
 ```
 
 Tes ini **menyalakan sendiri** Go (`LLM_MOCK=true`, port 8080) dan preview build
-(port 4173), lalu menjalankan 14 skenario: audit teks sampai `/hasil`, keempat
+(port 4173), lalu menjalankan semua skenario: audit tautan sampai `/hasil`, keempat
 pilar, demo offline tanpa panggilan API, unggah gambar sampai slider ELA,
-token yang diubah, rate limit, error server, tipografi Esensial, dan axe di
-enam permukaan (lima rute + `/hasil`), masing-masing di tema gelap dan terang.
+tautan yang tidak bisa dibaca, token yang diubah, rate limit, error server,
+paritas Mode Jelajah/Esensial, read-aloud, pindah bahasa, dan axe di enam
+permukaan (tema gelap dan terang) serta lima rute dalam bahasa Inggris.
 Inilah perintah yang dipakai job `e2e` di CI.
 
 Butuh Chromium sekali saja:
@@ -247,7 +261,7 @@ riwayat pengerjaan dan daftar bug yang ditemukan ada di
 | Banner “Mode pratinjau” tidak hilang | masih mode mock | set `VITE_API_MODE=http` |
 | “Pemeriksaan terhenti” / gagal konek | backend belum jalan | `curl localhost:8080/healthz` |
 | `EADDRINUSE :5173` | port dipakai proyek lain | `npm run dev -- --port 5199 --strictPort` |
-| Halaman kosong setelah build | CSP memblokir bootstrap | jangan ubah `csp.mode` di `svelte.config.js` |
+| Halaman kosong setelah build | CSP memblokir bootstrap | jangan ubah `csp.mode` di `vite.config.ts` |
 | `/hasil` kosong setelah reload | memang tidak disimpan | ulangi pemeriksaan; hasil hanya ada di memori |
 | `make up`: cannot connect to the Docker daemon | daemon Docker belum jalan | `sudo systemctl start docker` (Linux) atau buka Docker Desktop |
 | Port 80 terpakai (Docker) | ada web server lain | `FRONTEND_PORT=3000 make up` |
@@ -255,21 +269,31 @@ riwayat pengerjaan dan daftar bug yang ditemukan ada di
 
 ## Environment
 
+Daftar lengkap dengan komentar ada di [`.env.example`](.env.example).
+
 | Variable | Default | Notes |
 |---|---|---|
-| `SERVER_PORT` | `8080` | |
-| `ENVIRONMENT` | `development` | production requires `REPORT_SIGNING_KEY` |
-| `PUBLIC_APP_URL` | `http://localhost:5173` | CORS origin in production |
-| `LLM_MOCK` | `true` | deterministic fake findings; no network |
-| `NINEROUTER_BASE_URL` | `http://localhost:20128/v1` | OpenAI-compatible gateway |
-| `NINEROUTER_MODEL` | — | combo name, e.g. `Maru`; required when `LLM_MOCK=false` |
-| `NINEROUTER_REASONING_EFFORT` | `low` | `minimal`/`low`/`medium`/`high`; low keeps audits inside the budget |
-| `FACT_RETRIEVAL` | `true` | news search for the fact pillar (skipped in mock mode) |
-| `FACT_SEARCH_URL` | `https://www.bing.com/news/search` | fixed endpoint; only allowlisted publishers survive |
+| `SERVER_PORT` | `8080` | falls back to a PaaS-injected `PORT` |
+| `ENVIRONMENT` | `development` | production requires `REPORT_SIGNING_KEY`, an https `PUBLIC_APP_URL` and `LLM_MOCK=false` |
+| `PUBLIC_APP_URL` | `http://localhost:5173` | CORS origin and the link in Telegram replies |
+| `CORS_EXTRA_ORIGINS` | — | more exact origins, comma-separated |
+| `TRUSTED_PROXY_CIDRS` / `CLIENT_IP_HEADER` | — | `*` + `Fly-Client-IP` (Fly.io) or `X-Real-IP` (Railway) |
+| `LLM_MOCK` | `true` | deterministic fake findings; refused in production |
+| `NINEROUTER_BASE_URL` | `http://localhost:20128/v1` | OpenAI-compatible gateway; deployments use OpenRouter (`https://openrouter.ai/api/v1`) |
+| `NINEROUTER_API_KEY` / `NINEROUTER_MODEL` | — | required when `LLM_MOCK=false`; default model `nvidia/nemotron-3.5-super-vl:free` (free, vision) |
+| `LLM_EXTRA_BODY` | — | JSON object merged into every model request, e.g. OpenRouter fallbacks and `reasoning` off |
 | `REPORT_SIGNING_KEY` | — | ≥ 32 bytes, required in production |
+| `GOOGLE_API_KEY` | — | Fact Check Tools + Safe Browsing (`GOOGLE_FACTCHECK_KEY` / `GOOGLE_SAFE_BROWSING_KEY` override) |
+| `SIGHTENGINE_API_USER` / `SIGHTENGINE_API_SECRET` | — | optional AI-image detector for Jejak AI; both or neither |
+| `DOMAIN_AGE_LOOKUP` | `true` | RDAP domain age for links (`NEW_DOMAIN`, `YOUNG_DOMAIN`); only the domain name is sent |
+| `TELEGRAM_BOT_TOKEN` | — | enables the bot; `TELEGRAM_MODE` = `webhook` / `polling` / `off` |
+| `METRICS_ADDR` | — | internal Prometheus listener, off when empty |
 | `MAX_UPLOAD_SIZE_MB` | `10` | |
-| `HARD_TIMEOUT_MS` | `20000` | Maru reasoning needs headroom for image audits |
-| `METRICS_ADDR` | — | optional separate listener, `/metrics` JSON |
+| `HARD_TIMEOUT_MS` | `20000` | past this, a degraded verdict or a 504; the model gets this minus 3 s (a video link has its own `VIDEO_TIMEOUT_MS`) |
+| `NINEROUTER_REASONING_EFFORT` | `low` | `minimal`/`low`/`medium`/`high`, sent as `reasoning_effort` unless `LLM_EXTRA_BODY` sets reasoning |
+| `FACT_RETRIEVAL` / `FACT_SEARCH_URL` | `true` / Bing News RSS | keyless fact search used when neither `GOOGLE_API_KEY` nor `TAVILY_API_KEY` is set (skipped in mock mode); only allowlisted publishers survive |
+| `TAVILY_API_KEY` | — | free fact-check search restricted to the fact-checkers sites |
+| `LLM_FALLBACK_*`, `LLM_AUDIO_INPUT`, `VIDEO_TIMEOUT_MS` | — | second gateway, audio input, budget for social video links (see `.env.example`) |
 | `CACHE_TTL_SECONDS` | `600` | in-memory verdict cache only |
 | `VITE_API_MODE` | `mock` saat `vite dev`, `http` saat build | `http` untuk memakai Go sungguhan |
 | `VITE_API_BASE_URL` | `http://localhost:8080/api/v1` saat dev, `/api/v1` saat build | alamat API yang dipanggil browser; juga menjadi `connect-src` di CSP |
@@ -281,22 +305,23 @@ riwayat pengerjaan dan daftar bug yang ditemukan ada di
 3. Skor dihitung di Go; model bahasa tidak pernah memberi skor.
 4. Data demo tidak pernah dipakai untuk permintaan nyata.
 5. Tidak mengarang URL, penerbit, atau sumber.
-6. Semua teks antarmuka berbahasa Indonesia dan mudah dipahami.
+6. Semua teks antarmuka berbahasa Indonesia secara default dan mudah dipahami;
+   bahasa Inggris tersedia sebagai pilihan.
 7. Tidak pernah mengklaim kepastian.
 
 ## Batasan yang diketahui
 
 - Analisis ELA melemah pada PNG dan tangkapan layar, karena gambar sudah
   disimpan ulang sebelum diperiksa.
-- Pemeriksaan fakta hanya memakai sumber yang ada di allowlist. Tanpa
-  `NINEROUTER_API_KEY` (mode mock) tidak ada pencarian sama sekali; pilar fakta
-  tampil "belum terverifikasi", bukan hasil karangan.
+- Pemeriksaan fakta hanya memakai sumber yang ada di allowlist.
 - Google Safe Browsing adalah **placeholder** sampai `GOOGLE_SAFE_BROWSING_KEY`
   diisi; `GET /api/v1/ops/status` menyatakannya secara terbuka.
-- Model dapat mengabaikan `response_format`; hasilnya tetap dipakai selama
-  memuat skor, tetapi bentuknya dinormalisasi di Go.
+- Skor ELA adalah rata-rata seluruh gambar: suntingan kecil terlihat di peta
+  panas tetapi skornya tetap rendah (lihat `docs/DECISIONS.md`).
+- Isi tautan media sosial yang dikunci login tidak bisa dibaca; hasil
+  mengatakannya dan menawarkan unggah tangkapan layar.
 - Menu bagikan ke AMBA hanya tersedia di peramban yang mendukung Web Share
-  Target (Chrome Android). Di iOS gunakan tombol tempel.
+  Target (Chrome Android). Di iOS gunakan tombol tempel atau bot Telegram.
 - Laporan yang dibagikan hanya memuat ringkasan; gambar dan teks aslinya tidak
   disimpan.
 
@@ -310,7 +335,7 @@ frontend/     SvelteKit 3 (Svelte 5, TS, Tailwind 3) SPA
   src/lib/components/home/      bagian-bagian beranda
   src/lib/components/ui/Icon.svelte   set ikon stroke inline
 configs/      reply templates, trusted-source allowlist
-docs/         PROGRESS.md, DECISIONS.md, DESIGN-SYSTEM.md
+docs/         DEPLOY.md, DOCKER.md, PROGRESS.md, DECISIONS.md, DESIGN-SYSTEM.md
 instruction/  PRD, tech spec, design reference
 ```
 

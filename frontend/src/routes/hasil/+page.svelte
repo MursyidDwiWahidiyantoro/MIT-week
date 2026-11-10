@@ -12,7 +12,13 @@
   import ShareButton from '$lib/components/share/ShareButton.svelte';
   import ReadAloud from '$lib/components/a11y/ReadAloud.svelte';
   import ElaViewer from '$lib/components/hasil/ElaViewer.svelte';
-  import tacticLabels from '$lib/data/tactics.json';
+  import LinkPreview from '$lib/components/hasil/LinkPreview.svelte';
+  import VideoAnalysis from '$lib/components/hasil/VideoAnalysis.svelte';
+  import { autoRead, speak, speechAvailable } from '$lib/a11y.svelte';
+  import { t, locale, type MessageKey } from '$lib/i18n/index.svelte';
+  import { shortTitle, simpleSentence, explanation } from '$lib/i18n/verdict';
+  import tacticLabelsId from '$lib/data/tactics.json';
+  import tacticLabelsEn from '$lib/data/tactics.en.json';
   import Icon from '$lib/components/ui/Icon.svelte';
   import type { DossierParsed } from '$lib/api/schemas';
 
@@ -44,13 +50,7 @@
     if (live && verdictHeading) verdictHeading.focus({ preventScroll: true });
   });
 
-  const BASIS_LABELS: Record<string, string> = {
-    ela: 'Analisis gambar (ELA)',
-    fact: 'Pengecekan fakta',
-    ai: 'Deteksi jejak AI',
-    link: 'Pemeriksaan tautan',
-    llm_untrusted: 'Catatan: teks dari AI tidak dipakai sebagai bukti'
-  };
+  const basisLabel = (b: string): string => t(`basis.${b}` as MessageKey);
 
   const dossier = $derived(live);
   const shareUrl = $derived(
@@ -61,97 +61,116 @@
   const elaAnomalies = $derived(
     live && live.pillars.ela.available ? live.pillars.ela.anomalies : []
   );
+
+  // The text tactic phrases were verified against, so the highlights land
+  // where the user can see them: the link's caption, or what the model read
+  // in the image.
+  const highlight = $derived.by(() => {
+    if (!live) return { text: '', label: '' };
+    if (live.input_type === 'FILE') {
+      return { text: live.ocr_text, label: t('res.ocrLabel') };
+    }
+    if (live.input_type === 'URL' && live.source_metadata) {
+      const md = live.source_metadata;
+      const caption = [md.title, md.description !== md.title ? md.description : '']
+        .filter(Boolean)
+        .join('\n');
+      return { text: caption, label: t('res.captionLabel') };
+    }
+    return { text: '', label: '' };
+  });
+
+  const sentence = $derived(live ? simpleSentence(live) : '');
+  const explained = $derived(live ? explanation(live) : '');
+  const spoken = $derived(live ? `${sentence} ${explained}` : '');
+  const sharedTitle = (p: { title?: string; status: string }) =>
+    locale.value === 'id' && p.title ? p.title : statusLabel(p.status as never);
+
+  // Optional auto-read (PRD F14): off by default, speaks once per result.
+  let autoReadDone = false;
+  $effect(() => {
+    if (live && !autoReadDone && autoRead.value && speechAvailable()) {
+      autoReadDone = true;
+      speak(spoken);
+    }
+  });
 </script>
 
-<svelte:head><title>Hasil pemeriksaan — AMBA</title></svelte:head>
+<svelte:head><title>{t('res.title')}</title></svelte:head>
 
 {#if checking}
   <section class="state">
-    <p class="eyebrow">Verifikasi</p>
-    <h1 class="h1">Memeriksa laporan…</h1>
-    <p class="lede" aria-live="polite">
-      Mencocokkan tautan ini dengan laporan yang ditandatangani AMBA.
-    </p>
+    <p class="eyebrow">{t('res.verifyEyebrow')}</p>
+    <h1 class="h1">{t('res.checkingH1')}</h1>
+    <p class="lede" aria-live="polite">{t('res.checkingLede')}</p>
   </section>
 {:else if shared && !shared.valid && shared.reason === 'invalid'}
   <section class="state">
-    <p class="eyebrow">Verifikasi</p>
-    <h1 class="h1">Laporan tidak sah</h1>
-    <p class="lede">
-      Tautan ini tidak dapat diverifikasi. Isinya mungkin sudah diubah, atau tautannya tidak lengkap.
-    </p>
-    <a class="btn btn--primary" href={resolve('/deteksi')}>Periksa sendiri kontennya</a>
+    <p class="eyebrow">{t('res.verifyEyebrow')}</p>
+    <h1 class="h1">{t('res.invalidH1')}</h1>
+    <p class="lede">{t('res.invalidLede')}</p>
+    <a class="btn btn--primary" href={resolve('/deteksi')}>{t('res.checkYourself')}</a>
   </section>
 {:else if shared && !shared.valid && shared.reason === 'unreachable'}
   <section class="state">
-    <p class="eyebrow">Verifikasi</p>
-    <h1 class="h1">Laporan belum bisa diperiksa</h1>
-    <p class="lede">
-      Server tidak dapat dihubungi, jadi laporan ini belum bisa dipastikan sah atau tidak.
-      Periksa koneksi Anda lalu buka tautannya lagi.
-    </p>
-    <a class="btn btn--primary" href={resolve('/deteksi')}>Periksa sendiri kontennya</a>
+    <p class="eyebrow">{t('res.verifyEyebrow')}</p>
+    <h1 class="h1">{t('res.unreachableH1')}</h1>
+    <p class="lede">{t('res.unreachableLede')}</p>
+    <a class="btn btn--primary" href={resolve('/deteksi')}>{t('res.checkYourself')}</a>
   </section>
 {:else if shared && !shared.valid}
   <section class="state">
-    <p class="eyebrow">Verifikasi</p>
-    <h1 class="h1">Laporan sedang tidak bisa diperiksa</h1>
+    <p class="eyebrow">{t('res.verifyEyebrow')}</p>
+    <h1 class="h1">{t('res.busyH1')}</h1>
     <p class="lede">
-      Layanan verifikasi sedang sibuk atau bermasalah. Ini bukan tanda laporan Anda palsu.
+      {t('res.busyLede')}
       {#if shared.reason === 'unavailable' && shared.retryAfter}
-        Coba lagi dalam {shared.retryAfter} detik.
+        {t('res.retryIn', { n: shared.retryAfter })}
       {:else}
-        Coba lagi beberapa saat lagi.
+        {t('res.retryLater')}
       {/if}
     </p>
-    <button class="btn btn--primary" type="button" onclick={() => window.location.reload()}>Coba lagi</button>
+    <button class="btn btn--primary" type="button" onclick={() => window.location.reload()}>{t('res.retry')}</button>
   </section>
 {:else if shared && shared.valid && shared.payload.preview}
   <section class="state">
-    <p class="eyebrow">Verifikasi</p>
-    <h1 class="h1">Laporan contoh</h1>
-    <p class="verified verified--preview" role="status">Mode pratinjau</p>
-    <p class="sentence">{shared.payload.title ?? statusLabel(shared.payload.status as never)}</p>
-    <p class="score-line">Skor risiko: {formatScore(shared.payload.score)}</p>
-    <p class="note">
-      Laporan ini dibuat di perangkat Anda dari data contoh. Ini bukan laporan
-      yang ditandatangani server dan bukan hasil pemeriksaan sungguhan.
-    </p>
+    <p class="eyebrow">{t('res.verifyEyebrow')}</p>
+    <h1 class="h1">{t('res.previewH1')}</h1>
+    <p class="verified verified--preview" role="status">{t('res.previewBadge')}</p>
+    <p class="sentence">{sharedTitle(shared.payload)}</p>
+    <p class="score-line">{t('res.scoreLine', { score: formatScore(shared.payload.score) })}</p>
+    <p class="note">{t('res.previewNote')}</p>
   </section>
 {:else if shared && shared.valid}
   <section class="state">
-    <p class="eyebrow">Verifikasi</p>
-    <h1 class="h1">Laporan terverifikasi</h1>
-    <p class="verified" role="status"><Icon name="shield-check" size={18} /> Terverifikasi AMBA</p>
-    <p class="sentence">{shared.payload.title ?? statusLabel(shared.payload.status as never)}</p>
-    <p class="score-line">Skor risiko: {formatScore(shared.payload.score)}</p>
-    <p class="note">
-      Laporan ini hanya memuat ringkasan. Gambar dan teks aslinya tidak disimpan.
-    </p>
+    <p class="eyebrow">{t('res.verifyEyebrow')}</p>
+    <h1 class="h1">{t('res.verifiedH1')}</h1>
+    <p class="verified" role="status"><Icon name="shield-check" size={18} /> {t('res.verifiedBadge')}</p>
+    <p class="sentence">{sharedTitle(shared.payload)}</p>
+    <p class="score-line">{t('res.scoreLine', { score: formatScore(shared.payload.score) })}</p>
+    <p class="note">{t('res.verifiedNote')}</p>
   </section>
 {:else if !dossier}
   <section class="state">
-    <p class="eyebrow">Hasil</p>
-    <h1 class="h1">Hasil tidak tersimpan</h1>
-    <p class="lede">
-      Hasil pemeriksaan hanya tersimpan selama halaman ini terbuka. Silakan periksa lagi.
-    </p>
-    <a class="btn btn--primary" href={resolve('/deteksi')}>Periksa lagi</a>
+    <p class="eyebrow">{t('res.resultEyebrow')}</p>
+    <h1 class="h1">{t('res.goneH1')}</h1>
+    <p class="lede">{t('res.goneLede')}</p>
+    <a class="btn btn--primary" href={resolve('/deteksi')}>{t('res.checkAgain')}</a>
   </section>
 {:else}
   <section class="result-head">
-    <h1 class="h1">Hasil pemeriksaan</h1>
+    <h1 class="h1">{t('res.h1')}</h1>
   </section>
 
   {#if dossier.is_demo}
     <p class="notice notice--demo" role="note">
-      CONTOH / SIMULASI — ini bukan hasil pemeriksaan sungguhan.
+      {t('res.demoNotice')}
     </p>
   {/if}
 
   {#if dossier.degraded}
     <p class="notice" role="note">
-      Sebagian pemeriksaan tidak berjalan. Hasil ini tetap berguna, tetapi belum lengkap.
+      {t('res.degraded')}
     </p>
   {/if}
 
@@ -159,69 +178,95 @@
     <h2 id="verdict-title" class="verdict-heading" tabindex="-1" bind:this={verdictHeading} data-info-key="verdict.score">
       <StatusBadge status={dossier.verdict.status} score={dossier.verdict.score} />
     </h2>
-    <p class="sentence" data-info-key="verdict.sentence">{dossier.verdict.explanation_simple}</p>
-    <p class="explanation" data-info-key="verdict.explanation">{dossier.verdict.explanation}</p>
+    <p class="sentence" data-info-key="verdict.sentence">{sentence}</p>
+    <p class="explanation" data-info-key="verdict.explanation">{explained}</p>
     <div class="read-aloud" data-info-key="readaloud">
-      <ReadAloud text={`${dossier.verdict.explanation_simple} ${dossier.verdict.explanation}`} />
+      <ReadAloud text={spoken} />
+      {#if speechAvailable()}
+        <label class="auto-read">
+          <input
+            type="checkbox"
+            checked={autoRead.value}
+            onchange={(e) => autoRead.set((e.currentTarget as HTMLInputElement).checked)}
+          />
+          {t('res.autoRead')}
+        </label>
+      {/if}
     </div>
   </section>
 
+  {#if dossier.input_type === 'URL' && dossier.source_metadata && !(dossier.source_metadata.status === 'BLOCKED' && dossier.video?.status === 'OK')}
+    <Panel title={t('res.panelLink')}>
+      <div data-info-key="source.metadata">
+        <LinkPreview metadata={dossier.source_metadata} />
+      </div>
+    </Panel>
+  {/if}
+
+  {#if dossier.video}
+    <VideoAnalysis video={dossier.video} ai={dossier.pillars.ai} />
+  {/if}
+
   {#if imageFile && dossier.input_type === 'FILE'}
-    <Panel title="Tampilan gambar">
+    <Panel title={t('res.panelImage')}>
       <ElaViewer file={imageFile} anomalies={elaAnomalies} />
     </Panel>
   {/if}
 
   {#if dossier.tactics.length > 0}
-    <Panel title="Pola yang perlu diwaspadai">
+    <Panel title={t('res.panelTactics')}>
       <div data-info-key="tactics">
         <HighlightedText
-          text={dossier.source_reference}
+          text={highlight.text}
+          sourceLabel={highlight.label}
           tactics={dossier.tactics}
-          labels={tacticLabels}
+          labels={locale.value === 'en' ? tacticLabelsEn : tacticLabelsId}
         />
       </div>
     </Panel>
   {/if}
 
-  <Panel title="Rincian pemeriksaan">
-    <EvidenceAccordion pillars={dossier.pillars} />
+  <Panel title={t('res.panelDetails')}>
+    <EvidenceAccordion
+      pillars={dossier.pillars}
+      inputType={dossier.input_type}
+      fromVideo={dossier.video?.status === 'OK'}
+    />
   </Panel>
 
-  <Panel title="Batas pemeriksaan ini" tone="soft">
+  <Panel title={t('res.panelLimits')} tone="soft">
     <dl data-info-key="verdict.limits">
-      <dt>Berdasarkan</dt>
-      <dd>{dossier.verdict.basis.map((b) => BASIS_LABELS[b] ?? b).join(', ') || '—'}</dd>
-      <dt>Tidak dapat diperiksa</dt>
+      <dt>{t('res.basis')}</dt>
+      <dd>{dossier.verdict.basis.map(basisLabel).join(', ') || '—'}</dd>
+      <dt>{t('res.notChecked')}</dt>
       <dd>
-        {dossier.verdict.not_checked.map((b) => BASIS_LABELS[b] ?? b).join(', ') || 'Semua pemeriksaan berjalan'}
+        {dossier.verdict.not_checked.map(basisLabel).join(', ') || t('res.allRan')}
       </dd>
     </dl>
     <p class="note">
-      Skor ini menunjukkan tingkat risiko, bukan tingkat keyakinan. Hasil bersifat indikatif dan bukan alat bukti hukum.
+      {t('res.limitsNote')}
     </p>
   </Panel>
 
-  <Panel title="Bagikan laporan">
+  <Panel title={t('res.panelShare')}>
     <div data-info-key="share">
       {#if canShare}
-        <ShareButton token={dossier.share_token} title={dossier.verdict.short_title} />
+        <ShareButton token={dossier.share_token} title={shortTitle(dossier)} />
       {:else}
         <p class="note" role="note">
-          Data contoh ini tidak punya tautan bertanda tangan, jadi belum bisa dibagikan.
-          Balas sopan dan kartu bukti tetap tersedia.
+          {t('res.demoNoShare')}
         </p>
       {/if}
     </div>
   </Panel>
 
-  <Panel title="Balas sopan">
+  <Panel title={t('res.panelReply')}>
     <div data-info-key="reply">
       <ReplyCard token={dossier.share_token} status={dossier.verdict.status} demo={dossier.is_demo} />
     </div>
   </Panel>
 
-  <Panel title="Simpan kartu bukti">
+  <Panel title={t('res.panelProof')}>
     <div data-info-key="proofcard">
       <ProofCardExporter {dossier} {shareUrl} />
     </div>
@@ -277,7 +322,9 @@
     max-width: 28ch;
   }
   .explanation { color: var(--body-2); max-width: var(--measure); margin: 0; }
-  .read-aloud { margin-top: var(--space-4); }
+  .read-aloud { margin-top: var(--space-4); display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3) var(--space-5); }
+  .auto-read { display: inline-flex; align-items: center; gap: var(--space-2); min-height: 44px; font-size: var(--text-sm); color: var(--body-2); cursor: pointer; }
+  .auto-read input { width: 20px; height: 20px; accent-color: var(--ink); }
   .score-line { margin: var(--space-2) 0 0; font-weight: 700; }
   .note { margin: var(--space-4) 0 0; color: var(--body-2); font-size: var(--text-sm); max-width: var(--measure); }
 

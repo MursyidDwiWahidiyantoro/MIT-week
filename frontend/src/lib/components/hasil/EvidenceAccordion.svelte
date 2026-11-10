@@ -1,32 +1,46 @@
 <script lang="ts">
+  import { t } from '$lib/i18n/index.svelte';
   import type { DossierParsed } from '$lib/api/schemas';
   import Skeleton from '$lib/components/ui/Skeleton.svelte';
   import Icon from '$lib/components/ui/Icon.svelte';
+  import { linkReason, caveat, reliabilityNote, aiLines } from '$lib/i18n/verdict';
 
   interface Props {
     pillars: DossierParsed['pillars'];
+    /** URL input: the AI card judged the link's preview image. */
+    inputType?: DossierParsed['input_type'];
+    /** The AI card judged the frames of an analysed social video instead. */
+    fromVideo?: boolean;
     pending?: boolean;
   }
 
-  let { pillars, pending = false }: Props = $props();
+  let { pillars, inputType = 'FILE', fromVideo = false, pending = false }: Props = $props();
 
   const LABELS = {
-    ela: 'Analisis gambar (ELA)',
-    ai: 'Deteksi jejak AI',
-    fact: 'Pengecekan fakta',
-    link: 'Pemeriksaan tautan'
+    ela: 'ev.ela',
+    ai: 'pillar.ai',
+    fact: 'pillar.fact',
+    link: 'pillar.link'
   } as const;
 
   type Key = keyof typeof LABELS;
   const order: Key[] = ['ela', 'ai', 'fact', 'link'];
 
   const FACT_LABELS = {
-    CONTRADICTS: 'dibantah sumber',
-    SUPPORTS: 'didukung sumber',
-    UNVERIFIED: 'belum terverifikasi'
+    CONTRADICTS: 'ev.fact.CONTRADICTS',
+    SUPPORTS: 'ev.fact.SUPPORTS',
+    UNVERIFIED: 'ev.fact.UNVERIFIED'
   } as const;
 
   const available = (k: Key) => pillars[k].available;
+
+  // Marked text whose compression differs from the image's other text
+  // (forensics TextEvidence >= scoring.ELAEvidenceMin).
+  const pastedCount = $derived(pillars.ela.anomalies.filter((a) => (a.evidence ?? -1) >= 50).length);
+
+  // scoring.ELAEvidenceMin: below it image analysis is reported as checked
+  // but is not evidence either way, so the card says so.
+  const ELA_EVIDENCE_MIN = 50;
 
   // The pillar union has no shared `score`; narrow by key instead of casting.
   function pillarScore(p: DossierParsed['pillars'], k: Key): number {
@@ -47,15 +61,15 @@
   {#each order as key (key)}
     <details class="item" data-info-key={`pillar.${key}`} open={available(key)}>
       <summary>
-        <span class="name">{LABELS[key]}</span>
+        <span class="name">{t(LABELS[key])}</span>
         {#if pending}
-          <span class="state pending">memeriksa…</span>
+          <span class="state pending">{t('ev.checking')}</span>
         {:else if !available(key)}
-          <span class="state skipped">Tidak dapat diperiksa</span>
+          <span class="state skipped">{t('ev.notRun')}</span>
         {:else if key === 'fact'}
-          <span class="state done">{FACT_LABELS[pillars.fact.status]}</span>
+          <span class="state done">{t(FACT_LABELS[pillars.fact.status])}</span>
         {:else}
-          <span class="state done">skor {pillarScore(pillars, key)}</span>
+          <span class="state done">{t('ev.score', { n: pillarScore(pillars, key) })}</span>
         {/if}
         <span class="chev" aria-hidden="true"><Icon name="chevron" size={18} /></span>
       </summary>
@@ -64,19 +78,22 @@
         {#if pending}
           <Skeleton lines={2} />
         {:else if !available(key)}
-          <p class="note">Pemeriksaan ini tidak berjalan untuk konten ini. Hasil di atas tidak memakainya.</p>
+          <p class="note">{t('ev.notRunNote')}</p>
         {:else if key === 'ela'}
           <p>
-            Keandalan {Math.round(pillars.ela.reliability * 100)}%.
-            {#if pillars.ela.reliability_note}{pillars.ela.reliability_note}{/if}
+            {t('ev.reliability', { n: Math.round(pillars.ela.reliability * 100) })}
+            {#if pillars.ela.reliability_note}{reliabilityNote(pillars.ela.reliability_note)}{/if}
           </p>
+          {#if pillars.ela.score < ELA_EVIDENCE_MIN}<p>{t('ev.elaInconclusive')}</p>{/if}
           {#if pillars.ela.anomalies.length}
-            <p>{pillars.ela.anomalies.length} area perlu dilihat.</p>
+            <p>{t('ev.areas', { n: pillars.ela.anomalies.length })}</p>
+            {#if pastedCount > 0}<p>{t('ev.textEvidence', { n: pastedCount })}</p>{/if}
           {:else}
-            <p>Tidak ada area menonjol yang terdeteksi.</p>
+            <p>{t('ev.noAreas')}</p>
           {/if}
         {:else if key === 'ai'}
-          <p>{pillars.ai.caveat}</p>
+          {#each aiLines(pillars.ai, inputType, fromVideo) as line (line)}<p>{line}</p>{/each}
+          <p class="note">{caveat(pillars.ai.caveat ?? '')}</p>
           {#if (pillars.ai.indicators ?? []).length}
             <ul>
               {#each pillars.ai.indicators ?? [] as indicator (indicator)}<li>{indicator}</li>{/each}
@@ -84,8 +101,8 @@
           {/if}
         {:else if key === 'fact'}
           <div data-info-key="sources">
-            {#if pillars.fact.claim}<p>Klaim: “{pillars.fact.claim}”</p>{/if}
-            <p>Status: {FACT_LABELS[pillars.fact.status]}</p>
+            {#if pillars.fact.claim}<p>{t('ev.claim', { claim: pillars.fact.claim })}</p>{/if}
+            <p>{t('ev.status', { status: t(FACT_LABELS[pillars.fact.status]) })}</p>
             {#if (pillars.fact.sources ?? []).length}
               <ul>
                 {#each pillars.fact.sources ?? [] as s (s.url)}
@@ -101,17 +118,17 @@
                 {/each}
               </ul>
             {:else}
-              <p class="note">Tidak ada sumber terverifikasi untuk klaim ini.</p>
+              <p class="note">{t('ev.noSources')}</p>
             {/if}
           </div>
         {:else if key === 'link'}
-          {#if pillars.link.final_url}<p>Alamat akhir: {pillars.link.final_url}</p>{/if}
+          {#if pillars.link.final_url}<p class="url">{t('ev.finalUrl', { url: pillars.link.final_url })}</p>{/if}
           {#if (pillars.link.reasons ?? []).length}
             <ul>
-              {#each pillars.link.reasons ?? [] as r (r.code)}<li>{r.text}</li>{/each}
+              {#each pillars.link.reasons ?? [] as r (r.code)}<li>{linkReason(r.code, r.text)}</li>{/each}
             </ul>
           {:else}
-            <p>Tidak ada tanda mencurigakan pada tautan.</p>
+            <p>{t('ev.noReasons')}</p>
           {/if}
         {/if}
       </div>

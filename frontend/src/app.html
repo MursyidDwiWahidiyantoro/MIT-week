@@ -8,6 +8,11 @@
     <link rel="icon" href="%sveltekit.assets%/favicon.svg" />
     <link rel="manifest" href="%sveltekit.assets%/manifest.webmanifest" />
     <link rel="apple-touch-icon" href="%sveltekit.assets%/icons/apple-touch-icon.png" />
+    <!-- Applies stored display preferences before the first paint, so a
+         returning visitor never sees the page restyle (and the first render
+         is not followed by a full-document style recalculation). Its CSP
+         hash is computed from this file in vite.config.ts. -->
+    <script>(function(){try{var d=document.documentElement,s=localStorage;if(s.getItem('amba-theme')==='light')d.dataset.theme='light';var l=s.getItem('amba.lang');if(l==='en'||l==='id')d.lang=l}catch(e){}})();</script>
     %sveltekit.head%
   </head>
   <body data-sveltekit-preload-data="hover">

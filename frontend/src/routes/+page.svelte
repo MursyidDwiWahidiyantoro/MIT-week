@@ -1,20 +1,23 @@
 <script lang="ts">
+  import { t } from '$lib/i18n/index.svelte';
   import { resolve } from '$app/paths';
   import Icon from '$lib/components/ui/Icon.svelte';
   import ScannerCard from '$lib/components/home/ScannerCard.svelte';
   import HowItWorks from '$lib/components/home/HowItWorks.svelte';
   import ScamSchool from '$lib/components/home/ScamSchool.svelte';
   import MadeForEveryone from '$lib/components/home/MadeForEveryone.svelte';
+  import Deferred from '$lib/components/ui/Deferred.svelte';
 
-  const TRUST = ['Tanpa jargon', 'Teks mudah dibaca', 'Aman untuk seisi rumah'];
+  const TRUST = ['home.trust1', 'home.trust2', 'home.trust3'] as const;
+  const MARQUEE = [
+    'home.marquee1', 'home.marquee2', 'home.marquee3', 'home.marquee4',
+    'home.marquee5', 'home.marquee6', 'home.marquee7', 'home.marquee8'
+  ] as const;
 </script>
 
 <svelte:head>
-  <title>AMBA — Periksa sebelum percaya</title>
-  <meta
-    name="description"
-    content="Tempel tautan, pesan. AMBA memeriksanya dalam hitungan detik dan menjelaskan alasannya dengan kata-kata sederhana."
-  />
+  <title>{t('home.title')}</title>
+  <meta name="description" content={t('home.description')} />
 </svelte:head>
 
 <section class="hero" id="top">
@@ -30,17 +33,15 @@
       <div class="hero-copy">
 
         <h1 class="hero-title">
-          Kenali scam <span class="mark">sebelum</span> kena.
+          {t('home.h1.a')} <span class="mark">{t('home.h1.mark')}</span> {t('home.h1.b')}
         </h1>
 
         <p class="hero-lede">
-          Tempel pesan atau tautan. Pemeriksaan berjalan dalam hitungan
-          detik, dan alasannya dijelaskan dengan kata-kata sederhana. Semakin sering
-          dipakai, semakin peka Anda.
+          {t('home.lede')}
         </p>
 
         <form class="hero-form" action={resolve('/deteksi')} method="GET">
-          <label class="sr-only" for="hero-url">Tempel tautan yang ingin diperiksa</label>
+          <label class="sr-only" for="hero-url">{t('home.urlLabel')}</label>
           <input
             id="hero-url"
             class="input"
@@ -48,29 +49,29 @@
             name="q"
             inputmode="url"
             autocomplete="off"
-            placeholder="Tempel tautan TikTok, YouTube, Instagram, atau situs..."
+            placeholder={t('home.urlPlaceholder')}
           />
-          <button class="btn btn--primary" type="submit">Periksa</button>
+          <button class="btn btn--primary" type="submit">{t('home.urlSubmit')}</button>
         </form>
         <p class="hero-hint">
-          Punya tangkapan layar atau pesan? <a href={resolve('/deteksi')}>Buka ruang deteksi</a>.
+          {t('home.hint')} <a href={resolve('/deteksi')}>{t('home.hintLink')}</a>.
         </p>
 
         <div class="cta-row">
           <a class="btn btn--primary btn--hero group" href={resolve('/deteksi')}>
-            <span>Periksa sekarang</span>
+            <span>{t('home.ctaCheck')}</span>
             <span class="btn-icon-circle" aria-hidden="true">
               <Icon name="arrow-right" size={18} />
             </span>
           </a>
-          <a class="btn btn--quiet" href="#learn">Ambil satu pelajaran</a>
+          <a class="btn btn--quiet" href="#learn">{t('home.ctaLearn')}</a>
         </div>
 
         <ul class="trust">
           {#each TRUST as item (item)}
             <li>
               <span class="tick" aria-hidden="true"><Icon name="check" size={16} /></span>
-              <span>{item}</span>
+              <span>{t(item)}</span>
             </li>
           {/each}
         </ul>
@@ -83,21 +84,24 @@
   </div>
 </section>
 
-<section class="marquee" aria-label="Jenis scam yang bisa dikenali">
+<Deferred order={0}>
+<section class="marquee" aria-label={t('home.marqueeLabel')}>
   <div class="marquee__track">
     {#each [0, 1] as copy (copy)}
       <div class="marquee__group" aria-hidden={copy === 1 ? 'true' : undefined}>
-        {#each ['Hadiah palsu', 'Phishing bank', 'Paket tertahan', 'Romansa online', 'Lowongan palsu', 'Investasi bodong', 'Penyamaran', 'Tagihan palsu'] as item (item)}
-          <span class="marquee__item">{item}<Icon name="sparkle" size={20} /></span>
+        {#each MARQUEE as item (item)}
+          <span class="marquee__item">{t(item)}<Icon name="sparkle" size={20} /></span>
         {/each}
       </div>
     {/each}
   </div>
 </section>
 
-<HowItWorks />
-<ScamSchool />
-<MadeForEveryone />
+</Deferred>
+
+<Deferred order={1}><HowItWorks /></Deferred>
+<Deferred order={2}><ScamSchool /></Deferred>
+<Deferred order={3}><MadeForEveryone /></Deferred>
 
 <section class="family-section section" id="family">
   <div class="wrap">
@@ -105,14 +109,13 @@
       <span class="blob blob--safe" aria-hidden="true"></span>
       <span class="blob blob--yellow" aria-hidden="true"></span>
       <div class="family-body">
-        <h2 class="h2">Ada pesan aneh masuk sekarang?</h2>
+        <h2 class="h2">{t('home.familyTitle')}</h2>
         <p class="family-lede">
-          Periksa dulu, baru teruskan. Setelah itu kirim panduan keluarga ke orang yang
-          Anda sayangi, supaya satu grup tetap selangkah lebih aman.
+          {t('home.familyLede')}
         </p>
         <div class="cta-row">
-          <a class="btn btn--safe" href={resolve('/deteksi')}>Periksa gratis</a>
-          <a class="btn btn--quiet" href={resolve('/panduan-keluarga')}>Buka panduan keluarga</a>
+          <a class="btn btn--safe" href={resolve('/deteksi')}>{t('home.familyCheck')}</a>
+          <a class="btn btn--quiet" href={resolve('/panduan-keluarga')}>{t('home.familyGuide')}</a>
         </div>
       </div>
     </div>

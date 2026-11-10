@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '$lib/i18n/index.svelte';
   import Icon, { type IconName } from './Icon.svelte';
   import type { Status } from '$lib/api/types';
   import { statusLabel } from '$lib/format';
@@ -25,7 +26,7 @@
   <span class="icon" aria-hidden="true"><Icon name={config.icon} size={20} /></span>
   <span class="label">{statusLabel(status)}</span>
   {#if score !== null}
-    <span class="score">Skor risiko {score} dari 100</span>
+    <span class="score">{t('score.of100', { score })}</span>
   {/if}
 </p>
 

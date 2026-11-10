@@ -1,6 +1,7 @@
-// Package pipeline orchestrates one audit. Pillars run concurrently under a
-// shared deadline, publish their own progress, and degrade honestly when a
-// dependency fails. No pillar failure ever becomes an HTTP error.
+// Package pipeline orchestrates one audit: it runs the pillars concurrently
+// under a shared deadline, reports each pillar the moment it finishes,
+// degrades gracefully when one fails, and caches the final result for a
+// short TTL.
 package pipeline
 
 import (
@@ -8,6 +9,8 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"image"
+	"net/http"
 	"regexp"
 	"strings"
 	"sync"
@@ -17,151 +20,149 @@ import (
 
 	"github.com/amba/amba/backend/internal/forensics"
 	"github.com/amba/amba/backend/internal/grounding"
-	"github.com/amba/amba/backend/internal/imaging"
 	"github.com/amba/amba/backend/internal/linkcheck"
 	"github.com/amba/amba/backend/internal/llm"
+	"github.com/amba/amba/backend/internal/metadata"
 	"github.com/amba/amba/backend/internal/models"
 	"github.com/amba/amba/backend/internal/pagefetch"
-	"github.com/amba/amba/backend/internal/retrieval"
+	"github.com/amba/amba/backend/internal/provenance"
 	"github.com/amba/amba/backend/internal/scoring"
 	"github.com/amba/amba/backend/internal/security"
 	"github.com/amba/amba/backend/internal/tactics"
+	"github.com/amba/amba/backend/internal/video"
 )
 
-// Request is one audit input. Exactly one of URL, Text or Image is set.
+// Request is one audit input: a link (URL) or an uploaded image (Image).
 type Request struct {
 	InputType models.InputType
 	URL       string
-	Text      string
 	Image     []byte
-	ImageMIME string
-	OCRText   string
+	// ImageFormat is the validated decoder format ("jpeg", "png", "webp").
+	ImageFormat string
+	// OCRText is an optional client-side hint for FILE input.
+	OCRText string
 }
-
-// Event is a real progress update. It is only emitted when work actually
-// starts or finishes; nothing here is a timer pretending to be progress.
-type Event struct {
-	Kind   string // "stage" | "partial"
-	Pillar string // ela | ai | fact | link
-	Status string // running | done | skipped | failed
-	Data   any
-}
-
-// Emitter receives events. Implementations must be safe for concurrent use:
-// pillars publish from their own goroutines.
-type Emitter func(Event)
 
 // Result is what the pipeline produces before signing.
 type Result struct {
-	Pillars  models.Pillars
-	Tactics  []models.Tactic
+	// InputType is the request's: the AI floors apply to uploads only.
+	InputType models.InputType
+	Pillars   models.Pillars
+	Tactics   []models.Tactic
+	Metadata  *models.SourceMetadata
+	// OCRText is the model's reading of an uploaded image (FILE only).
+	OCRText string
+	// Video is the downloaded social video's analysis (video links only).
+	Video    *models.VideoAnalysis
 	Degraded bool
-	// AIAnomalies are the model's region boxes, used only for the
-	// ELA_CORROBORATED floor. ELAHotspots are the server's own hot cells; the
-	// two lists are kept separate so a hotspot can never corroborate itself.
-	AIAnomalies []scoring.Box
-	ELAHotspots []scoring.Box
-	// AIReliability is the weight the AI pillar carries (0.7 image, 0.5 text).
-	AIReliability float64
-	// InjectionSuspected is set by the input scanner or the model, and raises
-	// the INJECTION_GUARD floor.
+	// InjectionSuspected is set when the model output or the input was
+	// flagged, so the scorer raises INJECTION_GUARD (TECH_SPEC §3.3 floor 5).
 	InjectionSuspected bool
-	// Cached marks a result served from the short-lived verdict cache.
-	Cached bool
+	// LinkMalicious is set on a Safe Browsing hit (floor 2).
+	LinkMalicious bool
+	// ELAHotspots and AIAnomalies are the evidence the ELA_CORROBORATED floor
+	// compares; they are not serialised to the client.
+	ELAHotspots []scoring.Box
+	AIAnomalies []scoring.Box
 }
 
-// Stats counts audits without recording any content.
-type Stats struct {
-	mu       sync.Mutex
-	Audits   int64
-	Degraded int64
-	CacheHit int64
-	Pillars  map[string]int64
+// Event is one pillar progress report, emitted as soon as it happens.
+type Event struct {
+	Pillar string // ela | ai | fact | link
+	Status string // running | done | skipped | failed
+	// Data is the pillar payload for a "done" event.
+	Data any
 }
 
-func (s *Stats) inc(field *int64) {
-	s.mu.Lock()
-	*field++
-	s.mu.Unlock()
-}
+// Pillar names as they appear in SSE events.
+const (
+	PillarELA  = "ela"
+	PillarAI   = "ai"
+	PillarFact = "fact"
+	PillarLink = "link"
+)
 
-func (s *Stats) pillar(name string) {
-	s.mu.Lock()
-	if s.Pillars == nil {
-		s.Pillars = make(map[string]int64)
-	}
-	s.Pillars[name]++
-	s.mu.Unlock()
-}
-
-// Snapshot returns a copy safe to serialise.
-func (s *Stats) Snapshot() map[string]any {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	pillars := make(map[string]int64, len(s.Pillars))
-	for k, v := range s.Pillars {
-		pillars[k] = v
-	}
-	return map[string]any{
-		"audits": s.Audits, "degraded": s.Degraded,
-		"cache_hits": s.CacheHit, "pillars": pillars,
-	}
-}
-
-// FactSearcher is the retrieval seam. It lets tests provide a deterministic
-// feed without a network, and keeps the pipeline independent of the provider.
-type FactSearcher interface {
-	Search(ctx context.Context, query string) ([]retrieval.Item, error)
-}
-
-// ReputationChecker is the optional Safe Browsing seam.
-type ReputationChecker interface {
-	Check(ctx context.Context, target string) (bool, error)
-}
-
-// Pipeline runs audits. All fields are safe for concurrent use.
+// Pipeline runs audits. All fields are safe for concurrent use once built.
 type Pipeline struct {
-	LLM        *llm.Client
-	Grounder   *grounding.Grounder
-	Searcher   FactSearcher
-	Reputation ReputationChecker
-	CacheTTL   time.Duration
-	// Deadline bounds the whole audit. Sub-deadlines are derived from it so a
-	// slow model cannot eat the retrieval budget.
-	Deadline time.Duration
-	Stats    Stats
+	LLM          *llm.Client
+	Grounder     *grounding.Grounder
+	Searcher     grounding.Searcher
+	SafeBrowsing *linkcheck.SafeBrowsing
+	// RDAP looks up a link's domain age (nil: off).
+	RDAP *linkcheck.RDAP
+	// Detector is an optional dedicated AI-image detector (nil: none).
+	Detector AIDetector
+	// NewFetchClient returns the SSRF-safe client used for every request to a
+	// user-supplied URL. Tests replace it to reach httptest servers.
+	NewFetchClient func(timeout time.Duration) *http.Client
+
+	CacheTTL time.Duration
+	CacheMax int
+
+	// Per-pillar budgets (TECH_SPEC §4). Each is further bounded by whatever
+	// remains of the request's hard deadline.
+	ELADeadline      time.Duration
+	LinkDeadline     time.Duration
+	MetaDeadline     time.Duration
+	LLMDeadline      time.Duration
+	SearchDeadline   time.Duration
+	ClassifyDeadline time.Duration
+	// DetectDeadline bounds the AI detector; PreviewDeadline bounds the
+	// download of a link's preview image; TextDeadline bounds the pasted-text
+	// check after the model answers.
+	DetectDeadline  time.Duration
+	PreviewDeadline time.Duration
+	TextDeadline    time.Duration
+	// Video downloads social video links (nil: video analysis off);
+	// VideoFetchDeadline bounds one download with its frame extraction.
+	Video              VideoSource
+	VideoFetchDeadline time.Duration
+	videoSlots         chan struct{}
+	// Stats feeds /ops/status.
+	Stats Stats
 
 	mu    sync.Mutex
 	cache map[string]*list.Element
 	order *list.List
 }
 
-type cacheEntry struct {
-	key    string
-	result Result
-	expiry time.Time
+type cached struct {
+	key     string
+	result  Result
+	expires time.Time
 }
 
-// MaxCacheEntries bounds memory: a live audit stores only a verdict summary.
-const MaxCacheEntries = 500
-
-// New builds a pipeline.
-func New(client *llm.Client, g *grounding.Grounder, searcher FactSearcher, cacheTTL time.Duration) *Pipeline {
+// New builds a pipeline with the TECH_SPEC defaults.
+func New(client *llm.Client, g *grounding.Grounder, cacheTTL time.Duration) *Pipeline {
 	if cacheTTL <= 0 {
 		cacheTTL = 10 * time.Minute
 	}
 	return &Pipeline{
-		LLM:      client,
-		Grounder: g,
-		Searcher: searcher,
-		CacheTTL: cacheTTL,
-		Deadline: 12 * time.Second,
-		cache:    make(map[string]*list.Element),
-		order:    list.New(),
+		LLM:            client,
+		Grounder:       g,
+		NewFetchClient: func(timeout time.Duration) *http.Client { return security.NewSafeClient(timeout, 3) },
+		CacheTTL:       cacheTTL,
+		CacheMax:       500,
+		ELADeadline:    4 * time.Second,
+		LinkDeadline:   2500 * time.Millisecond,
+		MetaDeadline:   2500 * time.Millisecond,
+		LLMDeadline:    9 * time.Second,
+		// Measured 9 Nov: a text-only call takes 4-9 s on our gateways and a
+		// Tavily search 1-5 s; with 3 s the classifier timed out every time.
+		SearchDeadline:     8 * time.Second,
+		ClassifyDeadline:   10 * time.Second,
+		DetectDeadline:     4 * time.Second,
+		PreviewDeadline:    1500 * time.Millisecond,
+		TextDeadline:       1500 * time.Millisecond,
+		VideoFetchDeadline: 25 * time.Second,
+		videoSlots:         make(chan struct{}, maxVideoDownloads),
+		cache:              make(map[string]*list.Element),
+		order:              list.New(),
 	}
 }
 
-// CacheKey hashes the input so no raw content is ever used as a map key.
+// CacheKey hashes the input so no raw content is ever used as a map key that
+// could be logged or dumped.
 func CacheKey(req Request) string {
 	h := sha256.New()
 	h.Write([]byte(req.InputType))
@@ -169,582 +170,646 @@ func CacheKey(req Request) string {
 	switch req.InputType {
 	case models.InputURL:
 		h.Write([]byte(req.URL))
-	case models.InputText:
-		h.Write([]byte(req.Text))
 	case models.InputFile:
 		h.Write(req.Image)
+		h.Write([]byte{0})
+		h.Write([]byte(req.OCRText))
 	}
 	return hex.EncodeToString(h.Sum(nil))
 }
 
-// Run executes every pillar and reports progress through emit. It never
-// returns an error for a pillar failure.
-func (p *Pipeline) Run(ctx context.Context, req Request, emit Emitter) Result {
-	if emit == nil {
-		emit = func(Event) {}
-	}
-	p.Stats.inc(&p.Stats.Audits)
+// Run executes every pillar concurrently and returns the final result.
+func (p *Pipeline) Run(ctx context.Context, req Request) Result {
+	return p.RunStream(ctx, req, nil)
+}
+
+// RunStream is Run with progress: emit (which may be nil) receives one
+// "running" event when a pillar starts and one terminal event when it ends,
+// from whichever goroutine finished the work. It never returns an error for
+// a pillar failure: a dead dependency degrades the result instead.
+func (p *Pipeline) RunStream(ctx context.Context, req Request, emit func(Event)) Result {
+	p.Stats.Audits.Add(1)
+	tracker := newTracker(emit)
+	defer tracker.finish()
 
 	key := CacheKey(req)
 	if res, ok := p.fromCache(key); ok {
-		p.Stats.inc(&p.Stats.CacheHit)
-		res.Cached = true
-		replay(emit, req, res)
+		p.Stats.CacheHit.Add(1)
+		tracker.replay(res)
 		return res
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, p.Deadline)
-	defer cancel()
-
 	var (
-		mu           sync.Mutex
-		elaPillar    models.ELAPillar
-		elaOK        bool
-		elaFailed    bool
-		aiPillar     models.AIPillar
-		aiOK         bool
-		aiFailed     bool
-		factPillar   models.FactPillar
-		factOK       bool
-		factFailed   bool
-		linkPillar   models.LinkPillar
-		linkOK       bool
-		linkFailed   bool
-		foundTactics []models.Tactic
-		aiBoxes      []scoring.Box
-		elaHotspots  []scoring.Box
-		content      = req.Text
-		ocrText      = req.OCRText
-		findings     llm.Findings
-		page         pagefetch.Page
-		pageErr      error
-		aiRel        = 0.5
+		mu  sync.Mutex // guards the fields below across goroutines
+		res Result
+
+		elaFailed, llmFailed, linkFailed, searchFailed, videoFailed bool
+		linkRan                                                     bool
+		modelBoxes                                                  []llm.Anomaly
+		// textEvidence is TextEvidence for each model box (-1: unmeasured).
+		textEvidence []int
 	)
+	// The ELA step hands its decoded image to the text check, which needs
+	// the model's boxes and so runs after the model answers.
+	decoded := make(chan image.Image, 1)
+	elaRan := false
 
-	// The page fetch is a prerequisite for a live URL audit: the model needs
-	// the actual text, and the link pillar wants the final URL. It is not a
-	// pillar of its own, so it publishes under "link" while it runs. Mock mode
-	// skips the network so previews and e2e stay offline and deterministic.
-	fetchCtx, fetchCancel := context.WithTimeout(ctx, minDuration(p.Deadline/4, 4000*time.Millisecond))
-	fetchDone := make(chan struct{})
-	go func() {
-		defer close(fetchDone)
-		if req.InputType != models.InputURL {
-			return
-		}
-		emit(Event{Kind: "stage", Pillar: "link", Status: "running"})
-		if p.LLM.Mock {
-			return
-		}
-		page, pageErr = pagefetch.Fetch(fetchCtx, security.NewSafeClient(4000*time.Millisecond, 3), req.URL, 4000*time.Millisecond)
-	}()
-	defer fetchCancel()
-
-	// aiReady closes when the model goroutine has stored its findings or
-	// failed. The fact and link pillars wait on it instead of sleeping.
-	aiReady := make(chan struct{})
-
+	res.InputType = req.InputType
 	g, gctx := errgroup.WithContext(ctx)
 
-	// ELA: only for images.
-	g.Go(func() error {
-		if req.InputType != models.InputFile || len(req.Image) == 0 {
-			return nil
-		}
-		emit(Event{Kind: "stage", Pillar: "ela", Status: "running"})
-		p.Stats.pillar("ela")
-		pctx, cancel := context.WithTimeout(gctx, minDuration(p.Deadline/6, 900*time.Millisecond))
-		defer cancel()
-
-		type elaResult struct {
-			res forensics.Result
-			err error
-		}
-		done := make(chan elaResult, 1)
-		go func() {
-			res, err := forensics.Analyze(req.Image)
-			done <- elaResult{res, err}
-		}()
-
-		var out elaResult
-		select {
-		case out = <-done:
-		case <-pctx.Done():
+	// ELA: JPEG and PNG uploads. Error level analysis re-compresses the image
+	// as JPEG, which says nothing about a WebP file's history.
+	if req.InputType == models.InputFile && len(req.Image) > 0 && req.ImageFormat != "webp" {
+		elaRan = true
+		tracker.start(PillarELA)
+		g.Go(func() error {
+			pillar, hotspots, src, ok := p.runELA(gctx, req.Image)
+			decoded <- src
 			mu.Lock()
-			elaFailed = true
+			res.Pillars.ELA = pillar
+			res.ELAHotspots = hotspots
+			elaFailed = !ok
 			mu.Unlock()
-			emit(Event{Kind: "stage", Pillar: "ela", Status: "failed"})
-			return nil
-		}
-		if out.err != nil {
-			mu.Lock()
-			elaFailed = true
-			mu.Unlock()
-			emit(Event{Kind: "stage", Pillar: "ela", Status: "failed"})
-			return nil
-		}
-
-		// Hotspots become visible boxes even when the model never answers:
-		// they are evidence from our own analysis, labelled as such. The same
-		// boxes are kept separately for the ELA_CORROBORATED floor.
-		hotspots := out.res.Hotspots(1.5)
-		anomalies := make([]models.Anomaly, 0, 5)
-		boxes := make([]scoring.Box, 0, len(hotspots))
-		for i, box := range hotspots {
-			boxes = append(boxes, scoring.Box(box))
-			if i < 5 {
-				anomalies = append(anomalies, models.Anomaly{
-					BoundingBox: box,
-					Reason:      "Area dengan perbedaan kompresi tinggi",
-				})
-			}
-		}
-		pillar := models.ELAPillar{
-			Available:   true,
-			Score:       out.res.Score,
-			Reliability: out.res.Reliability,
-			Anomalies:   anomalies,
-		}
-		if out.res.Note != "" {
-			note := out.res.Note
-			pillar.ReliabilityNote = &note
-		}
-		mu.Lock()
-		elaPillar = pillar
-		elaHotspots = boxes
-		elaOK = true
-		mu.Unlock()
-		emit(Event{Kind: "partial", Pillar: "ela", Status: "done", Data: pillar})
-		emit(Event{Kind: "stage", Pillar: "ela", Status: "done"})
-		return nil
-	})
-
-	// LLM: produces the AI pillar, the claim, OCR text, tactics and the
-	// search query. It waits for the page fetch on URL audits.
-	g.Go(func() error {
-		defer close(aiReady)
-		emit(Event{Kind: "stage", Pillar: "ai", Status: "running"})
-		p.Stats.pillar("ai")
-
-		if req.InputType == models.InputURL {
-			select {
-			case <-fetchDone:
-			case <-gctx.Done():
-				mu.Lock()
-				aiFailed = true
-				mu.Unlock()
-				emit(Event{Kind: "stage", Pillar: "ai", Status: "failed"})
-				return nil
-			}
-			// The URL itself is always evidence: lookalike hosts, punycode and
-			// scam keywords are visible in the address even when the page
-			// refuses to load. Page text is an enrichment, not a prerequisite.
-			var b strings.Builder
-			b.WriteString("URL: ")
-			b.WriteString(req.URL)
-			b.WriteString("\n")
-			if pageErr == nil {
-				if page.Title != "" {
-					b.WriteString("Judul halaman: ")
-					b.WriteString(page.Title)
-					b.WriteString("\n")
-				}
-				if page.Description != "" {
-					b.WriteString("Deskripsi: ")
-					b.WriteString(page.Description)
-					b.WriteString("\n")
-				}
-				if page.Text != "" {
-					b.WriteString("Isi halaman:\n")
-					b.WriteString(page.Text)
-				}
+			if ok {
+				tracker.done(PillarELA, pillar)
 			} else {
-				b.WriteString("Catatan: isi halaman tidak dapat dibaca otomatis. Nilai hanya dari alamat dan pola URL.")
+				tracker.fail(PillarELA)
 			}
-			content = b.String()
-		}
-
-		// Vision is the slowest dependency: give it the larger share of the
-		// budget, but leave room for signing and the response.
-		llmBudget := minDuration(p.Deadline-2*time.Second, 11*time.Second)
-		if llmBudget < 3*time.Second {
-			llmBudget = 3 * time.Second
-		}
-		llmCtx, cancel := context.WithTimeout(gctx, llmBudget)
-		defer cancel()
-
-		// ELA already ran on the original bytes. The model gets a downscaled
-		// JPEG: vision latency and cost scale with pixel count.
-		imageForModel, mimeForModel := req.Image, req.ImageMIME
-		if len(req.Image) > 0 {
-			if prepared, err := imaging.Prepare(req.Image); err == nil {
-				imageForModel, mimeForModel = prepared, "image/jpeg"
-			}
-		}
-		f, err := p.LLM.Analyze(llmCtx, llm.Request{
-			InputType: string(req.InputType),
-			Content:   content,
-			Image:     imageForModel,
-			ImageMIME: mimeForModel,
-			OCRText:   ocrText,
+			return nil
 		})
-		if err != nil {
+	}
+
+	// Link: the submitted URL, or the first link in the client's OCR hint
+	// for an image. Links that only appear in the model's OCR text are
+	// checked after the model answers (below).
+	linkTarget := ""
+	switch req.InputType {
+	case models.InputURL:
+		linkTarget = req.URL
+	case models.InputFile:
+		linkTarget = FirstURL(req.OCRText)
+	}
+	if linkTarget != "" {
+		linkRan = true
+		tracker.start(PillarLink)
+		g.Go(func() error {
+			pillar, malicious, ok := p.runLink(gctx, linkTarget)
 			mu.Lock()
-			aiFailed = true
+			res.Pillars.Link = pillar
+			res.LinkMalicious = malicious
+			linkFailed = !ok
 			mu.Unlock()
-			emit(Event{Kind: "stage", Pillar: "ai", Status: "failed"})
+			tracker.done(PillarLink, pillar)
+			return nil
+		})
+	}
+
+	// Model: metadata and preview image (URL) -> findings -> AI pillar ->
+	// search -> classify. The AI detector, when configured, runs beside the
+	// model on the same image.
+	tracker.start(PillarAI)
+	tracker.start(PillarFact)
+	g.Go(func() error {
+		tacticSource := ""
+		in := llm.Input{Type: string(req.InputType)}
+		var (
+			judged   bool // an image the AI pillar can judge
+			prov     provenance.Result
+			detected <-chan detection
+			clip     *video.Clip // a downloaded social video, judged instead of the preview image
+		)
+
+		switch req.InputType {
+		case models.InputURL:
+			md := p.resolveMetadata(gctx, req.URL)
+			mu.Lock()
+			res.Metadata = md.model
+			mu.Unlock()
+			in.Content = md.forModel
+			tacticSource = md.caption
+			if tacticSource == "" {
+				tacticSource = req.URL
+			}
+			// A social video link: download the video and judge its keyframes
+			// and soundtrack. When that fails, the preview image is judged.
+			c, va, transient := p.fetchVideo(gctx, req.URL)
+			if va != nil {
+				mu.Lock()
+				res.Video, videoFailed = va, transient
+				mu.Unlock()
+			}
+			if c != nil {
+				clip, judged = c, true
+				if c.AILabel {
+					// The platform's own AI label, visible on the post.
+					prov = provenance.Result{Kind: provenance.AIGenerated, Source: "watermark"}
+				}
+			} else if md.image != "" {
+				// The link's preview image is what people see when it is shared.
+				if img, format, ok := p.fetchPreview(gctx, md.image); ok {
+					judged, prov = true, provenance.Scan(img)
+					detected = p.startDetector(gctx, img, format)
+					in.Image, in.ImageMIME = forensics.ModelImage(img, format, 1024)
+				}
+			}
+			// An ordinary web page: its visible text is evidence too (mock
+			// mode stays offline).
+			if c == nil && !p.LLM.Mock && md.model.Platform == "web" {
+				if text := p.pageText(gctx, req.URL); text != "" {
+					in.Content += "Isi halaman:\n" + text + "\n"
+					tacticSource += "\n" + text
+				}
+			}
+		case models.InputFile:
+			in.Content = req.OCRText
+			tacticSource = req.OCRText
+			if len(req.Image) > 0 {
+				// Metadata blocks only: microseconds, no decoding.
+				judged, prov = true, provenance.Scan(req.Image)
+				detected = p.startDetector(gctx, req.Image, req.ImageFormat)
+				in.Image, in.ImageMIME = forensics.ModelImage(req.Image, req.ImageFormat, 1600)
+			}
+		}
+		label := "text"
+		if req.InputType == models.InputFile {
+			label = "ocr"
+		}
+
+		var (
+			f   llm.Findings
+			err error
+		)
+		if clip != nil {
+			vctx, cancel := withBudget(gctx, p.videoModelBudget(gctx))
+			vf, verr := p.LLM.AnalyzeVideo(vctx, videoInput(clip))
+			cancel()
+			err = verr
+			mu.Lock()
+			if verr == nil {
+				fillVideo(res.Video, clip, &vf)
+			} else {
+				fillVideo(res.Video, clip, nil)
+			}
+			mu.Unlock()
+			if verr == nil {
+				f = videoFindings(vf)
+				tacticSource = videoTacticSource(clip, vf, tacticSource)
+			}
+		} else {
+			lctx, cancel := withBudget(gctx, p.LLMDeadline)
+			f, err = p.LLM.Analyze(lctx, in)
+			cancel()
+		}
+		modelOK := err == nil
+
+		if judged {
+			ocr := f.OCRText
+			if ocr == "" {
+				ocr = req.OCRText
+			}
+			ai, ok := buildAIPillar(aiEvidence{prov: prov, modelOK: modelOK, findings: f, ocr: ocr, det: awaitDetection(gctx, detected)})
+			mu.Lock()
+			res.Pillars.AI = ai
+			mu.Unlock()
+			if ok {
+				tracker.done(PillarAI, ai)
+			} else {
+				tracker.fail(PillarAI)
+			}
+		} else {
+			// A link without a preview image has no image to judge.
+			tracker.skip(PillarAI)
+		}
+
+		if !modelOK {
+			mu.Lock()
+			llmFailed = true
+			mu.Unlock()
+			tracker.fail(PillarFact)
 			return nil
 		}
 
-		pillar := models.AIPillar{
-			Available:  true,
-			Score:      f.AIScore,
-			Indicators: f.AIIndicators,
-			Caveat:     "Indikatif, bukan bukti pasti",
-		}
-		rel := 0.5
-		if req.InputType == models.InputFile {
-			rel = 0.7
-		}
-
-		mu.Lock()
-		findings = f
-		aiPillar = pillar
-		aiRel = rel
-		aiOK = true
-		ocrText = f.OCRText
+		anomalies := make([]scoring.Box, 0, len(f.TextAnomalies))
 		for _, a := range f.TextAnomalies {
-			aiBoxes = append(aiBoxes, scoring.Box(a.BoundingBox))
+			anomalies = append(anomalies, scoring.Box(a.BoundingBox))
 		}
-		mu.Unlock()
+		// Timpa Teks: does the text the model marked react to compression
+		// unlike the image's other text?
+		if elaRan && len(f.TextAnomalies) > 0 {
+			if src := awaitImage(gctx, decoded); src != nil {
+				ev := p.measureText(gctx, src, f.TextAnomalies)
+				mu.Lock()
+				textEvidence = ev
+				mu.Unlock()
+			}
+		}
 
-		emit(Event{Kind: "partial", Pillar: "ai", Status: "done", Data: pillar})
-		emit(Event{Kind: "stage", Pillar: "ai", Status: "done"})
-
-		// Tactics are informational and verified against the user's own text.
-		source := content
-		sourceKind := "text"
+		// Tactics are verified against the text the user can see: the link's
+		// caption, or the model's own OCR of the image.
+		source := tacticSource
 		if req.InputType == models.InputFile && f.OCRText != "" {
 			source = f.OCRText
-			sourceKind = "ocr"
 		}
 		candidates := make([]models.Tactic, 0, len(f.Tactics))
 		for _, t := range f.Tactics {
-			candidates = append(candidates, models.Tactic{Code: t.Code, Phrase: t.Phrase, Source: sourceKind})
+			candidates = append(candidates, models.Tactic{Code: t.Code, Phrase: t.Phrase, Source: label})
 		}
-		verified := tactics.Verify(candidates, source)
-		mu.Lock()
-		foundTactics = verified
-		mu.Unlock()
-		return nil
-	})
-
-	// Fact: retrieval after the model supplies a query. A heuristic query is
-	// the fallback when the model is unavailable, so a dead gateway still
-	// produces a real check instead of an empty panel.
-	g.Go(func() error {
-		emit(Event{Kind: "stage", Pillar: "fact", Status: "running"})
-		p.Stats.pillar("fact")
-
-		// Wait for the model's claim/query but not past its own budget. The
-		// channel closes on success and on failure, so a dead gateway costs
-		// one bounded wait, not a fixed sleep.
-		select {
-		case <-aiReady:
-		case <-time.After(minDuration(p.Deadline/2, 12*time.Second)):
-		case <-gctx.Done():
-		}
+		found := tactics.Verify(candidates, source)
 
 		mu.Lock()
-		f := findings
-		mu.Unlock()
-
-		query := f.SearchQuery
-		if strings.TrimSpace(query) == "" {
-			query = retrieval.HeuristicQuery(primaryText(req, content))
-		}
-		claim := f.Claim
-		if claim == "" {
-			// The claim shown to the user is the user's own sentence, not the
-			// search query (which is truncated and stripped of punctuation).
-			claim = truncate(strings.TrimSpace(primaryText(req, content)), 200)
-		}
-
-		if p.Searcher == nil {
-			// Mock mode has no retrieval by design (previews and e2e must not
-			// touch the network). Reporting an available UNVERIFIED claim is
-			// the honest answer: the claim exists, no source was checked.
-			if p.LLM.Mock {
-				if claim == "" {
-					claim = truncate(strings.TrimSpace(primaryText(req, content)), 200)
-				}
-				pillar := models.FactPillar{
-					Available: true, Claim: truncate(claim, 200),
-					Status: models.FactUnverified, Sources: []models.Source{},
-				}
-				mu.Lock()
-				factPillar = pillar
-				factOK = true
-				mu.Unlock()
-				emit(Event{Kind: "partial", Pillar: "fact", Status: "done", Data: pillar})
-				emit(Event{Kind: "stage", Pillar: "fact", Status: "done"})
-				return nil
-			}
-			mu.Lock()
-			factPillar = models.FactPillar{Available: false, Status: models.FactUnverified}
-			mu.Unlock()
-			emit(Event{Kind: "stage", Pillar: "fact", Status: "skipped"})
-			return nil
-		}
-		if strings.TrimSpace(query) == "" {
-			mu.Lock()
-			factPillar = models.FactPillar{Available: false, Status: models.FactUnverified}
-			mu.Unlock()
-			emit(Event{Kind: "stage", Pillar: "fact", Status: "skipped"})
-			return nil
-		}
-
-		searchCtx, cancel := context.WithTimeout(gctx, minDuration(p.Deadline/3, 4000*time.Millisecond))
-		defer cancel()
-		items, err := p.Searcher.Search(searchCtx, query)
-		// When the model's query finds nothing (long paraphrases are a common
-		// miss), retry once with the user's own words before reporting an
-		// unverified claim.
-		if err == nil && len(items) == 0 {
-			if fallback := retrieval.HeuristicQuery(primaryText(req, content)); fallback != "" && fallback != query {
-				query = fallback
-				items, err = p.Searcher.Search(searchCtx, query)
-			}
-		}
-		if err != nil {
-			mu.Lock()
-			factPillar = models.FactPillar{Available: true, Claim: claim, Status: models.FactUnverified}
-			factOK = true
-			factFailed = true
-			mu.Unlock()
-			emit(Event{Kind: "partial", Pillar: "fact", Status: "done", Data: factPillar})
-			emit(Event{Kind: "stage", Pillar: "fact", Status: "failed"})
-			return nil
-		}
-
-		items = retrieval.Annotate(claim, items)
-		sources := make([]models.Source, 0, len(items))
-		for _, item := range items {
-			if !p.Grounder.Verified(item.URL, nil) {
-				continue
-			}
-			sources = append(sources, models.Source{
-				Title: item.Title, Publisher: item.Publisher, URL: item.URL, Match: item.Match,
-			})
-			if len(sources) == 3 {
-				break
-			}
-		}
-		pillar := models.FactPillar{
-			Available: true,
-			Claim:     truncate(claim, 200),
-			Status:    retrieval.Aggregate(items),
-			Sources:   sources,
-		}
-		if len(sources) == 0 {
-			pillar.Status = models.FactUnverified
-		}
-		mu.Lock()
-		factPillar = pillar
-		factOK = true
-		mu.Unlock()
-		emit(Event{Kind: "partial", Pillar: "fact", Status: "done", Data: pillar})
-		emit(Event{Kind: "stage", Pillar: "fact", Status: "done"})
-		return nil
-	})
-
-	// Link: deterministic heuristics plus redirect unrolling. For FILE input
-	// it runs after OCR text arrives, because that is where a URL can be.
-	g.Go(func() error {
+		res.AIAnomalies = anomalies
+		modelBoxes = f.TextAnomalies
+		res.Tactics = found
+		res.InjectionSuspected = f.InjectionSuspected
 		if req.InputType == models.InputFile {
-			select {
-			case <-aiReady:
-			case <-time.After(minDuration(p.Deadline/2, 8000*time.Millisecond)):
-			case <-gctx.Done():
+			res.OCRText = f.OCRText
+		}
+		mu.Unlock()
+
+		// A URL the model read inside the screenshot gets the link pillar
+		// too (PRD F4), unless the client already supplied one.
+		if req.InputType == models.InputFile && !linkRan {
+			if target := FirstURL(f.OCRText); target != "" {
+				tracker.start(PillarLink)
+				pillar, malicious, ok := p.runLink(gctx, target)
+				mu.Lock()
+				res.Pillars.Link = pillar
+				res.LinkMalicious = malicious
+				linkFailed = !ok
+				mu.Unlock()
+				tracker.done(PillarLink, pillar)
 			}
 		}
 
-		target := req.URL
-		switch req.InputType {
-		case models.InputText:
-			target = firstURL(req.Text)
-		case models.InputFile:
-			mu.Lock()
-			target = firstURL(findings.OCRText)
-			mu.Unlock()
-		}
-		if target == "" {
-			emit(Event{Kind: "stage", Pillar: "link", Status: "skipped"})
+		if f.Claim == "" {
+			// No checkable claim: the fact pillar is unavailable, never SAFE
+			// by omission (PRD F3 AC).
+			tracker.skip(PillarFact)
 			return nil
 		}
-		// A URL audit already published "running" before the fetch.
-		if req.InputType != models.InputURL {
-			emit(Event{Kind: "stage", Pillar: "link", Status: "running"})
-		}
-		p.Stats.pillar("link")
-
-		select {
-		case <-fetchDone:
-		default:
-			// The fetch is bounded; wait for it so the final URL is known.
-			select {
-			case <-fetchDone:
-			case <-gctx.Done():
-			}
-		}
-
-		final := target
-		chain := []string{target}
-		if req.InputType == models.InputURL && pageErr == nil && page.FinalURL != "" {
-			final = page.FinalURL
-			if final != target {
-				chain = []string{target, final}
-			}
-		} else {
-			unrollCtx, cancel := context.WithTimeout(gctx, minDuration(p.Deadline/5, 2500*time.Millisecond))
-			defer cancel()
-			if hops, last, err := linkcheck.Unroll(unrollCtx, security.NewSafeClient(2500*time.Millisecond, 3), target, 3); err == nil && len(hops) > 1 {
-				chain = hops
-				final = last
-			}
-		}
-
-		analysis := linkcheck.Analyze(final)
-		if p.Reputation != nil {
-			repCtx, repCancel := context.WithTimeout(gctx, 2500*time.Millisecond)
-			hit, err := p.Reputation.Check(repCtx, final)
-			repCancel()
-			if err == nil && hit {
-				if analysis.Score < 90 {
-					analysis.Score = 90
-				}
-				analysis.Findings = append(analysis.Findings, linkcheck.Finding{Code: linkcheck.ReasonReputation, Weight: 90})
-			}
-		}
-		reasons := make([]models.LinkReason, 0, len(analysis.Findings))
-		for _, f := range analysis.Findings {
-			reasons = append(reasons, models.LinkReason{Code: f.Code, Text: reasonText(f.Code)})
-		}
-		pillar := models.LinkPillar{
-			Available:     true,
-			Score:         analysis.Score,
-			FinalURL:      final,
-			RedirectChain: chain,
-			Reasons:       reasons,
-		}
+		fact, failed := p.checkClaim(gctx, f.Claim, f.SearchQuery)
 		mu.Lock()
-		linkPillar = pillar
-		linkOK = true
+		res.Pillars.Fact = fact
+		searchFailed = failed
 		mu.Unlock()
-		emit(Event{Kind: "partial", Pillar: "link", Status: "done", Data: pillar})
-		emit(Event{Kind: "stage", Pillar: "link", Status: "done"})
+		tracker.done(PillarFact, fact)
 		return nil
 	})
 
 	_ = g.Wait()
-	<-fetchDone
-
-	// The model's own anomaly boxes are the regions the ELA viewer should
-	// highlight, alongside the server's hotspot grid.
-	for _, a := range findings.TextAnomalies {
-		elaPillar.Anomalies = append(elaPillar.Anomalies, models.Anomaly{
-			BoundingBox:   a.BoundingBox,
-			ExtractedText: a.ExtractedText,
-			Reason:        a.Reason,
-		})
-	}
 
 	mu.Lock()
-	injectionText := primaryText(req, content)
-	if page.Text != "" {
-		injectionText += " " + page.Text
+	defer mu.Unlock()
+	// The model's region boxes are shown on the ELA viewer. They are attached
+	// only after every goroutine finished, so no two writers share a struct.
+	// A box whose text reacts to compression unlike the other text raises the
+	// ELA score to its evidence and, from 70, is a hotspot ELA_CORROBORATED
+	// can match: the model and the measurement point at the same text.
+	if res.Pillars.ELA.Available {
+		res.Pillars.ELA.Anomalies = make([]models.Anomaly, 0, len(modelBoxes))
+		for i, a := range modelBoxes {
+			anomaly := models.Anomaly{BoundingBox: a.BoundingBox, ExtractedText: a.ExtractedText, Reason: a.Reason}
+			if i < len(textEvidence) && textEvidence[i] >= 0 {
+				ev := textEvidence[i]
+				anomaly.Evidence = &ev
+				res.Pillars.ELA.Score = max(res.Pillars.ELA.Score, ev)
+				if ev >= TextHotspotMin {
+					res.ELAHotspots = append(res.ELAHotspots, scoring.Box(a.BoundingBox))
+				}
+			}
+			res.Pillars.ELA.Anomalies = append(res.Pillars.ELA.Anomalies, anomaly)
+		}
 	}
-	res := Result{
-		Pillars:            models.Pillars{ELA: elaPillar, AI: aiPillar, Fact: factPillar, Link: linkPillar},
-		Tactics:            foundTactics,
-		AIAnomalies:        aiBoxes,
-		ELAHotspots:        elaHotspots,
-		AIReliability:      aiRel,
-		InjectionSuspected: findings.InjectionSuspected || InjectionDetected(injectionText),
-	}
-	expected := expectedPillars(req)
-	if p.Searcher == nil && !p.LLM.Mock {
-		expected["fact"] = false
-	}
-	res.Degraded = (expected["ela"] && !elaOK) ||
-		(expected["ai"] && !aiOK) ||
-		(expected["fact"] && !factOK) ||
-		(expected["link"] && !linkOK) ||
-		elaFailed || aiFailed || linkFailed
-	// A retrieval failure still yields an honest UNVERIFIED fact pillar, but
-	// the dossier must say that the check did not complete. A page fetch that
-	// was refused is the same kind of honest gap for a URL audit.
-	if factFailed || (req.InputType == models.InputURL && pageErr != nil) {
-		res.Degraded = true
-	}
-	mu.Unlock()
-
-	if !res.Degraded {
-		p.toCache(key, res)
-	}
+	res.Degraded = elaFailed || llmFailed || linkFailed || searchFailed || videoFailed
+	// A degraded result is not cached: the model or a lookup failing once
+	// (a free model's rate limit, a timeout) must not answer the user's
+	// retry with the same incomplete result for the next ten minutes.
 	if res.Degraded {
-		p.Stats.inc(&p.Stats.Degraded)
+		p.Stats.Degraded.Add(1)
+	} else {
+		p.toCache(key, res)
 	}
 	return res
 }
 
-func expectedPillars(req Request) map[string]bool {
-	switch req.InputType {
-	case models.InputURL:
-		return map[string]bool{"ela": false, "ai": true, "fact": true, "link": true}
-	case models.InputFile:
-		return map[string]bool{"ela": true, "ai": true, "fact": true, "link": false}
-	default:
-		return map[string]bool{"ela": false, "ai": true, "fact": true, "link": false}
-	}
-}
-
-// primaryText is what the user actually submitted, without the URL preamble
-// the model sees. Injection detection and the fallback query use it.
-func primaryText(req Request, content string) string {
-	switch req.InputType {
-	case models.InputText:
-		return req.Text
-	case models.InputURL:
-		return req.URL
-	default:
-		if req.OCRText != "" {
-			return req.OCRText
+// runELA returns the pillar, its grid hotspots and the decoded image (nil
+// when decoding failed or ran out of time).
+func (p *Pipeline) runELA(ctx context.Context, encoded []byte) (models.ELAPillar, []scoring.Box, image.Image, bool) {
+	ectx, cancel := withBudget(ctx, p.ELADeadline)
+	defer cancel()
+	done := make(chan struct{})
+	var res forensics.Result
+	var src image.Image
+	var err error
+	go func() {
+		var format string
+		if src, format, err = forensics.Decode(encoded); err == nil {
+			res, err = forensics.AnalyzeImage(src, format)
 		}
-		return content
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-ectx.Done():
+		return models.ELAPillar{Anomalies: []models.Anomaly{}}, nil, nil, false
+	}
+	if err != nil {
+		return models.ELAPillar{Anomalies: []models.Anomaly{}}, nil, nil, false
+	}
+	// The 16x16 grid cells above the mean are the physical hotspots the
+	// ELA_CORROBORATED floor needs; without them the floor can never fire.
+	var boxes []scoring.Box
+	for _, h := range res.Hotspots(1.5) {
+		boxes = append(boxes, scoring.Box(h))
+	}
+	pillar := models.ELAPillar{
+		Available:   true,
+		Score:       res.Score,
+		Reliability: res.Reliability,
+		Anomalies:   []models.Anomaly{},
+	}
+	if res.Note != "" {
+		note := res.Note
+		pillar.ReliabilityNote = &note
+	}
+	return pillar, boxes, src, true
+}
+
+// TextHotspotMin is the text evidence from which a model box counts as an
+// ELA hotspot for ELA_CORROBORATED. No original line reached it on the
+// benchmark (internal/forensics/text.go).
+const TextHotspotMin = 70
+
+// maxMeasuredBoxes bounds the text check: each box costs two JPEG
+// re-encodes of a band of the image.
+const maxMeasuredBoxes = 4
+
+// measureText runs TextEvidence on the model's boxes within the text
+// budget; late or skipped boxes are -1 (unmeasured).
+func (p *Pipeline) measureText(ctx context.Context, src image.Image, boxes []llm.Anomaly) []int {
+	out := make([]int, len(boxes))
+	for i := range out {
+		out[i] = -1
+	}
+	n := min(len(boxes), maxMeasuredBoxes)
+	norm := make([][4]int, n)
+	for i := 0; i < n; i++ {
+		norm[i] = boxes[i].BoundingBox
+	}
+	budget := p.TextDeadline
+	if budget <= 0 {
+		budget = 1500 * time.Millisecond
+	}
+	tctx, cancel := withBudget(ctx, budget)
+	defer cancel()
+	done := make(chan []int, 1)
+	go func() { done <- forensics.TextEvidence(src, norm) }()
+	select {
+	case ev := <-done:
+		copy(out, ev)
+	case <-tctx.Done():
+	}
+	return out
+}
+
+func awaitImage(ctx context.Context, ch <-chan image.Image) image.Image {
+	select {
+	case src := <-ch:
+		return src
+	case <-ctx.Done():
+		return nil
 	}
 }
 
-var injectionPatterns = regexp.MustCompile(`(?i)(ignore (all |any )?(previous|prior|above) (instructions|prompts)|abaikan (semua )?(instruksi|perintah) (sebelumnya|di atas)|system prompt|set (the )?verdict|tetapkan (vonis|skor)|you are now|kamu sekarang adalah|developer mode|jailbreak)`)
+// runLink scores a URL, follows where it really leads, and asks Safe
+// Browsing about every hop. Static analysis cannot fail, so the pillar is
+// always available; ok=false only reports that the reputation lookup failed.
+func (p *Pipeline) runLink(ctx context.Context, target string) (models.LinkPillar, bool, bool) {
+	lctx, cancel := withBudget(ctx, p.LinkDeadline)
+	defer cancel()
 
-// InjectionDetected scans the user's own text for prompt-injection markers.
-// It is a signal, never a verdict: the floor it raises is 40, not TAMPERED.
-func InjectionDetected(text string) bool {
-	return injectionPatterns.MatchString(text)
+	analysis := linkcheck.Analyze(target)
+	// Domain age runs beside the redirect check: the first host now, the
+	// final host once the redirects are known.
+	var ages []<-chan time.Time
+	asked := map[string]bool{}
+	lookupAge := func(host string) {
+		reg := linkcheck.Registrable(host)
+		if !p.RDAP.Enabled() || host == "" || asked[reg] || linkcheck.IsOfficialHost(host) || linkcheck.IsShortener(host) {
+			return
+		}
+		asked[reg] = true
+		ch := make(chan time.Time, 1)
+		go func() {
+			t, _ := p.RDAP.Registered(lctx, host)
+			ch <- t
+		}()
+		ages = append(ages, ch)
+	}
+	lookupAge(analysis.Host)
+
+	chain := []string{target}
+	client := p.NewFetchClient(p.LinkDeadline)
+	reached := false
+	if hops, final, err := linkcheck.Unroll(lctx, client, target, 3); len(hops) > 0 {
+		chain = hops
+		reached = err == nil
+		if err == nil && final != target {
+			analysis = linkcheck.Combine(analysis, linkcheck.Analyze(final))
+			lookupAge(analysis.Host)
+		}
+	}
+	// What the destination page shows: a form asking for a password, PIN,
+	// OTP or card number, perhaps under a bank's name. Official sites are
+	// not fetched; the page read stays inside the link budget.
+	if reached && !linkcheck.IsOfficialHost(analysis.Host) {
+		if page, err := metadata.New(client).Inspect(lctx, chain[len(chain)-1]); err == nil {
+			analysis = linkcheck.WithPage(analysis, page.Title, page.SiteName, page.AsksSecret)
+		}
+	}
+
+	ok := true
+	malicious := false
+	if p.SafeBrowsing.Enabled() {
+		hit, err := p.SafeBrowsing.Check(lctx, chain)
+		switch {
+		case err != nil:
+			ok = false
+		case hit:
+			malicious = true
+			analysis = linkcheck.WithSafeBrowsingHit(analysis)
+		}
+	}
+
+	// The youngest domain on the way counts: an old shortener or an old
+	// redirect host does not make a new destination trustworthy.
+	var youngest time.Time
+	for _, ch := range ages {
+		select {
+		case t := <-ch:
+			if !t.IsZero() && t.After(youngest) {
+				youngest = t
+			}
+		case <-lctx.Done():
+		}
+	}
+	analysis = linkcheck.WithDomainAge(analysis, youngest, time.Now())
+
+	reasons := make([]models.LinkReason, 0, len(analysis.Findings))
+	for _, f := range analysis.Findings {
+		reasons = append(reasons, models.LinkReason{Code: f.Code, Text: LinkReasonText(f.Code)})
+	}
+	final := analysis.FinalURL
+	if len(chain) > 0 {
+		final = chain[len(chain)-1]
+	}
+	return models.LinkPillar{
+		Available:     true,
+		Score:         analysis.Score,
+		FinalURL:      final,
+		RedirectChain: chain,
+		Reasons:       reasons,
+	}, malicious, ok
+}
+
+type resolvedMetadata struct {
+	model    *models.SourceMetadata
+	forModel string
+	caption  string
+	// image is the link's preview image URL, "" when it has none.
+	image string
+}
+
+func (p *Pipeline) resolveMetadata(ctx context.Context, rawURL string) resolvedMetadata {
+	mctx, cancel := withBudget(ctx, p.MetaDeadline)
+	defer cancel()
+	m := metadata.New(p.NewFetchClient(p.MetaDeadline)).Resolve(mctx, rawURL)
+	return resolvedMetadata{
+		model: &models.SourceMetadata{
+			Status:      models.MetadataStatus(m.Status),
+			Platform:    m.Platform,
+			Via:         m.Via,
+			Title:       m.Title,
+			Author:      m.Author,
+			Description: m.Description,
+			SiteName:    m.SiteName,
+		},
+		forModel: m.ForModel(rawURL),
+		caption:  m.Caption(),
+		image:    m.Image,
+	}
+}
+
+// checkClaim searches AMBA's own fact-check index and lets the model judge
+// each result against the claim. Only URLs that came back from that search
+// can become sources (TECH_SPEC §6 (a)), so an invented citation can never
+// carry CONTRADICTS into the score. failed reports a search or classifier
+// outage (the pillar then stays UNVERIFIED and the result is degraded).
+func (p *Pipeline) checkClaim(ctx context.Context, claim, query string) (models.FactPillar, bool) {
+	fact := models.FactPillar{Available: true, Claim: claim, Status: models.FactUnverified, Sources: []models.Source{}}
+	if p.Searcher == nil || !p.Searcher.Enabled() {
+		return fact, false
+	}
+	if query == "" {
+		query = claim
+	}
+	sctx, cancel := withBudget(ctx, p.SearchDeadline)
+	results, err := p.Searcher.Search(sctx, query)
+	cancel()
+	if err != nil {
+		return fact, true
+	}
+	if len(results) == 0 {
+		return fact, false
+	}
+
+	evidence := make([]llm.Evidence, len(results))
+	for i, r := range results {
+		evidence[i] = llm.Evidence{Title: r.Title, Publisher: r.Publisher, Snippet: r.Snippet, Rating: r.Rating}
+	}
+	cctx, cancel := withBudget(ctx, p.ClassifyDeadline)
+	matches, err := p.LLM.Classify(cctx, claim, evidence)
+	cancel()
+
+	toolURLs := grounding.URLSet(results)
+	for i, r := range results {
+		match := models.FactUnverified
+		if i < len(matches) && p.Grounder.Verified(r.URL, toolURLs) {
+			match = models.FactStatus(matches[i])
+		}
+		// The classifier's answer only stands for a source on the claim's own
+		// subject, and only a fact-check article may contradict (9 Nov: news and
+		// unrelated fact-checks "contradicted" real Kompas videos).
+		if match != models.FactUnverified && !grounding.SameTopic(claim, r.Title+" "+r.Snippet) {
+			match = models.FactUnverified
+		}
+		if match == models.FactContradicts && !grounding.IsFactCheck(r.Title, r.URL) {
+			match = models.FactUnverified
+		}
+		fact.Sources = append(fact.Sources, models.Source{
+			Title: r.Title, Publisher: r.Publisher, URL: r.URL, Match: match,
+		})
+	}
+	fact.Status = statusFromSources(fact.Sources)
+	return fact, err != nil
+}
+
+// statusFromSources: a verified contradiction with no verified support is
+// CONTRADICTS, support with no contradiction is SUPPORTS, anything else
+// (including disagreement between fact-checkers) is UNVERIFIED.
+func statusFromSources(sources []models.Source) models.FactStatus {
+	contradicts, supports := 0, 0
+	for _, s := range sources {
+		switch s.Match {
+		case models.FactContradicts:
+			contradicts++
+		case models.FactSupports:
+			supports++
+		}
+	}
+	switch {
+	case contradicts > 0 && supports == 0:
+		return models.FactContradicts
+	case supports > 0 && contradicts == 0:
+		return models.FactSupports
+	default:
+		return models.FactUnverified
+	}
 }
 
 // Verdict computes the score from a Result.
-func Verdict(res Result) models.Verdict {
+func Verdict(res Result, injectionSuspected bool) models.Verdict {
+	// The pipeline's own finding wins; the argument exists for tests that
+	// build a Result by hand.
+	if res.InjectionSuspected {
+		injectionSuspected = true
+	}
+	// A claim no fact-checker has ruled on (UNVERIFIED) is shown, but it is not
+	// evidence either way (team decision, 9 Nov 2026): counted as risk it made
+	// every real news video and every untouched price graphic SUSPICIOUS.
+	factCounts := res.Pillars.Fact.Available && res.Pillars.Fact.Status != models.FactUnverified
 	in := scoring.Input{
 		ELA:                scoring.Signal{Available: res.Pillars.ELA.Available, Score: res.Pillars.ELA.Score, Reliability: res.Pillars.ELA.Reliability},
-		AI:                 scoring.Signal{Available: res.Pillars.AI.Available, Score: res.Pillars.AI.Score, Reliability: res.AIReliability},
-		Fact:               scoring.Signal{Available: res.Pillars.Fact.Available, Score: factScore(res.Pillars.Fact.Status), Reliability: 1.0},
+		AI:                 scoring.Signal{Available: res.Pillars.AI.Available, Score: res.Pillars.AI.Score, Reliability: res.Pillars.AI.Reliability},
+		Fact:               scoring.Signal{Available: factCounts, Score: factScore(res.Pillars.Fact.Status), Reliability: 1.0},
 		Link:               scoring.Signal{Available: res.Pillars.Link.Available, Score: res.Pillars.Link.Score, Reliability: 1.0},
-		InjectionSuspected: res.InjectionSuspected,
+		LinkMalicious:      res.LinkMalicious,
+		InjectionSuspected: injectionSuspected,
 		ELAHotspots:        res.ELAHotspots,
 		AIAnomalies:        res.AIAnomalies,
+		UploadedImage:      res.InputType == models.InputFile,
 	}
-	if res.Pillars.Fact.Available {
+	if v := res.Video; v != nil && v.Status == models.VideoOK {
+		in.Video = true
+		in.VideoManipulation, in.VideoContext = v.Manipulation.Score, v.Context.Score
+	}
+	switch res.Pillars.AI.Provenance.Kind {
+	case models.ProvenanceAIGenerated:
+		in.AIDeclared = scoring.DeclaredAIGenerated
+	case models.ProvenanceAIEdited:
+		in.AIDeclared = scoring.DeclaredAIEdited
+	}
+	if res.Pillars.Fact.Available && res.Pillars.Fact.Status == models.FactContradicts {
 		for _, s := range res.Pillars.Fact.Sources {
 			if s.Match == models.FactContradicts {
 				in.FactContradicted = true
@@ -766,7 +831,8 @@ func factScore(s models.FactStatus) int {
 	}
 }
 
-func reasonText(code string) string {
+// LinkReasonText is the static Indonesian copy for each link reason code.
+func LinkReasonText(code string) string {
 	switch code {
 	case linkcheck.ReasonLookalikeBrand:
 		return "Domain meniru nama layanan populer"
@@ -775,7 +841,7 @@ func reasonText(code string) string {
 	case linkcheck.ReasonIPHost:
 		return "Alamat berupa nomor IP, bukan nama situs"
 	case linkcheck.ReasonPunycode:
-		return "Nama domain memakai karakter khusus"
+		return "Nama domain memakai karakter yang mirip huruf biasa"
 	case linkcheck.ReasonManySubdomains:
 		return "Terlalu banyak subdomain"
 	case linkcheck.ReasonCredentials:
@@ -792,70 +858,44 @@ func reasonText(code string) string {
 		return "Tautan memakai port tidak biasa"
 	case linkcheck.ReasonSuspiciousPath:
 		return "Alamat memuat kata yang sering dipakai penipuan"
-	case linkcheck.ReasonReputation:
-		return "Alamat ini tercatat sebagai situs berbahaya"
+	case linkcheck.ReasonScamKeywords:
+		return "Nama situs memuat kata umpan seperti hadiah atau bansos"
+	case linkcheck.ReasonShortenerHides:
+		return "Tautan pendek mengarah ke situs yang mencurigakan"
+	case linkcheck.ReasonSafeBrowsing:
+		return "Tercatat sebagai situs berbahaya oleh Google Safe Browsing"
+	case linkcheck.ReasonUnparseable:
+		return "Alamat tautan tidak dapat dibaca"
+	case linkcheck.ReasonPageAsksSecret:
+		return "Halaman meminta kata sandi, PIN, OTP, atau nomor kartu"
+	case linkcheck.ReasonPageImpersonation:
+		return "Halaman memakai nama layanan populer dan meminta kata sandi atau kode"
+	case linkcheck.ReasonNewDomain:
+		return "Domain baru didaftarkan kurang dari sebulan lalu"
+	case linkcheck.ReasonYoungDomain:
+		return "Domain berumur kurang dari enam bulan"
 	default:
 		return "Tanda mencurigakan pada tautan"
 	}
 }
 
-// replay publishes a cached result in the same shape as a live run, so the
-// SSE contract does not change just because the answer was fast.
-func replay(emit Emitter, req Request, res Result) {
-	for _, pillar := range orderedPillars(req) {
-		if !pillarAvailable(res, pillar) {
-			emit(Event{Kind: "stage", Pillar: pillar, Status: "skipped"})
-			continue
+// withBudget bounds a step by its own budget and by what remains of the
+// parent deadline, keeping a small reserve so the verdict can still be
+// computed and streamed.
+func withBudget(parent context.Context, budget time.Duration) (context.Context, context.CancelFunc) {
+	if deadline, ok := parent.Deadline(); ok {
+		if remaining := time.Until(deadline) - 300*time.Millisecond; remaining < budget {
+			budget = max(remaining, 50*time.Millisecond)
 		}
-		emit(Event{Kind: "stage", Pillar: pillar, Status: "running"})
-		emit(Event{Kind: "partial", Pillar: pillar, Status: "done", Data: pillarPayload(res, pillar)})
-		emit(Event{Kind: "stage", Pillar: pillar, Status: "done"})
 	}
+	return context.WithTimeout(parent, budget)
 }
 
-// OrderedPillars lists the pillars an input type can produce.
-func OrderedPillars(req Request) []string { return orderedPillars(req) }
-
-func orderedPillars(req Request) []string {
-	switch req.InputType {
-	case models.InputURL:
-		return []string{"link", "ai", "fact"}
-	case models.InputFile:
-		return []string{"ela", "ai", "fact", "link"}
-	default:
-		return []string{"ai", "fact", "link"}
+func nonNil(v []string) []string {
+	if v == nil {
+		return []string{}
 	}
-}
-
-func pillarAvailable(res Result, pillar string) bool {
-	switch pillar {
-	case "ela":
-		return res.Pillars.ELA.Available
-	case "ai":
-		return res.Pillars.AI.Available
-	case "fact":
-		return res.Pillars.Fact.Available
-	case "link":
-		return res.Pillars.Link.Available
-	}
-	return false
-}
-
-// PillarPayload exposes a pillar's payload for the SSE partial event.
-func PillarPayload(res Result, pillar string) any { return pillarPayload(res, pillar) }
-
-func pillarPayload(res Result, pillar string) any {
-	switch pillar {
-	case "ela":
-		return res.Pillars.ELA
-	case "ai":
-		return res.Pillars.AI
-	case "fact":
-		return res.Pillars.Fact
-	case "link":
-		return res.Pillars.Link
-	}
-	return nil
+	return v
 }
 
 func (p *Pipeline) fromCache(key string) (Result, bool) {
@@ -865,37 +905,63 @@ func (p *Pipeline) fromCache(key string) (Result, bool) {
 	if !ok {
 		return Result{}, false
 	}
-	entry := el.Value.(*cacheEntry)
-	if time.Now().After(entry.expiry) {
+	c := el.Value.(*cached)
+	if time.Now().After(c.expires) {
 		p.order.Remove(el)
 		delete(p.cache, key)
 		return Result{}, false
 	}
 	p.order.MoveToFront(el)
-	return entry.result, true
+	return c.result, true
 }
 
+// toCache stores a result in a bounded LRU (TECH_SPEC §4: 500 entries, TTL).
+// Expired entries are evicted on the way in, so an idle cache cannot grow.
 func (p *Pipeline) toCache(key string, res Result) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	entry := &cacheEntry{key: key, result: res, expiry: time.Now().Add(p.CacheTTL)}
+	now := time.Now()
 	if el, ok := p.cache[key]; ok {
-		el.Value = entry
+		el.Value.(*cached).result = res
+		el.Value.(*cached).expires = now.Add(p.CacheTTL)
 		p.order.MoveToFront(el)
 		return
 	}
-	p.cache[key] = p.order.PushFront(entry)
-	for p.order.Len() > MaxCacheEntries {
-		oldest := p.order.Back()
-		if oldest == nil {
+	p.cache[key] = p.order.PushFront(&cached{key: key, result: res, expires: now.Add(p.CacheTTL)})
+	for el := p.order.Back(); el != nil; {
+		prev := el.Prev()
+		c := el.Value.(*cached)
+		if p.order.Len() > p.cacheMax() || now.After(c.expires) {
+			p.order.Remove(el)
+			delete(p.cache, c.key)
+		} else {
 			break
 		}
-		p.order.Remove(oldest)
-		delete(p.cache, oldest.Value.(*cacheEntry).key)
+		el = prev
 	}
 }
 
-func firstURL(text string) string {
+func (p *Pipeline) cacheMax() int {
+	if p.CacheMax <= 0 {
+		return 500
+	}
+	return p.CacheMax
+}
+
+// CacheLen reports the number of cached results (for tests and metrics).
+func (p *Pipeline) CacheLen() int {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.order.Len()
+}
+
+// FirstURL returns the first link in a text, so a link inside a screenshot
+// or a message shared to the Telegram bot gets the link pillar (PRD F4).
+// Links in screenshots are often written without a scheme ("klik
+// bri-verifikasi.my.id", "bit.ly/abc"); those are read as https, so the
+// missing scheme is not counted against the link. An e-mail address is not
+// a link.
+func FirstURL(text string) string {
 	for _, field := range strings.Fields(text) {
 		field = strings.Trim(field, "\"'()[]<>,.;!?")
 		lower := strings.ToLower(field)
@@ -903,20 +969,106 @@ func firstURL(text string) string {
 			return field
 		}
 	}
+	for _, loc := range bareLink.FindAllStringIndex(text, 8) {
+		if loc[0] > 0 && (text[loc[0]-1] == '@' || text[loc[0]-1] == '.' || text[loc[0]-1] == '/') {
+			continue
+		}
+		return "https://" + strings.TrimRight(text[loc[0]:loc[1]], ".,;:!?")
+	}
 	return ""
 }
 
-func minDuration(a, b time.Duration) time.Duration {
-	if a < b {
-		return a
-	}
-	return b
+// bareLink is a host name with a common or abused top-level domain, with an
+// optional path, written without a scheme.
+var bareLink = regexp.MustCompile(`(?i)\b(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+(?:com|net|org|id|co|io|me|ly|xyz|top|site|online|link|info|shop|store|click|icu|live|cc|app|vip|biz|website|space|fun|tk|ml|ga|cf|gq|pw|cfd|sbs|cyou|lol|bond|buzz|rest|cam|monster|club|pro|asia|win|work|life|tech)\b(?:/[^\s"'<>()\[\]]*)?`)
+
+// tracker turns pillar work into ordered progress events and guarantees that
+// every pillar ends with exactly one terminal event.
+type tracker struct {
+	mu      sync.Mutex
+	emit    func(Event)
+	started map[string]bool
+	ended   map[string]bool
 }
 
-func truncate(s string, n int) string {
-	r := []rune(s)
-	if len(r) <= n {
-		return s
+func newTracker(emit func(Event)) *tracker {
+	return &tracker{emit: emit, started: map[string]bool{}, ended: map[string]bool{}}
+}
+
+func (t *tracker) send(e Event) {
+	if t.emit != nil {
+		t.emit(e)
 	}
-	return string(r[:n])
+}
+
+func (t *tracker) start(pillar string) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.started[pillar] {
+		return
+	}
+	t.started[pillar] = true
+	t.send(Event{Pillar: pillar, Status: "running"})
+}
+
+func (t *tracker) end(pillar, status string, data any) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.ended[pillar] {
+		return
+	}
+	t.ended[pillar] = true
+	t.send(Event{Pillar: pillar, Status: status, Data: data})
+}
+
+func (t *tracker) done(pillar string, data any) { t.end(pillar, "done", data) }
+func (t *tracker) fail(pillar string)           { t.end(pillar, "failed", nil) }
+func (t *tracker) skip(pillar string)           { t.end(pillar, "skipped", nil) }
+
+// finish closes every pillar that never reached a terminal state, so the
+// client's progress list always settles.
+func (t *tracker) finish() {
+	for _, p := range []string{PillarELA, PillarLink, PillarAI, PillarFact} {
+		t.mu.Lock()
+		started, ended := t.started[p], t.ended[p]
+		t.mu.Unlock()
+		switch {
+		case ended:
+		case started:
+			t.fail(p)
+		default:
+			t.skip(p)
+		}
+	}
+}
+
+// replay reports a cached result as if each pillar had just finished.
+func (t *tracker) replay(res Result) {
+	pillars := []struct {
+		name      string
+		available bool
+		data      any
+	}{
+		{PillarELA, res.Pillars.ELA.Available, res.Pillars.ELA},
+		{PillarLink, res.Pillars.Link.Available, res.Pillars.Link},
+		{PillarAI, res.Pillars.AI.Available, res.Pillars.AI},
+		{PillarFact, res.Pillars.Fact.Available, res.Pillars.Fact},
+	}
+	for _, p := range pillars {
+		if p.available {
+			t.start(p.name)
+			t.done(p.name, p.data)
+		}
+	}
+}
+
+// pageText reads the visible text of an ordinary web page, so the model
+// judges the article and not only its title. It goes through the SSRF-safe
+// client and the metadata budget; any failure just means no extra text.
+func (p *Pipeline) pageText(ctx context.Context, rawURL string) string {
+	page, err := pagefetch.Fetch(ctx, p.NewFetchClient(p.MetaDeadline), rawURL, p.MetaDeadline)
+	if err != nil {
+		return ""
+	}
+	return page.Text
 }

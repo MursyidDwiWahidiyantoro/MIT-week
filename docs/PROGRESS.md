@@ -1,6 +1,6 @@
 # Progress
 
-_Last updated: 2026-11-05_
+_Last updated: 2026-11-08_
 
 ## Phase 0 — Scaffold & contract
 
@@ -438,3 +438,161 @@ from the brand-filled control list.
 Verification: typecheck 0/0, eslint clean, vitest 53, contrast **84** pairs
 (both themes), build OK, 118.6 KB gz, axe 0 serious/critical on `/` in both
 themes, marquee item background is transparent in both themes.
+## Production readiness — PRD P0/P1/P2 complete (2026-11-08)
+
+Goal: every PRD requirement built and the app deployable. Delivered as a
+commit series on top of `1bef567` (`git log 1bef567..`).
+
+| Area | Before | Now |
+|---|---|---|
+| Link-only verdict | `INSUFFICIENT` even for a clear phishing link | `LINK_STRONG` floor (team decision), vectors 9–12 |
+| Lookalike detection | Levenshtein on the whole host | token-based, Cyrillic/Greek fold, official domains, `.go.id`-style suffixes |
+| Safe Browsing | key read, never used | checked on the whole redirect chain; a hit sets `LINK_MALICIOUS` |
+| Fact grounding | model-cited sources | Google Fact Check Tools search in Go, second classify call, fail closed |
+| Link content (F1) | not read | oEmbed/OpenGraph preview; BLOCKED/UNAVAILABLE explained, screenshot route offered |
+| Screenshots (F2) | ELA only | image sent to the model, OCR text, URL in the OCR gets the link pillar, OCR tactics |
+| SSE | verdict at the end | stage/partial per pillar as it finishes, heartbeat, per-step budgets |
+| Balas Sopan (F12) | templates only | validated model draft, template fallback |
+| Demo (F8) | `contoh-*`, hand-written | PRD IDs + `demo-tautan`, generated with the real scorer, real screenshot |
+| Edukasi (F7) | 3 modus + 3 questions | + "Bedah forensik" quiz with real ELA heat maps |
+| EN/ID toggle (P1) | — | 500+ keys, Indonesian default, English verdict rebuilt from codes |
+| Metrics (P1) | env var read, unused | anonymous Prometheus counters on an internal listener |
+| Telegram (P2) | — | webhook/polling bot on the same pipeline |
+| Performance | CLS 0.134, no offline shell | CLS 0, fonts preloaded, offline app shell, Lighthouse gate |
+| Deployment | out of scope | Vercel + Fly.io/Railway configs, `docs/DEPLOY.md`, production boot checks |
+| Operations | silent upstream failures | reason + status logged, never URLs or keys |
+
+### Defects found while building
+
+- Telegram accepted `http://127.0.0.1/...` as a link to check: `ValidateFetchURL`
+  now refuses internal targets before any request.
+- Empty text was answered with the invalid-URL message.
+- CSP `connect-src` was hard-coded to `http://localhost:8080`, which would have
+  blocked every API call in production.
+- The mobile header wrapped into three rows once the language switch was
+  added: the display controls now fold behind one toggle.
+- The screenshot quiz explanation described an even glow while the heat map
+  shows the yellow text brightest; the copy now explains that contrast, not
+  editing, makes it glow.
+
+### Manual checklist (cannot be automated)
+
+- [ ] Android Chrome: install the PWA from the production URL, share a link
+      from another app to AMBA, confirm the audit starts and the shared item is
+      gone from Cache Storage afterwards.
+- [ ] Android Chrome: share a screenshot to AMBA.
+- [ ] iOS Safari: paste button reads the clipboard after a tap.
+- [ ] Telegram: `/start`, `/cek <link>`, a forwarded text, a photo; the reply
+      link opens the signed report.
+- [ ] Real keys: the boot `readiness` log shows `llm_model_listed=true`,
+      `fact_search=true`, `safe_browsing=true`.
+
+### Verification (2026-11-08)
+
+```
+backend : gofmt -l .                   clean
+backend : go vet ./...                 no issues
+backend : go test -race ./...          385 tests pass, 16 packages
+backend : go run ./cmd/gendemo         deterministic, no diff
+frontend: svelte-check                 0 errors, 0 warnings
+frontend: eslint                       no issues
+frontend: vitest                       60 tests pass, 10 files
+frontend: vite build                   OK, adapter-static
+frontend: contrast                     82 pairs, both themes
+frontend: headers                      vercel.json matches security-headers.json
+frontend: size                         142.0 KB gz / 250 KB (all JS)
+frontend: playwright e2e               32/32 (axe ID + EN, mode parity, i18n)
+frontend: lighthouse (mobile, median 5) perf 93-100, a11y 100, BP 96-100, SEO 100, CLS 0
+demo diff                              in sync
+```
+
+## Real-sample evaluation (2026-11-09)
+
+Run from a throwaway harness on the pillars that work without external
+services (the model, Fact Check Tools and Safe Browsing are unreachable from
+the development environment). Details and data sources in
+`docs/DECISIONS.md` ("Link heuristics tuned on real phishing and legitimate
+URLs").
+
+| Set | Size | Warning verdict before | After tuning |
+|---|---|---|---|
+| Indonesian-themed phishing links | 1,053 | 25.4 % | 83.6 % |
+| Phishing links on `.id` domains | 10,406 | 2.2 % | 13.1 % |
+| Random global phishing links | 3,000 | 2.4 % | 4.5 % |
+| Top 10,000 domains (legitimate) | 10,000 | 0 | 4 |
+| Official Indonesian URLs (legitimate) | 60 | 0 | 0 |
+
+| Image | Truth | ELA score |
+|---|---|---|
+| TruFor pristine1.jpg / pristine2.jpg | authentic | 0 / 0 |
+| CASIA Sp_S_NNN_A_ani0041 (JPEG) | edited | 2 |
+| CASIA Tp_S_NNN_S_N_ani20009 (lossless) | edited | 5 |
+| TruFor tampered1.png / tampered2.png | edited | 5 / 14 |
+| CAT-Net example.jpg | edited | 0 |
+
+Still to run with real keys: the model pillar, fact checking and Safe
+Browsing (`docs/DEPLOY.md` §6).
+
+## Scam rules (2026-11-09)
+
+`internal/scam` adds a deterministic `SCAM_PATTERN` floor (TECH_SPEC §6.3,
+`docs/DECISIONS.md`). Each set below was written before the rules it led to
+and measured once on first sight:
+
+| Set | Scams caught | False alarms in ordinary messages |
+|---|---|---|
+| Documented scams and quoted warnings (built with the rules) | 29 / 29 | 0 / 35 |
+| Holdout 1 | 13 / 20 | not recorded |
+| Holdout 2 | 13 / 15 | 0 / 15 |
+| Set 3: account threats, new fees, customs | 0 / 15 | 5 / 25 |
+| Set 4 | 11 / 20 | 0 / 20 |
+| Set 5 | 10 / 20 | 0 / 20 |
+| Set 6 | 14 / 25 | 1 / 25 |
+
+All sets pass now and stay as regression tests; 3 messages are still left
+to the model (a fake OJK officer, a "finance department" transfer request,
+an English account notice).
+
+Real SMS (public Indonesian corpus, 1,143 messages, not copied into the repo):
+
+| Class | First sight | After tuning on even rows | Held-out odd rows |
+|---|---|---|---|
+| Personal messages (569) | 0 flagged | 0 flagged | 0 / 284 |
+| Operator promos (239) | 0 flagged | 0 flagged | 0 / 119 |
+| Fraud and spam, ads included (335) | 79 | 172 | 80 / 168 (40 before) |
+
+## One-sided ELA and the AI rubric (2026-11-09)
+
+- ELA counts only from 50 up; a low ELA no longer lowers a score or helps an
+  image reach SAFE, and SAFE needs a fact check (vectors 15-17).
+- The model's `ai_score` is a manipulation-risk rubric; the pillar is shown as
+  "Penilaian AI" / "AI assessment".
+- The demo news screenshot (ELA 3) now scores 90 instead of 85: its low ELA
+  no longer dilutes the fact check.
+
+## Scope: links and images only (2026-11-09)
+
+The team narrowed AMBA to two inputs (a link, an uploaded image) and three
+detections (AI-generated vs authentic image, pasted-over text, genuine vs
+fake or hoax link). The text audit, the SMS/phone scam rules and Cek Cepat
+were removed; the scam-rule measurements above describe code that is no
+longer in the product.
+
+## The three detections, upgraded (2026-11-09)
+
+- **Jejak AI** (is the image AI-made?): the file's own provenance first
+  (Content Credentials/C2PA, IPTC/XMP, Stable Diffusion, ComfyUI, NovelAI,
+  Midjourney settings, EXIF camera data), an optional Sightengine detector,
+  then the model's visible clues under a new AI-generation rubric. Floors
+  `AI_PROVENANCE` (85), `AI_EDITED` (70), `AI_LIKELY` (45, from score 80) for
+  uploads. A link's preview image is judged too, without floors. Replaces the
+  "Penilaian AI" rubric above.
+- **Timpa Teks** (was text pasted over?): the text the model marks is compared
+  with the image's other text under re-compression. On 68 benchmark pairs from
+  real photos no original line reached evidence 50; 22/34 and 14/34 retyped
+  lines did. Evidence 70 corroborates the model (`ELA_CORROBORATED`).
+- **Keamanan Tautan**: domain age over RDAP (`NEW_DOMAIN`, `YOUNG_DOMAIN`).
+- WebP uploads, rejected before for lack of a decoder, are accepted.
+- New demo `demo-gambar-ai`; the news-screenshot demo now reaches
+  `ELA_CORROBORATED` (score 91).
+- `cmd/evalimages` lets the team calibrate with their own model key.
