@@ -84,9 +84,12 @@ const (
 
 // Pipeline runs audits. All fields are safe for concurrent use once built.
 type Pipeline struct {
-	LLM          *llm.Client
-	Grounder     *grounding.Grounder
-	Searcher     grounding.Searcher
+	LLM      *llm.Client
+	Grounder *grounding.Grounder
+	Searcher grounding.Searcher
+	// SiteSearch is the fact-checker's own search (turnbackhoax.id), run beside
+	// Searcher (nil: off).
+	SiteSearch   grounding.Searcher
 	SafeBrowsing *linkcheck.SafeBrowsing
 	// RDAP looks up a link's domain age (nil: off).
 	RDAP *linkcheck.RDAP
@@ -283,6 +286,12 @@ func (p *Pipeline) RunStream(ctx context.Context, req Request, emit func(Event))
 			prov     provenance.Result
 			detected <-chan detection
 			clip     *video.Clip // a downloaded social video, judged instead of the preview image
+			// metaClip is a post whose download failed: only its metadata is known.
+			metaClip *video.Clip
+			// contentTitle is the title or caption the claim check reads beside the claim.
+			contentTitle string
+			// summary and transcript are what the video model saw and heard.
+			summary, transcript string
 			// disclosure is what the creator says about AI in the post.
 			disclosure video.Disclosure
 			// webCh delivers the web provenance search started with the download.
@@ -301,6 +310,7 @@ func (p *Pipeline) RunStream(ctx context.Context, req Request, emit func(Event))
 			if tacticSource == "" {
 				tacticSource = req.URL
 			}
+			contentTitle = truncateRunes(md.caption, 300)
 			// A social video link: download the video and judge its keyframes
 			// and soundtrack. When that fails, the preview image is judged.
 			c, va, transient := p.fetchVideo(gctx, req.URL)
@@ -310,7 +320,12 @@ func (p *Pipeline) RunStream(ctx context.Context, req Request, emit func(Event))
 				mu.Unlock()
 			}
 			if c != nil {
-				clip, judged = c, true
+				if len(c.Frames) > 0 {
+					clip, judged = c, true
+				} else {
+					metaClip = c
+				}
+				contentTitle = truncateRunes(strings.TrimSpace(c.Title+"\n"+c.Description), 300)
 				disclosure = video.DetectDisclosure(c.Title, c.Description, c.Tags, c.Uploader)
 				webCh = p.startWebProvenance(gctx, c)
 				mu.Lock()
@@ -324,10 +339,16 @@ func (p *Pipeline) RunStream(ctx context.Context, req Request, emit func(Event))
 					// The creator says so: counts as declared AI provenance.
 					prov = provenance.Result{Kind: provenance.AIGenerated, Source: "creator", Generator: provenance.GeneratorIn(c.Uploader + " " + c.Title + " " + disclosure.Phrase)}
 				}
-			} else if md.image != "" {
+			}
+			if clip == nil && md.image != "" {
 				// The link's preview image is what people see when it is shared.
+				// A video whose download failed is judged on it too, keeping what
+				// the creator's own words already declared.
 				if img, format, ok := p.fetchPreview(gctx, md.image); ok {
-					judged, prov = true, provenance.Scan(img)
+					judged = true
+					if scanned := provenance.Scan(img); !prov.AI() {
+						prov = scanned
+					}
 					detected = p.startDetector(gctx, img, format)
 					in.Image, in.ImageMIME = forensics.ModelImage(img, format, 1024)
 				}
@@ -373,6 +394,7 @@ func (p *Pipeline) RunStream(ctx context.Context, req Request, emit func(Event))
 			mu.Unlock()
 			if verr == nil {
 				f = videoFindings(vf)
+				summary, transcript = vf.Summary, vf.Transcript
 				tacticSource = videoTacticSource(clip, vf, tacticSource)
 			}
 		} else {
@@ -382,7 +404,7 @@ func (p *Pipeline) RunStream(ctx context.Context, req Request, emit func(Event))
 		}
 		modelOK := err == nil
 
-		if clip != nil {
+		if clip != nil || metaClip != nil {
 			web = awaitWeb(gctx, webCh)
 			mu.Lock()
 			if len(web.Evidence) > 0 {
@@ -392,6 +414,11 @@ func (p *Pipeline) RunStream(ctx context.Context, req Request, emit func(Event))
 			if ai := web.says(llm.WebAI); len(ai) > 0 && prov.Kind != provenance.AIGenerated {
 				// Reputable newsrooms say this video is AI-made.
 				prov = provenance.Result{Kind: provenance.AIGenerated, Source: "web", Generator: provenance.GeneratorIn(ai[0].Title)}
+			}
+			// A video that could not be downloaded is still declared AI by its
+			// creator or by the web: that alone sets the AI provenance.
+			if metaClip != nil && prov.AI() {
+				judged = true
 			}
 		}
 
@@ -414,10 +441,28 @@ func (p *Pipeline) RunStream(ctx context.Context, req Request, emit func(Event))
 			tracker.skip(PillarAI)
 		}
 
+		vclip := clip
+		if vclip == nil {
+			vclip = metaClip
+		}
 		if !modelOK {
 			mu.Lock()
 			llmFailed = true
 			mu.Unlock()
+			// The model never answered, but a video's own title or caption is a
+			// claim too: check it, and let the web search speak.
+			if vclip != nil {
+				if claim := corePhrase(vclip.Title, vclip.Description); claim != "" {
+					fact, failed := p.checkClaim(gctx, claim, "", factContext{Title: contentTitle, Video: true, Official: officialOutlet(vclip.Uploader, vclip.UploaderID)})
+					fact = addWebHoax(fact, web, claim)
+					mu.Lock()
+					res.Pillars.Fact = fact
+					searchFailed = failed
+					mu.Unlock()
+					tracker.done(PillarFact, fact)
+					return nil
+				}
+			}
 			tracker.fail(PillarFact)
 			return nil
 		}
@@ -489,7 +534,11 @@ func (p *Pipeline) RunStream(ctx context.Context, req Request, emit func(Event))
 			tracker.skip(PillarFact)
 			return nil
 		}
-		fact, failed := p.checkClaim(gctx, f.Claim, f.SearchQuery)
+		fc := factContext{Title: contentTitle, Summary: summary, Transcript: truncateRunes(transcript, 600), Video: vclip != nil}
+		if vclip != nil {
+			fc.Official = officialOutlet(vclip.Uploader, vclip.UploaderID)
+		}
+		fact, failed := p.checkClaim(gctx, f.Claim, f.SearchQuery, fc)
 		fact = addWebHoax(fact, web, f.Claim)
 		mu.Lock()
 		res.Pillars.Fact = fact
@@ -743,83 +792,6 @@ func (p *Pipeline) resolveMetadata(ctx context.Context, rawURL string) resolvedM
 	}
 }
 
-// checkClaim searches AMBA's own fact-check index and lets the model judge
-// each result against the claim. Only URLs that came back from that search
-// can become sources (TECH_SPEC §6 (a)), so an invented citation can never
-// carry CONTRADICTS into the score. failed reports a search or classifier
-// outage (the pillar then stays UNVERIFIED and the result is degraded).
-func (p *Pipeline) checkClaim(ctx context.Context, claim, query string) (models.FactPillar, bool) {
-	fact := models.FactPillar{Available: true, Claim: claim, Status: models.FactUnverified, Sources: []models.Source{}}
-	if p.Searcher == nil || !p.Searcher.Enabled() {
-		return fact, false
-	}
-	if query == "" {
-		query = claim
-	}
-	sctx, cancel := withBudget(ctx, p.SearchDeadline)
-	results, err := p.Searcher.Search(sctx, query)
-	cancel()
-	if err != nil {
-		return fact, true
-	}
-	if len(results) == 0 {
-		return fact, false
-	}
-
-	evidence := make([]llm.Evidence, len(results))
-	for i, r := range results {
-		evidence[i] = llm.Evidence{Title: r.Title, Publisher: r.Publisher, Snippet: r.Snippet, Rating: r.Rating}
-	}
-	cctx, cancel := withBudget(ctx, p.ClassifyDeadline)
-	matches, err := p.LLM.Classify(cctx, claim, evidence)
-	cancel()
-
-	toolURLs := grounding.URLSet(results)
-	for i, r := range results {
-		match := models.FactUnverified
-		if i < len(matches) && p.Grounder.Verified(r.URL, toolURLs) {
-			match = models.FactStatus(matches[i])
-		}
-		// The classifier's answer only stands for a source on the claim's own
-		// subject, and only a fact-check article may contradict (9 Nov: news and
-		// unrelated fact-checks "contradicted" real Kompas videos).
-		if match != models.FactUnverified && !grounding.SameTopic(claim, r.Title+" "+r.Snippet) {
-			match = models.FactUnverified
-		}
-		if match == models.FactContradicts && !grounding.IsFactCheck(r.Title, r.URL) {
-			match = models.FactUnverified
-		}
-		fact.Sources = append(fact.Sources, models.Source{
-			Title: r.Title, Publisher: r.Publisher, URL: r.URL, Match: match,
-		})
-	}
-	fact.Status = statusFromSources(fact.Sources)
-	return fact, err != nil
-}
-
-// statusFromSources: a verified contradiction with no verified support is
-// CONTRADICTS, support with no contradiction is SUPPORTS, anything else
-// (including disagreement between fact-checkers) is UNVERIFIED.
-func statusFromSources(sources []models.Source) models.FactStatus {
-	contradicts, supports := 0, 0
-	for _, s := range sources {
-		switch s.Match {
-		case models.FactContradicts:
-			contradicts++
-		case models.FactSupports:
-			supports++
-		}
-	}
-	switch {
-	case contradicts > 0 && supports == 0:
-		return models.FactContradicts
-	case supports > 0 && contradicts == 0:
-		return models.FactSupports
-	default:
-		return models.FactUnverified
-	}
-}
-
 // Verdict computes the score from a Result.
 func Verdict(res Result, injectionSuspected bool) models.Verdict {
 	// The pipeline's own finding wins; the argument exists for tests that
@@ -845,6 +817,11 @@ func Verdict(res Result, injectionSuspected bool) models.Verdict {
 	if v := res.Video; v != nil && v.Status == models.VideoOK {
 		in.Video = true
 		in.VideoManipulation, in.VideoContext = v.Manipulation.Score, v.Context.Score
+	}
+	// A video that could not be downloaded is still declared AI by its creator
+	// or by the web (the title, not the footage): the provenance floor applies.
+	if v := res.Video; v != nil && v.Status != models.VideoOK && declaredFromText(res.Pillars.AI.Provenance) {
+		in.Video = true
 	}
 	switch res.Pillars.AI.Provenance.Kind {
 	case models.ProvenanceAIGenerated:

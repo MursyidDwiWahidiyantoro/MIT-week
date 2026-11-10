@@ -199,7 +199,7 @@ func TestClassifyMapsIndexesAndDefaultsToUnverified(t *testing.T) {
 	srv := gateway(t, `{"matches":[{"index":1,"match":"CONTRADICTS"},{"index":7,"match":"SUPPORTS"},{"index":0,"match":"MAYBE"}]}`, nil)
 	defer srv.Close()
 	c := New(srv.URL, "k", "m", false)
-	got, err := c.Classify(context.Background(), "klaim", []Evidence{{Title: "a"}, {Title: "b"}, {Title: "c"}})
+	got, err := c.Classify(context.Background(), "klaim", ClaimContext{}, []Evidence{{Title: "a"}, {Title: "b"}, {Title: "c"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -214,7 +214,7 @@ func TestClassifyFailureLeavesEverythingUnverified(t *testing.T) {
 	}))
 	defer srv.Close()
 	c := New(srv.URL, "k", "m", false)
-	got, err := c.Classify(context.Background(), "klaim", []Evidence{{}, {}})
+	got, err := c.Classify(context.Background(), "klaim", ClaimContext{}, []Evidence{{}, {}})
 	if err == nil || strings.Join(got, ",") != "UNVERIFIED,UNVERIFIED" {
 		t.Fatalf("got %v err=%v", got, err)
 	}
@@ -222,7 +222,7 @@ func TestClassifyFailureLeavesEverythingUnverified(t *testing.T) {
 
 func TestMockClassifyUsesRatings(t *testing.T) {
 	c := New("", "", "", true)
-	got, _ := c.Classify(context.Background(), "x", []Evidence{{Rating: "Hoaks"}, {Rating: "Benar"}, {Rating: "Perlu konteks"}})
+	got, _ := c.Classify(context.Background(), "x", ClaimContext{}, []Evidence{{Rating: "Hoaks"}, {Rating: "Benar"}, {Rating: "Perlu konteks"}})
 	if strings.Join(got, ",") != "CONTRADICTS,SUPPORTS,UNVERIFIED" {
 		t.Fatalf("got %v", got)
 	}
@@ -517,7 +517,7 @@ func TestClassifyReadsPlainLines(t *testing.T) {
 	srv := gateway(t, "Hasil:\n[0] CONTRADICTS\n[1]: unverified\n[2] **SUPPORTS**\n[9] CONTRADICTS", nil)
 	defer srv.Close()
 	c := New(srv.URL, "k", "m", false)
-	got, err := c.Classify(context.Background(), "klaim", []Evidence{{Title: "a"}, {Title: "b"}, {Title: "c"}})
+	got, err := c.Classify(context.Background(), "klaim", ClaimContext{}, []Evidence{{Title: "a"}, {Title: "b"}, {Title: "c"}})
 	if err != nil || strings.Join(got, ",") != "CONTRADICTS,UNVERIFIED,SUPPORTS" {
 		t.Fatalf("got %v, %v", got, err)
 	}
@@ -575,5 +575,46 @@ func TestClassifyWebFailureAndMock(t *testing.T) {
 	m, _ := New("", "", "", true).ClassifyWeb(context.Background(), "v", []Evidence{{Title: "Video ini buatan AI"}, {Rating: "Hoaks"}, {Title: "Berita biasa"}})
 	if strings.Join(m, ",") != "AI,HOAX,UNRELATED" {
 		t.Fatalf("mock got %v", m)
+	}
+}
+
+// The classifier judges the narrative of the content, so the title, the
+// video summary and at most 600 characters of transcript reach the model, and
+// the prompt names the implied-claim cases and the same-names-other-event case.
+func TestClassifySendsContentContextAndNarrativePrompt(t *testing.T) {
+	var last map[string]any
+	srv := gateway(t, `{"matches":[{"index":0,"match":"CONTRADICTS"}]}`, &last)
+	defer srv.Close()
+	c := New(srv.URL, "k", "m", false)
+	long := strings.Repeat("x", 900)
+	got, err := c.Classify(context.Background(), "Purbaya menghadiri HUT Bea Cukai",
+		ClaimContext{Title: "Purbaya pakai seragam Bea Cukai", Summary: "Pria berseragam di acara dinas", Transcript: long},
+		[]Evidence{{Title: "[HOAKS] Purbaya Ditunjuk Menjadi Ketua Bea Cukai", Rating: "[HOAKS]"}})
+	if err != nil || len(got) != 1 || got[0] != "CONTRADICTS" {
+		t.Fatalf("got %v, %v", got, err)
+	}
+	raw, _ := json.Marshal(last)
+	body := string(raw)
+	for _, want := range []string{"Purbaya pakai seragam Bea Cukai", "Pria berseragam di acara dinas", "Judul atau keterangan konten", "Ketua Bea Cukai"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("request lacks %q", want)
+		}
+	}
+	if strings.Contains(body, strings.Repeat("x", 601)) || !strings.Contains(body, strings.Repeat("x", 600)) {
+		t.Error("transcript must be cut at 600 characters")
+	}
+	for _, want := range []string{"tersirat", "Dilantik Jadi Gubernur Bank Indonesia", "massa desak Gibran mundur"} {
+		if !strings.Contains(classifyPrompt, want) {
+			t.Errorf("prompt lacks %q", want)
+		}
+	}
+}
+
+func TestClaimContextRenderOmitsEmptyParts(t *testing.T) {
+	if got := (ClaimContext{}).render(); got != "" {
+		t.Fatalf("render = %q", got)
+	}
+	if got := (ClaimContext{Summary: "s"}).render(); !strings.Contains(got, "Ringkasan isi video: s") || strings.Contains(got, "Judul") {
+		t.Fatalf("render = %q", got)
 	}
 }
