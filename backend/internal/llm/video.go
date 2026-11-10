@@ -205,19 +205,23 @@ func (c *Client) tryVideo(ctx context.Context, g *Client, messages []message) vi
 	var f VideoFindings
 	if err := decodeRequired(content, &f, videoRequired...); err != nil {
 		slog.Warn("llm gateway call failed", "reason", "invalid_answer", "status", 0)
-		return videoAnswer{by: g, err: ErrUnavailable}
+		return videoAnswer{by: g, err: errAnswer}
 	}
 	return videoAnswer{f: f, by: g}
 }
 
 // hedgedVideo asks the first gateway, and the fallback beside it once the
 // first has had videoHedge alone, has failed, or is in its cooldown. The
-// first good answer wins and the other call is cancelled. Only a failure,
-// not a lost race, puts the first gateway in its cooldown.
+// first good answer wins and the other call is cancelled. Only a failure that
+// says the gateway is unwell (opensBreaker), not a lost race or a garbled
+// answer, puts the first gateway in its cooldown.
 func (c *Client) hedgedVideo(ctx context.Context, messages []message) (VideoFindings, *Client, error) {
 	if c.Fallback == nil {
 		a := c.tryVideo(ctx, c, messages)
-		return a.f, a.by, a.err
+		if a.err != nil {
+			return VideoFindings{}, a.by, ErrUnavailable
+		}
+		return a.f, a.by, nil
 	}
 	hctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -253,7 +257,9 @@ func (c *Client) hedgedVideo(ctx context.Context, messages []message) (VideoFind
 				return a.f, a.by, nil
 			}
 			if a.by == c && ctx.Err() == nil {
-				c.setDown(time.Now().Add(breakerCooldown))
+				if opensBreaker(a.err, false, 0) {
+					c.setDown(time.Now().Add(breakerCooldown))
+				}
 				startFallback()
 			}
 			if running == 0 && fallbackStarted {
