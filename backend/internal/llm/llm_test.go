@@ -228,20 +228,6 @@ func TestMockClassifyUsesRatings(t *testing.T) {
 	}
 }
 
-func TestReply(t *testing.T) {
-	var req map[string]any
-	srv := gateway(t, `{"text":"  Makasih infonya, aku cek dulu ya.  "}`, &req)
-	defer srv.Close()
-	c := New(srv.URL, "k", "m", false)
-	got, err := c.Reply(context.Background(), ReplyInput{Status: "SUSPICIOUS", Title: "Perlu diperiksa", Tone: "santai"})
-	if err != nil || got != "Makasih infonya, aku cek dulu ya." {
-		t.Fatalf("got %q err=%v", got, err)
-	}
-	if _, err := New("", "", "", true).Reply(context.Background(), ReplyInput{}); err == nil {
-		t.Fatal("mock mode must fall back to templates")
-	}
-}
-
 func TestSchemaViolationReturnsUnavailable(t *testing.T) {
 	srv := gateway(t, "not json at all", nil)
 	defer srv.Close()

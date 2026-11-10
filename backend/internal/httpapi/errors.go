@@ -44,10 +44,7 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 
 // Common errors, kept in one place so messages stay consistent.
 var (
-	errInvalidURL = newAPIError(http.StatusBadRequest, models.CodeInvalidURL, "Tautan tidak valid.", false)
-	// Text input shares the INVALID_URL code (the contract has no separate
-	// one) but says what is actually wrong.
-	errInvalidReply     = newAPIError(http.StatusBadRequest, models.CodeInvalidURL, "Permintaan balasan tidak valid.", false)
+	errInvalidURL       = newAPIError(http.StatusBadRequest, models.CodeInvalidURL, "Tautan tidak valid.", false)
 	errBlockedTarget    = newAPIError(http.StatusBadRequest, models.CodeBlockedTarget, "Tautan ini tidak dapat diperiksa.", false)
 	errUnsupportedMedia = newAPIError(http.StatusUnsupportedMediaType, models.CodeUnsupportedMedia, "Jenis berkas ini belum didukung.", false)
 	errPayloadTooLarge  = newAPIError(http.StatusRequestEntityTooLarge, models.CodePayloadTooLarge, "Berkas terlalu besar. Maksimal 10 MB.", false)

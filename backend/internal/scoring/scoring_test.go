@@ -559,7 +559,7 @@ func TestVideoFloors(t *testing.T) {
 		},
 		{
 			name:       "caption does not match the footage",
-			in:         Input{Video: true, AI: sig(5, 0.5), VideoContext: 75},
+			in:         Input{Video: true, AI: sig(5, 0.5), VideoContext: 85},
 			wantStatus: models.StatusSuspicious, wantFloors: []string{FloorVideoContextMismatch}, wantMin: 45,
 			wantSimple: "Keterangan video ini tidak cocok dengan isi rekamannya. Cek dulu sebelum menyebarkan.",
 		},
@@ -571,8 +571,23 @@ func TestVideoFloors(t *testing.T) {
 		},
 		{
 			name:       "signals below the minimum add nothing",
-			in:         Input{Video: true, AI: sig(79, 0.5), VideoContext: 69, VideoManipulation: 69},
+			in:         Input{Video: true, AI: sig(54, 0.5), VideoContext: 84, VideoManipulation: 69},
 			wantFloors: nil,
+		},
+		{
+			name:       "video AI line is 55, lower than the image line",
+			in:         Input{Video: true, AI: sig(55, 0.5)},
+			wantStatus: models.StatusSuspicious, wantFloors: []string{FloorAILikely}, wantMin: 45,
+		},
+		{
+			name:       "an uploaded image keeps the 80 line",
+			in:         Input{UploadedImage: true, AI: sig(79, 0.5)},
+			wantFloors: nil,
+		},
+		{
+			name:       "an uploaded image at 80 is AI-likely",
+			in:         Input{UploadedImage: true, AI: sig(80, 0.5)},
+			wantStatus: models.StatusSuspicious, wantFloors: []string{FloorAILikely}, wantMin: 45,
 		},
 		{
 			name:       "a link preview image is not judged like a video",

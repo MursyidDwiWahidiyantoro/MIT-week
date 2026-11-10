@@ -30,7 +30,6 @@ import (
 
 	"github.com/amba/amba/backend/internal/models"
 	"github.com/amba/amba/backend/internal/pipeline"
-	"github.com/amba/amba/backend/internal/reply"
 	"github.com/amba/amba/backend/internal/security"
 )
 
@@ -414,7 +413,6 @@ func (b *Bot) Format(d models.Dossier) string {
 	if d.Degraded {
 		s.WriteString("\nSebagian pemeriksaan tidak berjalan, jadi hasil ini belum lengkap.\n")
 	}
-	fmt.Fprintf(&s, "\nBalasan sopan yang bisa kamu kirim:\n%s\n", reply.Template(string(d.Verdict.Status), "santai"))
 	if d.ShareToken != "" && b.PublicAppURL != "" {
 		fmt.Fprintf(&s, "\nLaporan lengkap: %s/hasil#t=%s\n", b.PublicAppURL, d.ShareToken)
 	}

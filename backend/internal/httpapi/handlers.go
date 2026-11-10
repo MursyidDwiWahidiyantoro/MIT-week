@@ -18,7 +18,6 @@ import (
 	"github.com/amba/amba/backend/internal/metrics"
 	"github.com/amba/amba/backend/internal/models"
 	"github.com/amba/amba/backend/internal/pipeline"
-	"github.com/amba/amba/backend/internal/reply"
 	"github.com/amba/amba/backend/internal/retrieval"
 	"github.com/amba/amba/backend/internal/security"
 	"github.com/amba/amba/backend/internal/token"
@@ -29,7 +28,6 @@ import (
 type handlers struct {
 	cfg        *config.Config
 	pipeline   *pipeline.Pipeline
-	replies    *reply.Service
 	limiter    *security.RateLimiter
 	metrics    *metrics.Registry
 	signingKey []byte
@@ -41,7 +39,6 @@ type handlers struct {
 // and the Telegram bot.
 type Deps struct {
 	Pipeline *pipeline.Pipeline
-	Replies  *reply.Service
 	Metrics  *metrics.Registry
 	Key      []byte
 }
@@ -107,7 +104,7 @@ func NewDeps(cfg *config.Config) Deps {
 		ws.Prefix = ""
 		p.WebSearch, p.WebGrounder = ws, ws.Grounder
 	}
-	return Deps{Pipeline: p, Replies: reply.New(client), Metrics: metrics.New(), Key: key}
+	return Deps{Pipeline: p, Metrics: metrics.New(), Key: key}
 }
 
 // LogReadiness reports, without secrets, which optional integrations are on
@@ -156,7 +153,6 @@ func newHandlers(cfg *config.Config, limiter *security.RateLimiter, d Deps) *han
 	return &handlers{
 		cfg:        cfg,
 		pipeline:   d.Pipeline,
-		replies:    d.Replies,
 		limiter:    limiter,
 		metrics:    d.Metrics,
 		signingKey: d.Key,

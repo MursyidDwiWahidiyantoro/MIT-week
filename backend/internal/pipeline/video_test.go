@@ -82,10 +82,10 @@ func TestVideoLinkIsJudgedOnItsFrames(t *testing.T) {
 	}
 	// Whatever the mock found, the floors must follow the video's findings.
 	floors := Verdict(res, false).FloorsApplied
-	if (res.Pillars.AI.Score >= scoring.AILikelyMin) != slices.Contains(floors, scoring.FloorAILikely) {
+	if (res.Pillars.AI.Score >= scoring.VideoAILikelyMin) != slices.Contains(floors, scoring.FloorAILikely) {
 		t.Fatalf("AI score %d, floors %v", res.Pillars.AI.Score, floors)
 	}
-	if (v.Context.Score >= scoring.VideoSignalMin) != slices.Contains(floors, scoring.FloorVideoContextMismatch) {
+	if (v.Context.Score >= scoring.VideoContextMin) != slices.Contains(floors, scoring.FloorVideoContextMismatch) {
 		t.Fatalf("context %d, floors %v", v.Context.Score, floors)
 	}
 }

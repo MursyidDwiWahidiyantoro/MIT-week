@@ -17,9 +17,8 @@ check() {
 }
 
 check backend/internal/demo/demo-cases.json frontend/src/lib/data/demo-cases.json
-check configs/reply_templates.json backend/internal/reply/reply_templates.json frontend/src/lib/data/reply-templates.json
 
 if [[ $status -eq 0 ]]; then
-  echo "demo-cases.json and reply templates in sync"
+  echo "demo-cases.json in sync"
 fi
 exit $status

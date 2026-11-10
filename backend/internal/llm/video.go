@@ -123,6 +123,15 @@ Cara mengisi setiap kolom:
   BUKAN buatan AI generatif, beri skor 0-15 kecuali ada ciri AI generatif yang jelas: rekaman game (misalnya
   Minecraft, Roblox, GTA), animasi 3D atau CGI biasa, kartun, efek visual film, dan editan biasa (teks, filter,
   potongan, stiker). Grafik komputer yang rapi bukan tanda AI; yang dicari adalah ciri khas model generatif.
+  Video AI masa kini bisa sangat realistis. Periksa ciri berikut di SEMUA frame, bukan hanya satu:
+  fisika dan keberadaan benda (benda muncul, hilang, menembus, atau berubah bentuk antar frame, air, kain, atau asap
+  yang bergerak tidak wajar); identitas yang bergeser (wajah, rambut, baju, atau usia orang yang sama berubah antar
+  frame); tulisan di papan, plat, atau baju yang acak atau berubah; tangan dan gigi (jari berlebih, menyatu, gigi
+  terlalu rata atau jumlahnya berubah); cahaya dan pantulan (bayangan, pantulan kaca atau air tidak konsisten dengan
+  sumber cahaya); gerak kamera yang terlalu mulus atau sinematik untuk rekaman biasa; logo atau tanda air generator
+  (Sora, Veo, Kling, Hailuo, Runway, Pika) di pojok; klip pendek 5 sampai 10 detik tanpa suara latar yang wajar
+  (tanpa derau ruangan, angin, atau kerumunan). Satu ciri lemah saja tidak cukup untuk skor tinggi; beberapa ciri
+  yang muncul bersama, atau satu ciri yang jelas, menaikkan skor.
 - ai_indicators: paling banyak 5 ciri untuk ai_score, sebutkan nomor frame, misalnya "Frame 3: jari tangan kiri enam".
 - ai_watermark: salin persis label atau tanda air AI yang terlihat (misalnya "Sora", "Veo", "AI-generated",
   "Dibuat dengan AI", "Konten dibuat dengan AI"). "" jika tidak ada. Jangan menebak.

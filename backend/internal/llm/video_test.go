@@ -230,3 +230,16 @@ func TestPrimaryShareLeavesTheFallbackEnough(t *testing.T) {
 		}
 	}
 }
+
+func TestVideoPromptCoversTheHyperRealCuesAndKeepsItsKeys(t *testing.T) {
+	for _, cue := range []string{"fisika", "identitas", "tulisan", "tangan dan gigi", "pantulan", "gerak kamera", "tanda air generator", "tanpa suara latar"} {
+		if !strings.Contains(videoPrompt, cue) {
+			t.Errorf("prompt lacks the cue %q", cue)
+		}
+	}
+	for _, key := range videoRequired {
+		if !strings.Contains(videoPrompt, key) || !strings.Contains(videoSchema, `"`+key+`"`) {
+			t.Errorf("key %q missing from the prompt or schema", key)
+		}
+	}
+}

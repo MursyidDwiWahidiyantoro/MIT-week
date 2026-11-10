@@ -129,39 +129,6 @@ paths:
                             m: { $ref: "#/components/schemas/FactStatus" }
                 required: [valid]
 
-  /reply:
-    post:
-      operationId: reply
-      summary: Draft a polite reply from a share token
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                token: { type: string }
-                tone:
-                  type: string
-                  enum: [hormat, santai, singkat]
-              required: [token, tone]
-      responses:
-        "200":
-          description: Reply text
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  text: { type: string, maxLength: 280 }
-                  source:
-                    type: string
-                    enum: [llm, template]
-                    description: llm = model draft that passed validation; template = deterministic fallback
-                required: [text, source]
-        "400": { $ref: "#/components/responses/BadRequest" }
-        "429": { $ref: "#/components/responses/RateLimited" }
-
   /ops/status:
     get:
       operationId: getOpsStatus
