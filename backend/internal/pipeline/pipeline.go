@@ -581,6 +581,7 @@ func (p *Pipeline) RunStream(ctx context.Context, req Request, emit func(Event))
 		}
 		fact, failed := p.checkClaim(gctx, f.Claim, f.SearchQuery, fc)
 		fact = addWebHoax(fact, web, f.Claim)
+		fact = weighWebReal(fact, web)
 		mu.Lock()
 		res.Pillars.Fact = fact
 		searchFailed = failed

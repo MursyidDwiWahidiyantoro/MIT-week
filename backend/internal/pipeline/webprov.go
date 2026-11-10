@@ -229,6 +229,42 @@ func addWebHoax(fact models.FactPillar, w webOutcome, claim string) models.FactP
 	return fact
 }
 
+// webRealVeto is how many distinct trusted newsrooms must report this very
+// video as real before a contradiction from the claim check alone stops
+// counting as "refuted".
+const webRealVeto = 2
+
+// weighWebReal guards against a debunk of a different claim on the same
+// subject (10 Nov: "[SALAH] Syarat Pemakzulan Terpenuhi, Gibran Pulang ke
+// Solo" was judged to contradict a real Dasco interview saying the DPR had
+// not yet discussed the impeachment, while Kompas and Okezone reported the
+// interview itself). When at least webRealVeto newsrooms call the video real
+// and no page calls it a hoax, the pillar becomes UNVERIFIED and the
+// contradicting pages are kept, marked UNVERIFIED. A page that calls the
+// video a hoax, which a recycled-footage debunk is, leaves it untouched.
+func weighWebReal(fact models.FactPillar, w webOutcome) models.FactPillar {
+	if !fact.Available || fact.Status != models.FactContradicts || len(w.says(llm.WebHoax)) > 0 {
+		return fact
+	}
+	newsrooms := map[string]bool{}
+	for _, e := range w.says(llm.WebReal) {
+		newsrooms[strings.ToLower(e.Publisher)] = true
+	}
+	if len(newsrooms) < webRealVeto {
+		return fact
+	}
+	out := fact
+	out.Sources = make([]models.Source, len(fact.Sources))
+	for i, s := range fact.Sources {
+		if s.Match == models.FactContradicts {
+			s.Match = models.FactUnverified
+		}
+		out.Sources[i] = s
+	}
+	out.Status = models.FactUnverified
+	return out
+}
+
 func truncateRunes(s string, n int) string {
 	r := []rune(s)
 	if len(r) <= n {
@@ -245,10 +281,16 @@ func truncateRunes(s string, n int) string {
 // Anies and the Pilkada turned a real Dedi Mulyadi video into "dibantah", 85).
 func onSubject(ev []models.WebEvidence, topic string) []models.WebEvidence {
 	out := make([]models.WebEvidence, 0, len(ev))
+	seen := map[string]bool{}
 	for _, e := range ev {
 		if len(out) >= webMaxEvidence {
 			break
 		}
+		// One page once, even when the search returns it again.
+		if seen[e.URL] {
+			continue
+		}
+		seen[e.URL] = true
 		keep := grounding.SameTopic(topic, e.Title)
 		if !keep && e.Says == llm.WebHoax {
 			keep = grounding.SharesEntity(topic, e.Title)
