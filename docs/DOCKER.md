@@ -102,7 +102,7 @@ LLM_MOCK=false
 NINEROUTER_API_KEY=sk-or-...
 ```
 
-Atau ke LLM gateway lokal (misal NineRouter di host machine), dengan `LLM_EXTRA_BODY` dikosongkan:
+Atau ke LLM gateway lokal (misal router kompatibel OpenAI di host machine), dengan `LLM_EXTRA_BODY` dikosongkan:
 ```env
 LLM_MOCK=false
 NINEROUTER_BASE_URL=http://host.docker.internal:20128/v1

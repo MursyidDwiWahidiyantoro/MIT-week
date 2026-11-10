@@ -9,7 +9,7 @@ AMBA has two parts and they deploy differently:
 
 A static host **cannot** run the Go API. Serverless functions time out well
 before a 20 s audit stream, and the API needs outbound network access to the
-news endpoint and 9router. Deploy the two separately.
+news endpoint and the LLM gateway. Deploy the two separately.
 
 ## Why Netlify
 
@@ -59,9 +59,9 @@ ENVIRONMENT=production
 REPORT_SIGNING_KEY=<32+ random bytes, base64>
 PUBLIC_APP_URL=https://your-site.netlify.app   # CORS origin
 LLM_MOCK=false
-NINEROUTER_BASE_URL=https://your-9router-host/v1
+NINEROUTER_BASE_URL=https://your-llm-gateway-host/v1
 NINEROUTER_API_KEY=<key>
-NINEROUTER_MODEL=Maru
+NINEROUTER_MODEL=<model>
 FACT_RETRIEVAL=true
 ```
 
@@ -87,5 +87,5 @@ Then open the site and run one audit. A real result shows a score and no
 
 - `GOOGLE_SAFE_BROWSING_KEY` is optional; without it the link pillar says so.
 - The PWA share target needs HTTPS; Netlify provides it automatically.
-- A cold 9router or a dropped gateway call can degrade one audit; the UI shows
+- A cold LLM gateway or a dropped gateway call can degrade one audit; the UI shows
   "Sebagian pemeriksaan tidak berjalan" and the next run normally succeeds.

@@ -1,290 +1,59 @@
-# STATUS.md — AMBA
+# STATUS: AMBA v2
 
-> Dokumen ini untuk **anggota tim**, bukan untuk juri. Ditulis ulang 8 November
-> 2026 setelah semua requirement PRD (P0, P1, P2) dibangun dan jalur deploy
-> disiapkan. Sumber kebenaran tetap `instruction/TECH_SPEC_AMBA.md`; kalau
-> dokumen itu dan STATUS.md berbeda, TECH_SPEC yang menang.
+Untuk anggota tim. Tanggal: 10 November 2026 (batas lomba 23:59 WITA).
+Sumber kebenaran tetap `instruction/TECH_SPEC_AMBA.md`; kalau berbeda dengan
+dokumen ini, spesifikasi teknis yang menang. Alamat publik:
+https://amba.madewadigital.com
 
----
+## Sudah selesai
 
-## 1. Ringkasan satu menit
+- Cabang `amba-v2` menyatukan dua jalur kerja: detektor video dan gateway LLM
+  dari cabang kami, serta tambahan Fujimaru (`ops/status`, pagefetch, statistik).
+- Tautan video TikTok, YouTube Shorts, Instagram, Facebook, dan X: `yt-dlp` +
+  `ffmpeg`, 6 bingkai dan 60 detik suara, dianalisis model.
+- Pengakuan pembuat (`creator_disclosure`): hashtag dan frasa AI dari pembuat.
+- Pencarian jejak di web lewat Tavily, dibatasi 26 situs berita dan cek fakta
+  (`web_evidence`, paling banyak 5).
+- Cek fakta dengan pencocokan topik bahasa Indonesia (`SameTopic`).
+- Gambar: cek buatan AI, teks ditimpa (ELA), keamanan tautan dengan penanda
+  domain tiruan (`LOOKALIKE_BRAND`).
+- Validator tautan satu pintu (`security.ValidateInputURL`) dan ekstraksi tautan
+  dari teks bagikan di browser.
+- Header nginx: CSP `frame-ancestors 'none'` dan HSTS, termasuk di `/_app/`.
+- Fitur yang dihapus: ukuran teks, mode Jelajah/Esensial, bagikan laporan,
+  Balas sopan (`/reply`), kartu bukti.
+- Ambang skor: video AI 55, manipulasi 70, konteks 85; gambar AI 80.
 
-| Hal | Kondisi |
-|---|---|
-| Backend Go | **Selesai & hijau**: 517 test (termasuk subtest) lulus di 18 paket, `-race` |
-| Scope (9 Nov 2026) | Input hanya **tautan** dan **unggah gambar**. Tiga deteksi: gambar buatan AI vs asli, gambar dengan teks ditimpa, tautan asli vs jebakan/hoaks |
-| Frontend (5 halaman + alur hasil) | **Selesai**: audit nyata dengan SSE progresif, demo offline, EN/ID, mode, ukuran teks |
-| PRD | **P0, P1, P2 terpasang** (rincian di bagian 4) |
-| Kontrak API (OpenAPI ↔ JSON Schema ↔ Go ↔ Zod) | **Sinkron**, termasuk `source_metadata` dan `ocr_text` |
-| Aksesibilitas & performa | axe 0 serious/critical (ID dan EN); Lighthouse mobile ≥ 90 di semua rute, a11y 100 |
-| CI GitHub Actions | backend · frontend · lighthouse · contract · e2e |
-| Siap produksi? | **Ya, setelah kunci diisi**: Vercel + Fly.io/Railway, panduan di `docs/DEPLOY.md` |
+## Pemeriksaan terakhir
 
----
+Diulang pada kepala `v2-docs` (sama dengan `amba-v2` 36345a1) untuk dokumen ini:
 
-## 2. Cara menjalankan
+- `go test -count=1 ./...` di `backend/`: seluruh 21 paket bertes lulus.
 
-### Paling cepat: Docker (lokal / LAN)
+Hasil yang dilaporkan pekerja backend dan frontend sebelum digabung (belum
+diulang di sini): gofmt dan `go vet` bersih; `go test -race` di docker
+golang:1.24 lulus; typecheck, lint, Vitest, dan build frontend lulus;
+`npm audit --omit=dev` 0 kerentanan; `docker compose build` berhasil.
 
-```bash
-make up          # web http://localhost, API http://localhost:8080
-make dev         # hot-reload: Go Air + Vite
-make down
-```
+## Batas yang diketahui
 
-Panduan lengkap: `docs/DOCKER.md`. Produksi: `docs/DEPLOY.md`.
+- Akurasi 90 persen **belum diklaim**. Set uji 33 klip berlabel, tiga putaran:
+  berita asli ditandai 1 dari 33 bacaan, klip AI 16 dari 30 bacaan (53 persen),
+  hoaks 7 dari 36. Pencarian web dan cek fakta belum terukur di set itu.
+- Pengakuan pembuat yang kuat sendirian sudah menghasilkan skor minimal 85.
+- `/audit/url` menolak port selain 80 dan 443, dan karakter berbahaya di path.
+- `govulncheck`: sisa temuan ada di pustaka standar Go 1.24 dan paket `x/*`
+  yang butuh Go 1.25 atau lebih baru. Naik toolchain setelah lomba.
+- Hasil lama di cache browser tidak punya kolom video baru; skema
+  menganggapnya opsional.
+- Playwright e2e dijalankan pekerja frontend (20 lulus, 2 hanya pada percobaan
+  ulang karena rate limit); tidak diulang setelah penggabungan akhir.
+- Pencarian web memakai satu kredit Tavily per video.
 
-### Manual
-
-```bash
-cd backend  && go run ./cmd/server          # :8080, LLM_MOCK=true
-cd frontend && npm install && npm run dev   # :5173 (mode mock)
-```
-
-**Penting:** `npm run dev` default `VITE_API_MODE=mock` (data contoh di
-browser). Untuk backend sungguhan:
-
-```bash
-VITE_API_MODE=http VITE_API_BASE_URL=http://localhost:8080/api/v1 npm run dev
-```
-
-Backend **tidak membaca `.env`** (tanpa `godotenv`); ekspor variabel di shell.
-Daftar lengkap variabel ada di `.env.example`.
-
-**Versi:** `go.mod` dipatok **Go 1.24** dan CI memakai 1.24. Jangan `go mod tidy`
-dengan toolchain lebih baru tanpa memeriksa direktif `go`. Node ≥ 22.
-
----
-
-## 3. Pemeriksaan (jalankan sebelum bilang "selesai")
+## Menjalankan
 
 ```bash
-cd backend  && gofmt -l . && go vet ./... && go test -race ./...
-cd backend  && go run ./cmd/gendemo && git status --porcelain   # harus kosong
-cd frontend && npm run typecheck && npm run lint && npm run test
-cd frontend && npm run build && npm run size && npm run contrast && npm run headers
-cd frontend && npm run test:e2e
-cd frontend && npm run lighthouse      # dari folder frontend, setelah build
-bash tools/check-demo-diff.sh
+docker compose up --build     # web http://localhost, API http://localhost:8080
 ```
 
-Hasil terakhir (9 Nov 2026):
-
-| Pemeriksaan | Hasil |
-|---|---|
-| `gofmt` + `go vet` + `go test -race` | bersih; 517 test (termasuk subtest) lulus, 18 paket |
-| `gendemo` | deterministik, nol diff |
-| `svelte-check` | 0 error, 0 warning |
-| `eslint` | bersih |
-| `vitest` | 58 test lulus di 9 file |
-| `vite build` | sukses, adapter-static |
-| bundle | 136,5 KB gz / batas 250 KB |
-| contrast | 82 pasang, dua tema |
-| headers | `vercel.json` = `security-headers.json` |
-| Playwright e2e | 34/34 (axe ID dan EN, paritas mode, i18n, tautan, demo, Jejak AI lewat API asli, Timpa Teks) |
-| Lighthouse (mobile, median 5) | performa 92–99, a11y 100, best practices 96–100, SEO 100, CLS 0 |
-| Server asli (mock model) | tautan phishing → TAMPERED 85; gambar C2PA dan ComfyUI → `AI_PROVENANCE` 85; foto Pixel → data kamera; WebP diterima; log tanpa URL atau nama file |
-| demo diff | sinkron |
-
----
-
-## 4. Fitur: apa yang benar-benar ada
-
-### Backend
-
-| Bagian | Status | Bukti |
-|---|---|---|
-| `internal/scoring` | ADA | bobot ELA .30 / AI .15 / Fact .35 / Link .20; floor `FACT_CONTRADICTED`, `LINK_MALICIOUS`, `ELA_CORROBORATED`, `LINK_STRONG`, `AI_PROVENANCE`, `AI_EDITED`, `AI_LIKELY`, `ELA_SOLO_CAP`, `INJECTION_GUARD`; vektor 1–21 + 11b |
-| `internal/provenance` | ADA | Jejak AI dari isi file: Content Credentials (C2PA), IPTC/XMP, pengaturan Stable Diffusion/ComfyUI/NovelAI/Midjourney, EXIF; hanya blok metadata yang dibaca; diuji dengan file nyata (c2pa-rs, ComfyUI, foto Canon dan Pixel) dan fuzzing |
-| `internal/aidetect` | ADA (opsional) | detektor gambar AI Sightengine `genai`; mati tanpa kunci |
-| `internal/security` | ADA | SSRF `Dialer.Control` + penolakan target internal, upload JPEG/PNG/WebP (ukuran WebP dibaca dari header), rate limit dengan identitas dari edge host, header, CORS |
-| `internal/token` | ADA | HMAC share token, tamper, rotasi |
-| `internal/forensics` | ADA | ELA q90, grid 16×16, reliabilitas per format, `Hotspots`, gambar untuk model (JPEG ≤ 1600 px); **Timpa Teks** `TextEvidence`: teks yang ditandai model dibandingkan dengan teks lain di gambar (benchmark 68 pasang foto nyata: 0 baris asli lolos, 41–65 % baris yang diketik ulang tertangkap) |
-| `internal/linkcheck` | ADA | brand lookalike berbasis token, domain resmi, unroll redirect, `SHORTENER_HIDES`, Safe Browsing, cek halaman tujuan (form sandi/PIN/OTP, nama bank di judul), umur domain lewat RDAP (`NEW_DOMAIN`, `YOUNG_DOMAIN`); diuji pada data phishing nyata (83,6 % tautan phishing bertema Indonesia diberi peringatan, 4 dari 10.060 situs sah salah ditandai) |
-| `internal/metadata` | ADA | oEmbed (YouTube, TikTok, X) dan OpenGraph lewat klien aman; BLOCKED/UNAVAILABLE jujur |
-| `internal/llm` | ADA | analisis + klasifikasi dengan `json_schema` strict, input gambar, deteksi injeksi, mock deterministik; bawaan deploy: OpenRouter `nvidia/nemotron-3.5-super-vl:free` + cadangan `openrouter/free` |
-| `internal/grounding` | ADA | Google Fact Check Tools + allowlist; hanya URL hasil pencarian AMBA yang bisa terverifikasi |
-| `internal/pipeline` | ADA | SSE progresif, anggaran per langkah, cache LRU 500, satu event akhir per pilar; Jejak AI dari metadata file, detektor opsional dan model; gambar pratinjau tautan ikut dinilai; WebP tanpa ELA; tautan tanpa `https://` di OCR ikut diperiksa |
-| `internal/tactics` | ADA | NFKC + verifikasi substring (teks, caption, atau OCR) |
-| `internal/reply` | ADA | draf model tervalidasi (≤ 280, URL sumber saja, kata terlarang) + template status × nada |
-| `internal/telegram` | ADA | webhook ber-secret atau polling, `/cek`, foto, batas per chat |
-| `internal/metrics` | ADA | penghitung anonim Prometheus di listener internal |
-| `internal/demo` | ADA | 5 kasus (PRD F8 + `demo-gambar-ai` dengan Content Credentials sungguhan di filenya; alias `contoh-*`), dihasilkan `cmd/gendemo` |
-
-Endpoint: `GET /healthz` · `POST /api/v1/audit/{url,file}` · `POST /api/v1/verify` ·
-`POST /api/v1/reply` · `GET /api/v1/demo/{id}` · `POST /telegram/webhook`.
-SSE: `stage → partial → verdict → done`, dengan heartbeat `: ping`.
-
-### Frontend
-
-| Halaman / fitur | Status | Catatan |
-|---|---|---|
-| `/` beranda | ADA | hero + bar tautan (F1), scanner contoh, sekolah scam, CTA |
-| `/deteksi` | ADA | tab, dropzone, demo, radar dari SSE asli, `?tab=` dan `?q=` |
-| `/hasil` | ADA | verdict, batas jujur, slider ELA, kartu Jejak AI (asal-usul file, detektor, kemungkinan), taktik (teks/OCR), pratinjau tautan, sumber, bagikan, balas, kartu bukti |
-| `/edukasi` | ADA | 3 modus + 3 soal + **bedah forensik** (3 gambar, ELA asli) |
-| `/tentang` | ADA | tim, privasi (apa yang dikirim ke mana), batas, disclaimer |
-| EN/ID | ADA | default Indonesia; pilihan tersimpan, dipasang sebelum paint pertama |
-| Disclaimer PRD §10 | ADA | verbatim, berbahasa Indonesia, di footer setiap halaman |
-| Mode Jelajah/Esensial | ADA | paritas informasi diuji e2e |
-| Ukuran teks, read-aloud, auto-read | ADA | suara mengikuti bahasa (id-ID / en-US) |
-| Kartu bukti 1200×630 | ADA | QR + baris INDIKATIF |
-| PWA + share target | ADA | app shell offline; tombol tempel dan bot Telegram untuk iOS |
-
----
-
-## 5. Risiko yang masih terbuka
-
-1. **Belum diuji dengan kunci sungguhan.** Model, Fact Check Tools, Safe
-   Browsing, dan Telegram teruji dengan server palsu di unit test, tetapi belum
-   pernah dipanggil dengan kunci asli (lingkungan pengembangan ini tidak bisa
-   menjangkau OpenRouter). Langkah uji ada di `docs/DEPLOY.md` §6.
-2. **Kuota model gratis kecil.** OpenRouter gratis: 20 permintaan per menit
-   dan 50 per hari (1.000 per hari setelah top-up $10). Satu audit memakai
-   sampai dua panggilan model.
-3. **Timpa Teks belum diuji pada hoaks sungguhan.** Rata-rata ELA global
-   tidak membedakan gambar asli dan suntingan, jadi sejak 2026-11-09 teks yang
-   ditandai model dibandingkan dengan teks lain di gambar yang sama
-   (`forensics.TextEvidence`). Pada benchmark dari foto nyata tidak ada baris
-   asli yang lolos, dan 41–65 % baris yang diketik ulang tertangkap; teruskan
-   ulang atau perkecil gambar setelah diedit melemahkan sinyal. Pengukuran
-   hanya berjalan pada kotak yang ditandai model. Uji ulang dengan hoaks nyata
-   dari situs cek fakta begitu ada kumpulan berlabel (`tools/textbench`).
-3b. **Ambang `AI_LIKELY` (80) belum dikalibrasi dengan model sungguhan.**
-   Kunci model tidak tersedia saat Jejak AI dibangun; ambang diambil dari
-   rubrik prompt. Data asal-usul file (C2PA, IPTC, ComfyUI, dll.) diuji pada
-   file nyata dan tidak bergantung pada model.
-4. **Share target Android** belum dicek manual di ponsel (Playwright tidak bisa
-   membuka menu Share OS).
-5. **`$lib` masih lewat `alias` di `vite.config.ts`**, yang sudah deprecated di
-   SvelteKit 3 (muncul peringatan saat build). Migrasi ke `#lib/*` sudah
-   disiapkan di `package.json`, tetapi belum dijalankan.
-6. **Cache dan rate limit per mesin.** Sesuai aturan tanpa database; kalau
-   API diskalakan ke beberapa mesin, batasnya berlaku per mesin.
-7. **`instruction/CLAUDE.md` dan `.claude/` di-gitignore.** Rekan yang clone tidak
-   mendapat playbook. Kalau disengaja, sebutkan di README.
-
----
-
-## 6. Keputusan desain yang sudah diambil
-
-Semua detail di `docs/DECISIONS.md`. Yang paling sering ditanya:
-
-1. **Skor hanya dihitung di Go.** Model tidak pernah mengembalikan skor/status.
-2. **Status fakta dari sumber terverifikasi**, bukan klaim model; hanya URL dari
-   pencarian AMBA sendiri yang bisa terverifikasi.
-3. **ELA sendirian tidak bisa TAMPERED** (cap 60), dan cap hanya bila ELA tersedia.
-4. **Bukti tautan kuat cukup** (`LINK_STRONG`): skor tautan ≥ 45 tanpa bukti lain
-   menjadi skor, maksimal 85.
-5. **Produksi menolak model tiruan**, tanpa kunci tanda tangan, atau tanpa https.
-6. **Token di fragment URL**, dikirim lewat body `POST /verify`.
-7. **CSP dihasilkan SvelteKit** (`csp.mode: 'hash'`); `connect-src` dari
-   `VITE_API_BASE_URL` saat build.
-8. **Bahasa Inggris dibangun dari kode verdict**, bukan diterjemahkan mesin.
-9. **Warna memakai peran semantik** (`--on-fill`, `--on-ink`, `--on-brand`,
-   `--on-panel-dark`), bukan pasangan `ink`/`white` yang tetap.
-
----
-
-## 7. Alur kerja tim
-
-- Branch kerja `main`; commit/push milik pemilik repo.
-- Prefix: `feat(scoring):`, `fix(ssrf):`, `test(link):`, `docs:`.
-- **Kontrak lebih dulu:** perubahan kontrak mengubah `api/openapi.yaml` →
-  `api/dossier.schema.json` → `backend/internal/models/dossier.go` →
-  `frontend/src/lib/api/schemas.ts` dalam satu commit.
-- Teks antarmuka baru masuk ke **dua** kamus: `src/lib/i18n/id.ts` dan `en.ts`
-  (TypeScript dan vitest menolak kunci yang hilang).
-- Data demo diubah lewat `backend/cmd/gendemo`, bukan dengan menyunting JSON.
-
-### Aturan yang tidak boleh dilanggar
-
-1. Tanpa akun, tanpa database, tanpa menyimpan input pengguna.
-2. Jangan pernah mencatat IP, URL, teks, judul, atau nama file.
-3. Vonis dihitung di Go.
-4. Data demo tidak pernah dipakai untuk permintaan nyata.
-5. Jangan mengarang URL, penerbit, atau sumber.
-6. Semua teks antarmuka berbahasa Indonesia secara default dan mudah dipahami;
-   bahasa Inggris hanya pilihan tambahan.
-7. Jangan mengklaim kepastian.
-
----
-
-## 8. Rambu teknis
-
-- **`$lib` bawaan SvelteKit 3 sudah dihapus**; repo ini menjaganya lewat `alias`
-  (lihat risiko 5). Modul baru boleh memakai `#lib/...`.
-- **CSP `script-src 'self'` memblokir bootstrap** → halaman kosong. Jangan hardcode.
-  Script pre-paint di `app.html` di-hash otomatis saat build.
-- **`tokens.css` wajib diimpor sebelum `app.css`.**
-- **`go mod tidy` dengan toolchain lebih baru** menulis ulang direktif `go`.
-- **Kontras** diperiksa `tools/check-contrast.mjs` (82 pasang, dua tema).
-- **Budget bundle** 250 KB gz; sekarang 136,5 KB (total semua JS; JS awal per halaman lebih kecil).
-- **Lighthouse** dijalankan dari folder `frontend` setelah `npm run build`.
-- **Jangan memakai emoji Unicode**; ikon dari `@lucide/svelte`.
-- **Jangan mencetak `err` dari `http.Client.Do`** untuk layanan luar: pesannya
-  memuat URL, termasuk kunci API dan kueri pengguna.
-
----
-
-## 9. Peta file
-
-```
-api/                 openapi.yaml · dossier.schema.json
-backend/
-  cmd/server/        entrypoint, Telegram, metrik, graceful shutdown
-  cmd/gendemo/       generator demo + gambar kuis forensik
-  cmd/evalimages/    kalibrasi: pipeline asli pada folder gambar berlabel
-  fly.toml · railway.json · Dockerfile
-  internal/
-    scoring/         satu-satunya tempat skor dihitung
-    security/        ssrf · upload (JPEG/PNG/WebP) · ratelimit · headers
-    forensics/       ELA server + hotspot grid + Timpa Teks + gambar untuk model
-    provenance/      Jejak AI dari isi file (C2PA, IPTC/XMP, PNG, EXIF)
-    aidetect/        detektor gambar AI opsional (Sightengine)
-    linkcheck/       heuristik URL, unroll, Safe Browsing, umur domain (RDAP)
-    metadata/        oEmbed / OpenGraph
-    llm/             klien OpenAI-compatible + mock
-    grounding/       allowlist + Fact Check Tools
-    pipeline/        orkestrasi, SSE progresif, cache
-    reply/           Balas Sopan
-    telegram/        bot
-    metrics/         penghitung anonim
-    token/           HMAC share token
-    tactics/         verifikasi frasa
-    demo/            demo-cases.json (embed)
-    httpapi/         router, handler, SSE, error envelope
-    models/          Dossier (cermin kontrak)
-tools/
-  textbench/         benchmark teks ditempel dari foto nyata
-  eval/              pilih model + ukur Jejak AI/Timpa Teks (free_models, compare, analyze)
-frontend/
-  src/routes/        +page · deteksi · hasil · edukasi · tentang
-  src/lib/
-    i18n/            id.ts · en.ts · t()
-    audit.svelte.ts  sesi audit + SSE + AbortController
-    api/schemas.ts   cermin Zod dari kontrak
-    components/      ui · deteksi · hasil · home · mode · a11y · share
-    data/            demo-cases · forensic-quiz · tactics · reply-templates
-  static/            demo/ · edukasi/ · manifest
-  tools/             size · contrast · headers · lighthouse · preload-fonts
-  vercel.json
-configs/             reply_templates.json · trusted_sources.yaml
-docs/                DEPLOY · DOCKER · DECISIONS · PROGRESS · DESIGN-SYSTEM
-tools/               check-demo-diff.sh
-```
-
----
-
-## 10. Langkah berikutnya
-
-1. Deploy dengan kunci asli mengikuti `docs/DEPLOY.md`, lalu jalankan uji §6.
-2. Cek share target di Android Chrome (PWA terpasang) dan bot Telegram.
-3. Pilih model gratis terbaik dan kalibrasi Jejak AI serta Timpa Teks dengan kunci
-   model asli: `python tools/eval/free_models.py` lalu `python tools/eval/compare.py`
-   (`tools/eval/README.md`, `docs/DEPLOY.md` §6.1). Lingkungan cloud sebelumnya tidak
-   bisa menjangkau openrouter.ai, jadi langkah ini belum dijalankan.
-4. Setelah seminggu di produksi, baca `amba_floors_total` dan
-   `amba_link_reasons_total` bersama laporan pengguna: aturan yang memicu alarm
-   palsu diperbaiki dengan menambah kasusnya ke test lebih dulu.
-5. Migrasi `$lib` → `#lib` dalam satu commit terpisah.
+Detail ada di `README.md`, `docs/DOCKER.md`, dan `docs/DEPLOY.md`.
