@@ -11,11 +11,6 @@ export interface Card {
   body: Text;
 }
 
-export interface Scam extends Card {
-  /** What to do, in one sentence. */
-  act: Text;
-}
-
 export interface CheckStep extends Card {
   /** External tool, opened in a new tab. */
   link?: { href: string; label: string };
@@ -139,49 +134,6 @@ export const CHECK_STEPS: CheckStep[] = [
   }
 ];
 
-export const SCAMS: Scam[] = [
-  {
-    id: 'bansos',
-    title: { id: 'Bansos palsu' },
-    body: {
-      id: 'Pesan bilang Anda terpilih menerima bantuan, lalu meminta Anda mengisi data KTP atau memasukkan OTP lewat tautan.'
-    },
-    act: {
-      id: 'Abaikan. Cek hak bantuan hanya lewat situs atau aplikasi resmi.'
-    }
-  },
-  {
-    id: 'undian',
-    title: { id: 'Undian dan hadiah' },
-    body: {
-      id: 'Anda menang mobil atau uang, tetapi harus transfer biaya pajak atau administrasi lebih dulu.'
-    },
-    act: {
-      id: 'Undian sungguhan tidak meminta bayar di depan. Putuskan kontak.'
-    }
-  },
-  {
-    id: 'petugas',
-    title: { id: 'Petugas atau pejabat palsu' },
-    body: {
-      id: 'Mengaku dari bank, kurir, polisi, atau kantor pemerintah. Biasanya mendesak dan menakut-nakuti supaya Anda panik.'
-    },
-    act: {
-      id: 'Tutup telepon, lalu hubungi nomor resmi yang Anda cari sendiri.'
-    }
-  },
-  {
-    id: 'deepfake',
-    title: { id: 'Video pejabat hasil deepfake' },
-    body: {
-      id: 'Wajah dan suara tokoh ditiru untuk mengajak berinvestasi, menyumbang, atau mengklaim hadiah.'
-    },
-    act: {
-      id: 'Cek di akun resmi tokoh itu dan di berita. Jangan percaya satu video saja.'
-    }
-  }
-];
-
 export const QUESTIONS: Question[] = [
   {
     id: 'hands',
@@ -214,21 +166,6 @@ export const QUESTIONS: Question[] = [
     }
   },
   {
-    id: 'bansos',
-    question: {
-      id: 'Pesan WhatsApp: “Anda terpilih menerima bansos Rp 2.000.000. Klik tautan, isi data KTP dan kode OTP.” Sikap yang tepat?'
-    },
-    options: [
-      { id: 'a', text: { id: 'Isi secepatnya supaya tidak hangus.' } },
-      { id: 'b', text: { id: 'Abaikan dan cek lewat situs atau aplikasi resmi.' } },
-      { id: 'c', text: { id: 'Teruskan ke keluarga supaya ikut dapat.' } }
-    ],
-    answer: 'b',
-    explain: {
-      id: 'Bantuan resmi tidak meminta OTP lewat tautan di chat. Kode OTP memberi orang lain akses ke akun Anda.'
-    }
-  },
-  {
     id: 'deepfake',
     question: {
       id: 'Video seorang pejabat mengajak warga menanam uang di sebuah aplikasi dengan untung besar. Bibirnya sedikit tidak pas dengan suaranya. Apa yang masuk akal?'
@@ -241,21 +178,6 @@ export const QUESTIONS: Question[] = [
     answer: 'b',
     explain: {
       id: 'Wajah dan suara kini mudah ditiru. Untung besar tanpa risiko adalah tanda penipuan, siapa pun yang tampil di video.'
-    }
-  },
-  {
-    id: 'undian',
-    question: {
-      id: 'Telepon: “Anda menang undian mobil. Transfer Rp 500 ribu dulu untuk pajaknya.” Mana yang benar?'
-    },
-    options: [
-      { id: 'a', text: { id: 'Undian sungguhan tidak meminta bayar di depan, ini penipuan.' } },
-      { id: 'b', text: { id: 'Wajar, hadiah memang kena pajak.' } },
-      { id: 'c', text: { id: 'Boleh bayar kalau nominalnya kecil.' } }
-    ],
-    answer: 'a',
-    explain: {
-      id: 'Biaya kecil di depan adalah umpan. Setelah Anda membayar, akan ada biaya berikutnya.'
     }
   },
   {
@@ -305,41 +227,11 @@ export const QUESTIONS: Question[] = [
   }
 ];
 
-export const RULES: Card[] = [
-  {
-    id: 'ask',
-    title: { id: 'Minta kata sandi' },
-    body: {
-      id: 'Kalau ada yang mengaku keluarga lewat nomor baru, minta kata sandi keluarga. Salah jawab berarti bukan mereka.'
-    }
-  },
-  {
-    id: 'call',
-    title: { id: 'Telepon nomor lama' },
-    body: {
-      id: 'Jangan pakai nomor di pesan itu. Hubungi nomor yang sudah lama tersimpan di kontak Anda.'
-    }
-  },
-  {
-    id: 'secret',
-    title: { id: 'Tidak ada rahasia' },
-    body: {
-      id: 'Permintaan uang atau OTP yang harus disembunyikan dari keluarga adalah tanda bahaya, bukan alasan untuk diam.'
-    }
-  }
-];
-
-/** The safe words are easy-to-say nouns, so a whole family can remember them. */
-export const SAFE_WORDS = [
-  'Bakso', 'Sepeda', 'Kucing', 'Payung', 'Kopi', 'Bambu', 'Cempedak', 'Layang',
-  'Mangga', 'Kereta', 'Bebek', 'Jendela', 'Sapu', 'Kelapa', 'Sepatu', 'Gunting'
-];
-
 /** Interface strings of the Belajar page. */
 export const UI = {
   title: { id: 'Belajar — AMBA' },
   description: {
-    id: 'Cara mengenali video buatan AI dan video hoaks, cara memeriksa sendiri, modus penipuan di Indonesia, dan kuis singkat.'
+    id: 'Cara mengenali video buatan AI dan video hoaks, cara memeriksa sendiri, dan kuis singkat.'
   },
   h1: { id: 'Belajar mengenali hoaks' },
   lede: {
@@ -350,9 +242,7 @@ export const UI = {
     ai: { id: 'Video AI' },
     hoax: { id: 'Video hoaks' },
     check: { id: 'Cek sendiri' },
-    scam: { id: 'Penipuan' },
-    quiz: { id: 'Kuis' },
-    family: { id: 'Keluarga' }
+    quiz: { id: 'Kuis' }
   },
   ai: {
     title: { id: 'Mengenali video buatan AI' },
@@ -370,14 +260,6 @@ export const UI = {
     lede: { id: 'Empat langkah, urut dari yang paling cepat.' },
     open: { id: 'Buka' },
     newTab: { id: 'tab baru' }
-  },
-  scam: {
-    title: { id: 'Modus penipuan' },
-    lede: { id: 'Polanya mirip: mendesak, menjanjikan, lalu meminta data atau uang.' },
-    act: { id: 'Yang dilakukan' },
-    rule: {
-      id: 'Jangan berikan OTP, PIN, atau kata sandi kepada siapa pun, termasuk yang mengaku petugas bank.'
-    }
   },
   quiz: {
     title: { id: 'Kuis singkat' },
@@ -399,25 +281,5 @@ export const UI = {
     low: { id: 'Belum kuat. Tidak apa-apa. Baca kartu di atas, lalu coba ulang.' },
     again: { id: 'Ulangi kuis' },
     check: { id: 'Periksa tautan sekarang' }
-  },
-  family: {
-    title: { id: 'Kata sandi keluarga' },
-    lede: {
-      id: 'Penipu bisa meniru suara, foto, dan nomor. Mereka tidak bisa menebak kata yang hanya diketahui keluarga Anda.'
-    },
-    how: {
-      id: 'Dua kata yang mudah diingat, tidak berkaitan dengan nama, alamat, atau tanggal lahir. Simpan di kepala, bukan di chat.'
-    },
-    none: { id: 'Belum dibuat' },
-    make: { id: 'Buat kata sandi' },
-    again: { id: 'Buat ulang' },
-    copy: { id: 'Salin' },
-    copied: { id: 'Tersalin' },
-    note: { id: 'Dibuat di perangkat ini saja. AMBA tidak menyimpan atau mengirim kata sandi.' },
-    rules: { id: 'Tiga aturan untuk semua orang di rumah' },
-    print: { id: 'Cetak kartu' },
-    cardBrand: { id: 'AMBA: kartu keluarga' },
-    cardLabel: { id: 'Kata sandi keluarga kami' },
-    cardFoot: { id: 'Hasil pemeriksaan AMBA bersifat indikatif, bukan bukti pasti.' }
   }
 } as const;

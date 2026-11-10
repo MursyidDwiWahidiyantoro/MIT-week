@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
-test('Cek cepat is gone from the navigation and the old family guide redirects to Belajar', async ({ page }) => {
+test('Cek cepat and the family guide are gone from the app', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByText('Cek cepat')).toHaveCount(0);
   const missing = await page.goto('/cek-cepat');
@@ -9,9 +9,9 @@ test('Cek cepat is gone from the navigation and the old family guide redirects t
   expect(missing?.status()).toBeLessThan(500);
   await expect(page.getByRole('heading', { level: 1 })).not.toHaveText(/cek cepat/i);
 
-  await page.goto('/panduan-keluarga');
-  await expect(page).toHaveURL(/\/edukasi#keluarga$/);
-  await expect(page.getByRole('heading', { level: 2, name: 'Kata sandi keluarga' })).toBeVisible();
+  const family = await page.goto('/panduan-keluarga');
+  expect(family?.status()).toBeLessThan(500);
+  await expect(page.getByRole('heading', { level: 2, name: 'Kata sandi keluarga' })).toHaveCount(0);
 });
 
 test('the Belajar quiz runs by keyboard and ends with a score', async ({ page }) => {
@@ -33,7 +33,7 @@ test('the Belajar quiz runs by keyboard and ends with a score', async ({ page })
     await page.keyboard.press('Enter');
     if (/nilai/i.test(label)) break;
   }
-  await expect(page.getByTestId('quiz-result')).toContainText(/\d+ dari 8 benar/);
+  await expect(page.getByTestId('quiz-result')).toContainText(/\d+ dari 6 benar/);
 });
 
 for (const theme of ['dark', 'light'] as const) {

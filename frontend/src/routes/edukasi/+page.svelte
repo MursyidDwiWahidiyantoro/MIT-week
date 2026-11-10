@@ -3,7 +3,7 @@
   import Icon, { type IconName } from '$lib/components/ui/Icon.svelte';
   import Quiz from '$lib/components/belajar/Quiz.svelte';
   import forensicQuiz from '$lib/data/forensic-quiz.json';
-  import { AI_CUES, HOAX_CUES, CHECK_STEPS, SCAMS, RULES, SAFE_WORDS, UI, type Text } from '$lib/data/belajar';
+  import { AI_CUES, HOAX_CUES, CHECK_STEPS, UI, type Text } from '$lib/data/belajar';
 
   const tx = (text: Text): string => text.id;
 
@@ -21,28 +21,6 @@
   let guesses = $state<Record<string, Guess | undefined>>({});
   let revealed = $state<Record<string, boolean>>({});
 
-  // ---- family safe word: made in the browser, never sent anywhere ----
-  let safeWord = $state('');
-  let copied = $state(false);
-
-  function generate(): void {
-    const buf = new Uint32Array(2);
-    crypto.getRandomValues(buf);
-    const a = SAFE_WORDS[buf[0] % SAFE_WORDS.length];
-    const b = SAFE_WORDS[buf[1] % SAFE_WORDS.length];
-    safeWord = a === b ? `${a} Dua` : `${a} ${b}`;
-    copied = false;
-  }
-
-  async function copy(): Promise<void> {
-    try {
-      await navigator.clipboard.writeText(safeWord);
-      copied = true;
-      setTimeout(() => (copied = false), 2000);
-    } catch {
-      // Selecting the text by hand still works.
-    }
-  }
 </script>
 
 <svelte:head>
@@ -141,65 +119,6 @@
       {/each}
     </ul>
   </section>
-
-  <section id="penipuan" aria-labelledby="scam-title">
-    <h2 class="h2" id="scam-title"><span class="h2-ic" aria-hidden="true"><Icon name="phone" size={20} /></span>{tx(UI.scam.title)}</h2>
-    <p class="rule"><Icon name="lock" size={20} /> <span>{tx(UI.scam.rule)}</span></p>
-    <ul class="cues">
-      {#each SCAMS as c (c.id)}
-        <li>
-          <details class="cue">
-            <summary><span>{tx(c.title)}</span><Icon name="chevron" size={18} /></summary>
-            <p>{tx(c.body)}</p>
-            <p class="act"><strong>{tx(UI.scam.act)}:</strong> {tx(c.act)}</p>
-          </details>
-        </li>
-      {/each}
-    </ul>
-  </section>
-
-  <section id="keluarga" class="family" aria-labelledby="family-title">
-    <div class="no-print">
-      <h2 class="h2" id="family-title"><span class="h2-ic" aria-hidden="true"><Icon name="shield-check" size={20} /></span>{tx(UI.family.title)}</h2>
-      <p class="how">{tx(UI.family.lede)}</p>
-      <div class="generator">
-        <output class="word" aria-live="polite">{safeWord || tx(UI.family.none)}</output>
-        <div class="gen-actions">
-          <button class="btn btn--primary" type="button" onclick={generate}>
-            <Icon name="refresh" size={18} /> {safeWord ? tx(UI.family.again) : tx(UI.family.make)}
-          </button>
-          {#if safeWord}
-            <button class="btn btn--quiet" type="button" onclick={copy}>
-              <Icon name={copied ? 'check' : 'copy'} size={18} /> {copied ? tx(UI.family.copied) : tx(UI.family.copy)}
-            </button>
-          {/if}
-          <button class="btn btn--quiet" type="button" onclick={() => window.print()}>
-            <Icon name="print" size={18} /> {tx(UI.family.print)}
-          </button>
-        </div>
-      </div>
-      <ul class="cues cues--rules">
-        {#each RULES as r (r.id)}
-          <li>
-            <details class="cue">
-              <summary><span>{tx(r.title)}</span><Icon name="chevron" size={18} /></summary>
-              <p>{tx(r.body)}</p>
-            </details>
-          </li>
-        {/each}
-      </ul>
-    </div>
-
-    <div class="printable">
-      <p class="p-brand">{tx(UI.family.cardBrand)}</p>
-      <p class="p-label">{tx(UI.family.cardLabel)}</p>
-      <p class="p-word">{safeWord || '____________________'}</p>
-      <ol class="p-rules">
-        {#each RULES as r (r.id)}<li>{tx(r.title)}</li>{/each}
-      </ol>
-      <p class="p-foot">{tx(UI.family.cardFoot)}</p>
-    </div>
-  </section>
 </div>
 
 <style>
@@ -240,21 +159,7 @@
   .cue summary :global(svg) { flex: none; color: var(--muted); transition: transform var(--dur-base) var(--ease-out); }
   .cue[open] summary :global(svg) { transform: rotate(180deg); }
   .cue p { margin: 0; padding: 0 var(--space-4) var(--space-4); color: var(--body-2); line-height: 1.55; }
-  .cue .act { color: var(--ink); }
   .ext { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; margin: 0 var(--space-4) var(--space-3); font-weight: 500; color: var(--indigo-text); }
-
-  .rule {
-    display: flex;
-    gap: var(--space-3);
-    align-items: flex-start;
-    margin: 0 0 var(--space-4);
-    padding: var(--space-4) var(--space-5);
-    max-width: 54rem;
-    background: var(--yellow-tint);
-    border-radius: var(--radius-md);
-    font-weight: 500;
-  }
-  .rule :global(svg) { flex: none; margin-top: 3px; }
 
   /* ELA practice */
   .forensic-grid { display: grid; gap: var(--space-4); grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); }
@@ -281,41 +186,5 @@
   .f-reveal p { margin: 0; }
   .f-reveal .f-verdict { font-weight: 500; color: var(--ink); }
 
-  /* Family */
-  .how { margin: 0 0 var(--space-4); color: var(--body-2); max-width: var(--measure); }
-  .generator { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-4); margin-bottom: var(--space-5); }
-  .word {
-    min-height: 64px;
-    display: inline-flex;
-    align-items: center;
-    padding: 0 var(--space-5);
-    background: var(--safe);
-    color: var(--on-fill);
-    border-radius: var(--radius-md);
-    font-weight: 500;
-    font-size: clamp(1.4rem, 3vw, 2rem);
-    letter-spacing: -0.02em;
-  }
-  .gen-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
-  .printable { display: none; }
-  .p-brand { margin: 0 0 var(--space-4); font-weight: 600; }
-  .p-label { margin: 0; font-size: var(--text-sm); font-weight: 600; }
-  .p-word { margin: var(--space-2) 0 var(--space-4); font-weight: 600; font-size: 2.2rem; letter-spacing: -0.02em; }
-  .p-rules { margin: 0 0 var(--space-4); padding-left: var(--space-5); display: grid; gap: var(--space-2); }
-  .p-foot { margin: 0; font-size: var(--text-xs); }
 
-  @media (max-width: 40rem) {
-    .gen-actions .btn { flex: 1 1 auto; }
-  }
-
-  /* Print: only the family card, black on white. */
-  @media print {
-    :global(header),
-    :global(footer),
-    .head,
-    .belajar > section:not(.family),
-    .no-print { display: none !important; }
-    .printable { display: block; padding: 2rem; border: 2px solid #000; }
-    :global(body) { background: #fff; color: #000; }
-  }
 </style>
