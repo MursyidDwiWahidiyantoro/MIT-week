@@ -113,7 +113,7 @@ Versi diambil dari `frontend/package.json` dan `backend/go.mod`.
 
 | Lapisan | Teknologi |
 |---|---|
-| Backend | Go 1.24, chi v5.5.0, golang.org/x/net 0.50.0, x/image 0.30.0, x/text 0.34.0, x/sync 0.19.0, x/time 0.12.0 |
+| Backend | Go 1.26 (image `golang:1.27-alpine`), chi v5.5.0, golang.org/x/net 0.62.0, x/image 0.45.0, x/text 0.43.0, x/sync 0.24.0, x/time 0.12.0 |
 | Alat video | yt-dlp 2026.10.26 (dipatok di `backend/Dockerfile`), ffmpeg |
 | Frontend | SvelteKit 3.1.1, Svelte 5.57.3, Vite 8.3.5, TypeScript 6.0.3, Tailwind CSS 3.4.19, Zod 4.6.7 (Node 22 atau lebih baru) |
 | Tes | Go `testing` dengan `-race`, Vitest 5.0.5, Playwright 1.64.1, axe-core |
@@ -229,8 +229,6 @@ yang sama untuk pengguna.
 - Pengakuan pembuat yang kuat sendirian sudah menghasilkan skor minimal 85;
   unggahan satir yang menyebut "AI" di judul bisa memicunya.
 - Tavily memakai satu kredit tambahan per video.
-- `govulncheck` masih melaporkan temuan di pustaka standar Go 1.24 yang hanya
-  bisa ditutup dengan naik ke Go 1.25 atau lebih baru.
 
 ## Tim: Pecut Claude
 
@@ -245,7 +243,7 @@ yang sama untuk pengguna.
 
 ```
 api/          kontrak OpenAPI + JSON Schema Dossier
-backend/      Go 1.24 + chi
+backend/      Go 1.26 + chi
 frontend/     SvelteKit SPA (id/en), nginx.conf
 configs/      daftar putih sumber tepercaya
 docs/         DEPLOY.md, DEPLOY-NETLIFY.md, DOCKER.md, PROGRESS.md, DECISIONS.md, DESIGN-SYSTEM.md

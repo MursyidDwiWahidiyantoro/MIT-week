@@ -36,10 +36,15 @@ const (
 
 func urlErr(reason, msg string) *URLError { return &URLError{Reason: reason, Message: msg} }
 
-// dangerousEncoded are percent-encodings of < > " ` (case-insensitive). An
+// dangerousEncoded are percent-encodings of < > " ` and of CR, LF and NUL
+// (case-insensitive). CR/LF in a link only serve header injection. An
 // apostrophe is allowed: news slugs carry it ("it%27s") and nothing on the
 // server builds markup, SQL or shell commands from the URL.
-var dangerousEncoded = []string{"%3c", "%3e", "%22", "%60"}
+var dangerousEncoded = []string{"%3c", "%3e", "%22", "%60", "%0d", "%0a", "%00"}
+
+// dangerousLinkMsg is a conclusion, not a failure: a link built to inject
+// code or headers is itself the warning sign.
+const dangerousLinkMsg = "Tautan ini berisi karakter berbahaya dan ditolak. Jangan dibuka atau dibagikan."
 
 // ValidateInputURL is the single gate for a user-supplied link. It accepts
 // only plain http(s) links, normalises the host to punycode and returns the
@@ -77,12 +82,12 @@ func ValidateInputURL(raw string) (string, *URLError) {
 		return "", urlErr(URLPort, "Tautan dengan port khusus tidak diterima.")
 	}
 	if strings.ContainsAny(host, "<>\"'`") || strings.ContainsAny(u.Path, "<>\"`") {
-		return "", urlErr(URLDangerous, "Tautan berisi karakter berbahaya dan tidak diperiksa.")
+		return "", urlErr(URLDangerous, dangerousLinkMsg)
 	}
 	lowEsc := strings.ToLower(u.EscapedPath() + "\x00" + u.Host)
 	for _, enc := range dangerousEncoded {
 		if strings.Contains(lowEsc, enc) {
-			return "", urlErr(URLDangerous, "Tautan berisi karakter berbahaya dan tidak diperiksa.")
+			return "", urlErr(URLDangerous, dangerousLinkMsg)
 		}
 	}
 	if net.ParseIP(host) == nil {

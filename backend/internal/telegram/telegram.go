@@ -263,7 +263,7 @@ func (b *Bot) request(ctx context.Context, m *Message, text string) (pipeline.Re
 		return pipeline.Request{}, "Tautannya terlalu panjang untuk diperiksa."
 	}
 	if _, err := security.ValidateFetchURL(link); err != nil {
-		return pipeline.Request{}, "Tautan ini tidak dapat diperiksa."
+		return pipeline.Request{}, "Tautan ini mengarah ke alamat yang bukan situs publik, jadi ditolak demi keamanan."
 	}
 	return pipeline.Request{InputType: models.InputURL, URL: link}, ""
 }

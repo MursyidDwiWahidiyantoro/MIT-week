@@ -190,7 +190,7 @@ func TestCommandsAndRefusals(t *testing.T) {
 
 	got := f.messages()
 	if len(got) != 6 || !strings.Contains(got[0], "Halo, ini AMBA") || !strings.Contains(got[1], "Tulis /cek") ||
-		!strings.Contains(got[2], "tidak dikenal") || !strings.Contains(got[3], "tidak dapat diperiksa") || !strings.Contains(got[4], "belum didukung") ||
+		!strings.Contains(got[2], "tidak dikenal") || !strings.Contains(got[3], "ditolak demi keamanan") || !strings.Contains(got[4], "belum didukung") ||
 		!strings.Contains(got[5], "tautan dan gambar") {
 		t.Fatalf("replies = %q", got)
 	}

@@ -5,7 +5,8 @@ services:
       context: ./backend
       target: prod
     ports:
-      - "${BACKEND_PORT:-8080}:8080"
+      # Loopback by default: the public path is nginx (headers, upload limit).
+      - "${BACKEND_PORT:-127.0.0.1:8080}:8080"
     environment:
       - SERVER_HOST=0.0.0.0
       - SERVER_PORT=8080

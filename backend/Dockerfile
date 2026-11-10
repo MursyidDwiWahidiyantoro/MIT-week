@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 # ponytail: multi-stage dev/prod in single Dockerfile; split when CI matrices diverge
-FROM golang:1.24-alpine AS base
+FROM golang:1.27-alpine AS base
 WORKDIR /app
 RUN apk add --no-cache ca-certificates tzdata ffmpeg wget && \
     wget -q https://github.com/yt-dlp/yt-dlp/releases/download/2026.10.26/yt-dlp_musllinux -O /usr/local/bin/yt-dlp && \

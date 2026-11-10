@@ -23,3 +23,19 @@ describe('nginx.conf security headers', () => {
     for (const h of required) expect(assets, h).toContain(`add_header ${h} always;`);
   });
 });
+
+describe('nginx.conf routing and uploads', () => {
+  it('never falls back to a folder: static/edukasi/ shares its name with the /edukasi route', () => {
+    expect(conf).toMatch(/try_files \$uri \/index\.html;/);
+    expect(conf).not.toContain('$uri/');
+  });
+
+  it('redirects with a path only, so the tunnel scheme and port survive', () => {
+    expect(conf).toContain('absolute_redirect off;');
+  });
+
+  it('lets a 10 MB upload through to the backend', () => {
+    const mb = Number(conf.match(/client_max_body_size (\d+)m;/)?.[1]);
+    expect(mb).toBeGreaterThan(10);
+  });
+});

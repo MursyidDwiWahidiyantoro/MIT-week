@@ -63,11 +63,13 @@ export default defineConfig(({ mode }) => ({
         mode: 'hash',
         directives: {
           'default-src': ['self'],
-          'script-src': ['self', appHtmlScriptHash()],
+          // Cloudflare's edge injects its Web Analytics beacon into the page;
+          // without these two sources every public page logs a CSP error.
+          'script-src': ['self', appHtmlScriptHash(), 'https://static.cloudflareinsights.com'],
           'style-src': ['self', 'unsafe-inline'],
           'img-src': ['self', 'data:', 'blob:'],
           'font-src': ['self'],
-          'connect-src': connectSources(mode),
+          'connect-src': [...connectSources(mode), 'https://cloudflareinsights.com'],
           'worker-src': ['self', 'blob:'],
           // Required by Svelte's runtime and SvelteKit's service-worker
           // registration. Narrowing this list further blocks hydration.
