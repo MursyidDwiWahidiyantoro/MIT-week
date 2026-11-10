@@ -98,7 +98,7 @@
     position: absolute;
     inset: 0 auto 0 0;
     border-radius: inherit;
-    background: var(--indigo);
+    background: var(--data-1);
     transform-origin: left center;
   }
   .over .fill { background: var(--err); }

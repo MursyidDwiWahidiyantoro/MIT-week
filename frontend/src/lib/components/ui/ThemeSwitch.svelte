@@ -21,7 +21,7 @@
   function choose(next: Theme) {
     theme = next;
     document.documentElement.dataset.theme = next;
-    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', next === 'dark' ? '#0f0f0f' : '#faf9f9');
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', next === 'dark' ? '#141413' : '#faf9f5');
     try {
       if (next === 'dark') localStorage.removeItem(KEY);
       else localStorage.setItem(KEY, next);

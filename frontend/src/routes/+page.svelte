@@ -83,11 +83,11 @@
   <svg class="wave" viewBox="0 0 1440 420" preserveAspectRatio="none" aria-hidden="true" focusable="false">
     <defs>
       <linearGradient id="wg" x1="0" x2="1" y1="0" y2="0">
-        <stop offset="0" stop-color="#4285f4" stop-opacity="0" />
-        <stop offset="0.25" stop-color="#4285f4" />
-        <stop offset="0.55" stop-color="#9b72cb" />
-        <stop offset="0.8" stop-color="#d96570" />
-        <stop offset="1" stop-color="#d96570" stop-opacity="0" />
+        <stop offset="0" stop-color="#c6613f" stop-opacity="0" />
+        <stop offset="0.25" stop-color="#c6613f" />
+        <stop offset="0.55" stop-color="#d97757" />
+        <stop offset="0.8" stop-color="#e8b088" />
+        <stop offset="1" stop-color="#e8b088" stop-opacity="0" />
       </linearGradient>
     </defs>
     <g class="wave-glow">
@@ -391,7 +391,7 @@
     right: -10%;
     top: 50%;
     height: 2px;
-    background: linear-gradient(90deg, transparent, var(--grad-1) 20%, #a8c7fa 50%, var(--grad-2) 80%, transparent);
+    background: linear-gradient(90deg, transparent, var(--grad-1) 20%, #f0c4ae 50%, var(--grad-2) 80%, transparent);
     box-shadow: 0 0 24px 6px color-mix(in srgb, var(--grad-1) 45%, transparent);
     pointer-events: none;
   }

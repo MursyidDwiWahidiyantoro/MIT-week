@@ -1,56 +1,58 @@
 /*
- * AMBA design tokens in the style of the Gemini web app (Sir, 10 Nov 2026).
- * Values measured on gemini.google.com the same day: page #0f0f0f, side
- * rail #1f1f1f, prompt pill #1e1f20 (radius 32px), text #e3e3e3; light page
- * #faf9f9. Dark is the default theme (app.html sets data-theme="dark" before
- * the first paint) and light is the visitor's option. :root holds the light
- * values and html[data-theme='dark'] the dark ones, the shape
- * tools/check-contrast.mjs reads.
+ * AMBA design tokens: the Gemini web app's style (shapes, pills, prompt bar,
+ * Google Sans Flex, tonal surfaces) in Claude's colours (Sir, 10 Nov 2026,
+ * seq 915). Values measured on claude.com the same day: dark ground #141413,
+ * surfaces #1a1918 / #1f1e1d / #262624 / #30302e, text #faf9f5 / #c2c0b6 /
+ * #9c9a92; light ground #faf9f5, surfaces #f5f4ed / #f0eee6, text #141413 /
+ * #5e5d59; the clay button #c6613f and the logo orange #d97757. Dark is the
+ * default theme; light is the visitor's option. :root holds the light values
+ * and html[data-theme='dark'] the dark ones, as tools/check-contrast.mjs reads.
  *
  * Legacy names (--indigo-*, --safe, --coral, --glass-*, --panel-dark) stay as
- * roles so existing components keep working.
+ * roles: --indigo is now the clay accent, not a blue.
  */
 :root {
   color-scheme: light;
 
   /* ---- neutrals ---- */
-  --paper: #faf9f9;
+  --paper: #faf9f5;
   --white: #ffffff;
-  --card: #f0f4f9;
-  --surface-2: #e9eef6;
-  --rail-bg: #ffffff;
-  --ink: #1f1f1f;
-  --body-2: #444746;
-  --muted: #5e5e5e;
-  --ink-soft: #5f6368;
-  --border: #c4c7c5;
-  --border-strong: #747775;
-  --border-soft: #e3e6ea;
+  --card: #f5f4ed;
+  --surface-2: #f0eee6;
+  --rail-bg: #f5f4ed;
+  --ink: #141413;
+  --body-2: #3d3d3a;
+  --muted: #5e5d59;
+  --ink-soft: #5e5d59;
+  --border: #d9d6cc;
+  --border-strong: #87867f;
+  --border-soft: #e8e6dc;
 
   /* ---- the dashboard: a tinted L frame (sidebar + top bar) around the
    * work sheet, tinted blue-grey from the product's own blue ---- */
-  --frame: #eef2f8;
+  --frame: #f0eee6;
   --sheet: #ffffff;
-  --sheet-edge: #dfe4eb;
+  --sheet-edge: #e3e0d6;
 
   /* ---- the accent: a light-blue pill, blue text for links ---- */
-  --brand: #9dd2ff;
-  --brand-hover: #b5ddff;
-  --brand-deep: #7cc2ff;
-  --on-brand: #001d35;
-  --indigo: #0b57d0;
-  --indigo-soft: #d3e3fd;
-  --indigo-tint: #e8f0fe;
-  --indigo-text: #0b57d0;
+  --brand: #b4532f;
+  --brand-hover: #a34a29;
+  --brand-deep: #8f3f22;
+  --on-brand: #ffffff;
+  --indigo: #b4532f;
+  --indigo-soft: #f3e3da;
+  --indigo-tint: #f8eee8;
+  --indigo-text: #a8492a;
   --on-indigo-text: #ffffff;
 
   /* ---- the three-colour gradient of the greeting and the thinking ring ---- */
-  --grad-1: #4285f4;
-  --grad-2: #9b72cb;
-  --grad-3: #d96570;
+  --grad-1: #a8492a;
+  --grad-2: #c6613f;
+  --grad-3: #b9772f;
+  --data-1: #87867f;
   --grad: linear-gradient(90deg, var(--grad-1), var(--grad-2) 50%, var(--grad-3));
-  --glow-a: rgba(157, 210, 255, 0.55);
-  --glow-b: rgba(211, 227, 253, 0.6);
+  --glow-a: rgba(217, 119, 87, 0.22);
+  --glow-b: rgba(232, 176, 136, 0.28);
 
   /* ---- verdict roles: text colour, and a pale fill for the same state ---- */
   --ok: #146c2e;
@@ -63,8 +65,8 @@
   --yellow-tint: #fff8de;
   --on-fill: #1f1f1f;
 
-  --panel-dark: #1f1f1f;
-  --on-panel-dark: #e3e3e3;
+  --panel-dark: #1f1e1d;
+  --on-panel-dark: #faf9f5;
   --on-ink: var(--paper);
 
   /* ---- semantic aliases ---- */
@@ -76,11 +78,11 @@
   --accent: var(--indigo-text);
   --accent-2: var(--indigo-text);
   --selected-bg: var(--indigo-soft);
-  --hover-overlay: #eef1f5;
-  --active-overlay: #e2e7ee;
+  --hover-overlay: #f0eee6;
+  --active-overlay: #e8e6dc;
   --hero-glow: transparent;
   --field-bg: #ffffff;
-  --focus: #0b57d0;
+  --focus: #b4532f;
 
   /* ---- legacy glass roles: plain surfaces in this style ---- */
   --glass-bg: var(--card);
@@ -185,53 +187,56 @@
 
 html[data-theme='dark'] {
   color-scheme: dark;
-  --paper: #0f0f0f;
-  --white: #1e1f20;
-  --card: #1e1f20;
-  --surface-2: #282a2c;
-  --rail-bg: #1f1f1f;
-  --ink: #e3e3e3;
-  --body-2: #c4c7c5;
-  --muted: #9aa0a6;
-  --ink-soft: #8e918f;
-  --border: #444746;
-  --border-strong: #8e918f;
-  --border-soft: #2a2c30;
+  --grad-1: #c6613f;
+  --grad-2: #d97757;
+  --grad-3: #e8b088;
+  --paper: #141413;
+  --white: #262624;
+  --card: #1f1e1d;
+  --surface-2: #30302e;
+  --rail-bg: #1a1918;
+  --ink: #faf9f5;
+  --body-2: #c2c0b6;
+  --muted: #9c9a92;
+  --ink-soft: #a3a198;
+  --border: #3d3d3a;
+  --border-strong: #87867f;
+  --border-soft: #30302e;
 
-  --frame: #17191c;
-  --sheet: #0f1011;
-  --sheet-edge: #2a2d32;
+  --frame: #1a1918;
+  --sheet: #141413;
+  --sheet-edge: #30302e;
 
-  --brand: #c2e7ff;
-  --brand-hover: #d6efff;
-  --brand-deep: #a8dcff;
-  --on-brand: #001d35;
-  --indigo: #a8c7fa;
-  --indigo-soft: #1f3760;
-  --indigo-tint: #172a46;
-  --indigo-text: #a8c7fa;
-  --on-indigo-text: #062e6f;
+  --brand: #d97757;
+  --brand-hover: #e08a6d;
+  --brand-deep: #c6613f;
+  --on-brand: #141413;
+  --indigo: #d97757;
+  --indigo-soft: #3b2a22;
+  --indigo-tint: #2b201b;
+  --indigo-text: #e8957a;
+  --on-indigo-text: #141413;
 
-  --glow-a: rgba(31, 59, 155, 0.5);
-  --glow-b: rgba(20, 40, 110, 0.4);
+  --glow-a: rgba(217, 119, 87, 0.28);
+  --glow-b: rgba(198, 97, 63, 0.22);
 
   --ok: #6dd58c;
   --warn: #fdd663;
-  --err: #f2b8b5;
+  --err: #f28b82;
   --safe: #0f3a1f;
   --yellow: #3d3200;
-  --coral: #601410;
-  --coral-tint: #3b0d0b;
+  --coral: #5c1d18;
+  --coral-tint: #33140f;
   --yellow-tint: #2e2500;
   --on-fill: #e3e3e3;
 
-  --panel-dark: #1e1f20;
-  --on-panel-dark: #e3e3e3;
+  --panel-dark: #1f1e1d;
+  --on-panel-dark: #faf9f5;
 
-  --hover-overlay: #2a2b2d;
-  --active-overlay: #333537;
-  --field-bg: #1e1f20;
-  --focus: #a8c7fa;
+  --hover-overlay: #262624;
+  --active-overlay: #30302e;
+  --field-bg: #262624;
+  --focus: #d97757;
 
   --glass-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
 
