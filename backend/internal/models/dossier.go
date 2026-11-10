@@ -75,6 +75,48 @@ type VideoAnalysis struct {
 	// WebEvidence is reputable pages found by searching the video's own
 	// words, at most 5, only those judged to be about this video.
 	WebEvidence []WebEvidence `json:"web_evidence"`
+	// W5H1 is what the video shows, as 5W1H; nil when the model gave none.
+	W5H1 *W5H1 `json:"w5h1,omitempty"`
+	// Research is the search on trusted newsrooms and fact-checkers for
+	// what the video shows: the data behind the conclusion. Nil when no
+	// search ran.
+	Research *Research `json:"research,omitempty"`
+}
+
+// W5H1 is what the video shows: what, who, when, where, why and how, ""
+// where the video does not show it (Sir, 10 Nov 2026).
+type W5H1 struct {
+	What  string `json:"what"`
+	Who   string `json:"who"`
+	When  string `json:"when"`
+	Where string `json:"where"`
+	Why   string `json:"why"`
+	How   string `json:"how"`
+}
+
+// Research statuses.
+const (
+	ResearchFound       = "FOUND"
+	ResearchNone        = "NONE"
+	ResearchUnavailable = "UNAVAILABLE"
+)
+
+// Research is one search for the video's own content on trusted newsrooms
+// and fact-checkers, and the pages it found (at most 5).
+type Research struct {
+	Query   string           `json:"query"`
+	Status  string           `json:"status"`
+	Sources []ResearchSource `json:"sources"`
+}
+
+// ResearchSource is one page the research found. Published is "" when the
+// search did not say.
+type ResearchSource struct {
+	Title     string `json:"title"`
+	URL       string `json:"url"`
+	Domain    string `json:"domain"`
+	Snippet   string `json:"snippet"`
+	Published string `json:"published"`
 }
 
 // Creator disclosure levels.

@@ -26,6 +26,8 @@ function video(over: Partial<Video> = {}): Video {
     // Scores sit on the band edges: 39 low, 40 medium, 70 high.
     manipulation: { score: 39, indicators: [] },
     context: { score: 70, indicators: ['Frame 3: rambu jalan tidak berbahasa Indonesia'] },
+    w5h1: null,
+    research: null,
     ...over
   };
 }
@@ -84,7 +86,7 @@ describe('VideoAnalysis', () => {
     expect(row(container, 'manipulation')).toContain('Rendah');
     expect(row(container, 'manipulation')).toContain('Tidak ada tanda yang dicatat.');
     // A high context score is a mismatch, and the row says so.
-    expect(row(container, 'context')).toContain('Kecocokan konteks');
+    expect(row(container, 'context')).toContain('Kecocokan 5W1H');
     expect(row(container, 'context')).toContain('Ketidakcocokan tinggi');
     expect(row(container, 'context')).toContain('tidak cocok dengan isi rekamannya');
 

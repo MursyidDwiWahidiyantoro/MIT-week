@@ -2,6 +2,8 @@
   import Icon from '$lib/components/ui/Icon.svelte';
   import { t } from '$lib/i18n/index.svelte';
 
+  const PRINCIPLES = ['about.p1', 'about.p2', 'about.p3', 'about.p4'] as const;
+
   const LIMITS = ['about.l1', 'about.l2', 'about.l3', 'about.l4', 'about.l5'] as const;
 </script>
 
@@ -17,6 +19,7 @@
 
 <section class="team" aria-labelledby="team-title">
   <h2 class="h2" id="team-title">{t('about.teamTitle')}</h2>
+  <p class="lede team-lede">{t('about.teamLede')}</p>
   <ul class="team-grid">
     <li><strong>Mursyid D. W.</strong><span>PM &amp; Lead Architect</span></li>
     <li><strong>M. Ridho A.</strong><span>UI/UX Lead</span></li>
@@ -43,28 +46,45 @@
   </dl>
 </section>
 
-<section class="card limits lift" id="batasan" aria-labelledby="limits-title">
-  <h2 class="h2" id="limits-title">{t('about.limitsTitle')}</h2>
-  <ul>
-    {#each LIMITS as item (item)}
-      <li>
-        <span class="bullet" aria-hidden="true"><Icon name="alert" size={16} /></span>
-        {t(item)}
-      </li>
-    {/each}
-  </ul>
+<div class="two-col">
+  <section class="card limits lift" aria-labelledby="limits-title">
+    <h2 class="h2" id="limits-title">{t('about.limitsTitle')}</h2>
+    <ul>
+      {#each LIMITS as item (item)}
+        <li>
+          <span class="bullet" aria-hidden="true"><Icon name="alert" size={16} /></span>
+          {t(item)}
+        </li>
+      {/each}
+    </ul>
+  </section>
+
+  <section class="card principles lift" aria-labelledby="principles-title">
+    <h2 class="h2" id="principles-title">{t('about.principlesTitle')}</h2>
+    <ul>
+      {#each PRINCIPLES as item (item)}
+        <li>
+          <span class="bullet bullet--ok" aria-hidden="true"><Icon name="check" size={16} /></span>
+          {t(item)}
+        </li>
+      {/each}
+    </ul>
+  </section>
+</div>
+
+<section class="card legal lift" aria-labelledby="legal-title">
+  <h2 class="h2" id="legal-title">{t('about.legal')}</h2>
+  <p>{t('disclaimer.full')}</p>
 </section>
 
-<details class="legal">
-  <summary>{t('about.legal')}</summary>
-  <p>{t('disclaimer.full')}</p>
-</details>
+<p class="disclaimer">{t('about.disclaimerShort')}</p>
 
 <style>
   .head { max-width: 54rem; margin-bottom: var(--space-7); }
   h1 { margin-bottom: var(--space-3); }
 
   .team { margin-bottom: var(--space-7); }
+  .team-lede { margin-top: var(--space-3); }
   .team-grid {
     display: grid;
     grid-template-columns: 1fr;
@@ -112,7 +132,11 @@
   .tag--no { background: var(--coral); }
   .tag--none { background: var(--safe); }
 
-  .limits { margin-top: var(--space-5); padding: clamp(1.25rem, 3vw, 1.9rem); background: var(--yellow); }
+  .two-col { display: grid; grid-template-columns: 1fr; gap: var(--space-5); margin-top: var(--space-5); }
+  @media (min-width: 48rem) { .two-col { grid-template-columns: repeat(2, 1fr); } }
+  .two-col > * { min-width: 0; padding: clamp(1.25rem, 3vw, 1.9rem); display: flex; flex-direction: column; }
+  .limits { background: var(--yellow); }
+  .principles { background: var(--indigo-soft); }
   ul { margin: var(--space-4) 0 0; padding: 0; list-style: none; display: grid; gap: var(--space-3); }
   li { display: flex; align-items: flex-start; gap: var(--space-3); line-height: 1.45; }
   .bullet {
@@ -125,8 +149,19 @@
     border: 2px solid var(--border);
     border-radius: 50%;
   }
+  .bullet--ok { background: var(--safe); }
 
-  .legal { margin-top: var(--space-6); max-width: 52rem; }
-  .legal summary { display: inline-flex; align-items: center; min-height: 44px; color: var(--body-2); font-size: var(--text-sm); font-weight: 500; cursor: pointer; }
-  .legal p { margin: var(--space-2) 0 0; color: var(--muted); font-size: var(--text-xs); line-height: 1.6; }
+  .legal { margin-top: var(--space-5); padding: clamp(1.25rem, 3vw, 1.9rem); }
+  .legal p { margin: var(--space-3) 0 0; max-width: 80ch; color: var(--body-2); line-height: 1.65; }
+
+  .disclaimer {
+    margin-top: var(--space-6);
+    padding: var(--space-4) var(--space-5);
+    background: var(--white);
+    border: var(--border-width) dashed var(--border);
+    border-radius: var(--radius-md);
+    color: var(--body-2);
+    font-size: var(--text-sm);
+    max-width: 52rem;
+  }
 </style>

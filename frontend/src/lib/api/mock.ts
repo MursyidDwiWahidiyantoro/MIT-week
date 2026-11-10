@@ -425,7 +425,29 @@ function videoDossier(url: string, platform: VideoPlatform): DossierParsed {
           publisher: 'turnbackhoax.id',
           says: 'AI'
         }
-      ]
+      ],
+      // Preview data only: the mode never watches the video or searches.
+      w5h1: {
+        what: 'Banjir besar menyeret beberapa mobil di jalan kota.',
+        who: 'Seorang pria merekam dan bersuara panik; tidak ada tokoh yang dikenali.',
+        when: 'Disebut "pagi ini"; tanggal kejadian tidak terlihat.',
+        where: 'Disebut Jakarta, tetapi rambu jalan tidak berbahasa Indonesia.',
+        why: 'Tidak dijelaskan di video.',
+        how: 'Air keruh naik setinggi atap mobil dan mengalir deras.'
+      },
+      research: {
+        query: 'video banjir Jakarta mobil terseret',
+        status: 'FOUND',
+        sources: [
+          {
+            title: '[HOAKS] Video banjir Jakarta pagi ini adalah hasil AI',
+            url: 'https://example.org/cek-fakta/banjir-jakarta-ai',
+            domain: 'turnbackhoax.id',
+            snippet: 'Contoh data pratinjau: video ini dinyatakan bukan rekaman banjir Jakarta.',
+            published: '2026-11-08'
+          }
+        ]
+      }
     }
   });
 }

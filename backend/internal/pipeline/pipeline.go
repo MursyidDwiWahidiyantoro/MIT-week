@@ -131,7 +131,12 @@ type Pipeline struct {
 	WebGrounder         *grounding.Grounder
 	WebSearchDeadline   time.Duration
 	WebClassifyDeadline time.Duration
-	videoSlots          chan struct{}
+	// Research searches the trusted newsrooms for what the video shows, its
+	// 5W1H, and returns the trail behind the verdict (nil: off).
+	// ResearchGrounder is its allowlist (default: WebGrounder's).
+	Research         grounding.Searcher
+	ResearchGrounder *grounding.Grounder
+	videoSlots       chan struct{}
 	// Stats feeds /ops/status.
 	Stats Stats
 
@@ -225,6 +230,10 @@ func (p *Pipeline) RunStream(ctx context.Context, req Request, emit func(Event))
 		modelBoxes                                                  []llm.Anomaly
 		// textEvidence is TextEvidence for each model box (-1: unmeasured).
 		textEvidence []int
+		// researchCh receives the 5W1H research; it is started on the
+		// request's own context and read once the errgroup is done.
+		researchCh    <-chan models.Research
+		researchQuery string
 	)
 	// The ELA step hands its decoded image to the text check, which needs
 	// the model's boxes and so runs after the model answers.
@@ -407,6 +416,9 @@ func (p *Pipeline) RunStream(ctx context.Context, req Request, emit func(Event))
 			mu.Lock()
 			if verr == nil {
 				fillVideo(res.Video, clip, &vf)
+				// The trail behind the verdict: started on ctx, not gctx, since
+				// gctx ends with the errgroup and the trail is read after it.
+				researchCh, researchQuery = p.startResearch(ctx, vf), researchTerms(vf)
 			} else {
 				fillVideo(res.Video, clip, nil)
 			}
@@ -578,6 +590,13 @@ func (p *Pipeline) RunStream(ctx context.Context, req Request, emit func(Event))
 	})
 
 	_ = g.Wait()
+
+	// Every goroutine is done; the research ran beside the fact check and is
+	// usually in already. Waiting is bounded by its own budget and by ctx.
+	if researchCh != nil && res.Video != nil {
+		r := awaitResearch(ctx, researchCh, researchQuery)
+		res.Video.Research = &r
+	}
 
 	mu.Lock()
 	defer mu.Unlock()

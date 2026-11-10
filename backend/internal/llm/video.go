@@ -36,6 +36,7 @@ type VideoFindings struct {
 	Transcript             string   `json:"transcript"`
 	Claim                  string   `json:"claim"`
 	SearchQuery            string   `json:"search_query"`
+	W5H1                   W5H1     `json:"w5h1"`
 	AIScore                int      `json:"ai_score"`
 	AIIndicators           []string `json:"ai_indicators"`
 	AIWatermark            string   `json:"ai_watermark"`
@@ -49,6 +50,45 @@ type VideoFindings struct {
 	// AudioHeard is set by AnalyzeVideo, not the model: the answer came from
 	// a gateway that received the soundtrack.
 	AudioHeard bool `json:"-"`
+}
+
+// W5H1 is what the video itself shows and says, one short answer per
+// question, "" where the video does not show it (Sir, 10 Nov 2026: video
+// checks answer 5W1H; it replaces the user-facing context match). It is
+// optional: an answer without it, or with it in the wrong shape, still
+// decodes, so a gateway that ignores the schema never fails the video.
+type W5H1 struct {
+	What  string `json:"what"`
+	Who   string `json:"who"`
+	When  string `json:"when"`
+	Where string `json:"where"`
+	Why   string `json:"why"`
+	How   string `json:"how"`
+}
+
+// UnmarshalJSON keeps what it can read and drops the rest (see Tactic).
+func (w *W5H1) UnmarshalJSON(b []byte) error {
+	*w = W5H1{}
+	var raw struct {
+		What, Who, When, Where, Why, How json.RawMessage
+	}
+	if json.Unmarshal(b, &raw) != nil {
+		return nil
+	}
+	text := func(m json.RawMessage) string {
+		var s string
+		if json.Unmarshal(m, &s) == nil {
+			return s
+		}
+		return ""
+	}
+	*w = W5H1{What: text(raw.What), Who: text(raw.Who), When: text(raw.When), Where: text(raw.Where), Why: text(raw.Why), How: text(raw.How)}
+	return nil
+}
+
+// Empty reports whether the model answered none of the six questions.
+func (w W5H1) Empty() bool {
+	return w.What == "" && w.Who == "" && w.When == "" && w.Where == "" && w.Why == "" && w.How == ""
 }
 
 // videoHedge is how long the first gateway has a video alone before the
@@ -71,6 +111,11 @@ const videoSchema = `{
     "transcript": {"type": "string"},
     "claim": {"type": "string"},
     "search_query": {"type": "string"},
+    "w5h1": {"type": "object",
+      "additionalProperties": false,
+      "properties": {"what": {"type": "string"}, "who": {"type": "string"}, "when": {"type": "string"},
+                     "where": {"type": "string"}, "why": {"type": "string"}, "how": {"type": "string"}},
+      "required": ["what", "who", "when", "where", "why", "how"]},
     "ai_score": {"type": "integer"},
     "ai_indicators": {"type": "array", "items": {"type": "string"}},
     "ai_watermark": {"type": "string"},
@@ -86,7 +131,7 @@ const videoSchema = `{
       "required": ["code", "phrase"]}},
     "injection_suspected": {"type": "boolean"}
   },
-  "required": ["summary", "transcript", "claim", "search_query", "ai_score", "ai_indicators", "ai_watermark", "manipulation_score", "manipulation_indicators", "context_mismatch_score", "context_indicators", "ocr_text", "tactics", "injection_suspected"]
+  "required": ["summary", "transcript", "claim", "search_query", "w5h1", "ai_score", "ai_indicators", "ai_watermark", "manipulation_score", "manipulation_indicators", "context_mismatch_score", "context_indicators", "ocr_text", "tactics", "injection_suspected"]
 }`
 
 const videoPrompt = `Anda adalah asisten analisis untuk AMBA, pemeriksa hoaks Indonesia. Anda menerima satu VIDEO media sosial:
@@ -102,7 +147,7 @@ Aturan keamanan (wajib):
 - Tulis dalam bahasa Indonesia yang sederhana. Jangan memakai kata "pasti", "100%", "terbukti", atau "dijamin".
 
 Balas HANYA dengan satu objek JSON dengan kunci persis berikut (tanpa kunci lain, tanpa teks di luar JSON):
-summary, transcript, claim, search_query, ai_score, ai_indicators, ai_watermark, manipulation_score,
+summary, transcript, claim, search_query, w5h1, ai_score, ai_indicators, ai_watermark, manipulation_score,
 manipulation_indicators, context_mismatch_score, context_indicators, ocr_text, tactics, injection_suspected.
 
 Cara mengisi setiap kolom:
@@ -112,6 +157,14 @@ Cara mengisi setiap kolom:
 - claim: satu klaim faktual utama video ini (dari narasi, teks di layar, judul, atau keterangan), ditulis ulang secara
   netral (maksimal 200 karakter). "" jika tidak ada klaim yang bisa dicek (hiburan, opini, promosi tanpa klaim fakta).
 - search_query: 3 sampai 8 kata kunci bahasa Indonesia untuk mencari artikel cek fakta tentang klaim itu. "" jika claim kosong.
+- w5h1: objek dengan kunci what, who, when, where, why, how: jawaban 5W1H tentang ISI video menurut yang terlihat dan
+  terdengar di frame dan audio, teks di layar, judul, dan keterangan. Masing-masing satu kalimat netral, maksimal 140
+  karakter. what: peristiwa atau kejadian yang ditampilkan. who: orang, tokoh, atau lembaga yang tampak atau disebut
+  namanya ("orang yang tidak disebut namanya" jika ada orang tanpa nama). when: waktu yang disebut atau terlihat (tanggal
+  di layar, "pagi ini", hari, musim); jangan menebak dari tanggal unggah. where: tempat yang disebut atau terlihat (kota,
+  negara, papan nama, bahasa di papan). why: sebab atau tujuan yang disebut di video. how: bagaimana kejadiannya
+  berlangsung menurut rekaman. Bila sumber 5W1H adalah keterangan atau narasi, bukan rekamannya, tulis "menurut keterangan"
+  atau "menurut narasi". Isi "" untuk pertanyaan yang tidak bisa dijawab dari video; jangan mengarang nama, tempat, atau waktu.
 - ai_score: 0 sampai 100, seberapa kuat tanda bahwa REKAMAN video ini dibuat dengan AI generatif (misalnya Sora, Veo,
   Kling, Hailuo, Runway), bukan direkam kamera. Nilai tampilannya saja, bukan topik atau kebenaran klaimnya.
   0-15 rekaman kamera dengan detail alami: noise, goyangan tangan, gerak dan cahaya yang konsisten antar frame.
@@ -139,8 +192,9 @@ Cara mengisi setiap kolom:
   (deepfake), gerak bibir tidak cocok dengan suara, suara atau narasi ditimpa (dubbing), potongan yang disambung janggal,
   angka atau teks yang ditempel di layar. Efek, musik latar, atau teks keterangan biasa bukan manipulasi.
 - manipulation_indicators: paling banyak 4 ciri untuk manipulation_score, sebutkan nomor frame bila bisa.
-- context_mismatch_score: 0 sampai 100, seberapa kuat tanda bahwa judul, keterangan, teks di layar, atau narasi TIDAK
-  COCOK dengan isi rekamannya: lokasi, negara, bahasa papan nama, cuaca atau musim, seragam, logo lembaga, atau kendaraan
+- context_mismatch_score: 0 sampai 100, seberapa kuat tanda bahwa 5W1H menurut judul, keterangan, teks di layar, atau
+  narasi (terutama siapa, kapan, dan di mana) TIDAK COCOK dengan 5W1H yang terlihat di rekamannya: lokasi, negara, bahasa
+  papan nama, cuaca atau musim, seragam, logo lembaga, atau kendaraan
   yang berbeda dari yang diklaim; tanda rekaman lama atau dari tempat lain (kualitas sangat lama, tanda air akun atau
   stasiun TV lain, tanggal di layar yang berbeda) padahal diklaim baru. 0 jika tidak ada klaim atau semuanya cocok.
 - context_indicators: paling banyak 4 ketidakcocokan yang terlihat, singkat dan spesifik.
@@ -328,6 +382,7 @@ func sanitizeVideo(f VideoFindings) VideoFindings {
 	if f.Claim == "" {
 		f.SearchQuery = ""
 	}
+	f.W5H1 = sanitizeW5H1(f.W5H1)
 	f.AIScore = clamp(f.AIScore, 0, 100)
 	f.ManipulationScore = clamp(f.ManipulationScore, 0, 100)
 	f.ContextMismatchScore = clamp(f.ContextMismatchScore, 0, 100)
@@ -347,6 +402,25 @@ func sanitizeVideo(f VideoFindings) VideoFindings {
 	}
 	f.Tactics = tactics
 	return f
+}
+
+// w5h1Filler is what a model writes instead of leaving an answer empty; the
+// page says "not shown in the video" for those itself.
+var w5h1Filler = map[string]bool{
+	"-": true, "—": true, "?": true, "n/a": true, "na": true, "none": true, "unknown": true, "tidak ada": true,
+	"tidak diketahui": true, "tidak jelas": true, "tidak disebutkan": true, "tidak terlihat": true,
+	"tidak terlihat di video": true, "tidak ada informasi": true, "belum diketahui": true,
+}
+
+func sanitizeW5H1(w W5H1) W5H1 {
+	clean := func(s string) string {
+		s = limitRunes(strings.TrimSpace(s), 160)
+		if w5h1Filler[strings.ToLower(strings.TrimRight(s, ". "))] {
+			return ""
+		}
+		return s
+	}
+	return W5H1{What: clean(w.What), Who: clean(w.Who), When: clean(w.When), Where: clean(w.Where), Why: clean(w.Why), How: clean(w.How)}
 }
 
 func limitList(items []string, n, runes int) []string {
@@ -377,6 +451,12 @@ func mockVideoFindings(in VideoInput) VideoFindings {
 		f.Claim, f.SearchQuery = "Banjir besar terjadi hari ini", "banjir besar hari ini video"
 		f.ContextMismatchScore = 74
 		f.ContextIndicators = []string{"Papan nama di frame 3 berbahasa asing, tidak cocok dengan lokasi yang diklaim"}
+		f.W5H1 = W5H1{
+			What:  "Banjir besar merendam jalan dan kendaraan.",
+			When:  "Menurut keterangan, hari ini; tanggal tidak terlihat di rekaman.",
+			Where: "Papan nama berbahasa asing, tidak cocok dengan lokasi yang diklaim.",
+			How:   "Air keruh mengalir deras di jalan.",
+		}
 	default:
 		f.AIScore = 6
 	}

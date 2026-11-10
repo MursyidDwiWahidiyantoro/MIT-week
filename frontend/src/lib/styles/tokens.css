@@ -53,6 +53,12 @@
   --grad: linear-gradient(90deg, var(--grad-1), var(--grad-2) 50%, var(--grad-3));
   --glow-a: rgba(217, 119, 87, 0.22);
   --glow-b: rgba(232, 176, 136, 0.28);
+  /* ---- the aurora behind the pages (Aurora.svelte); peaks are kept low
+   * enough that muted text over them still passes AA ---- */
+  --aur-1: rgba(217, 119, 87, 0.26);
+  --aur-2: rgba(232, 176, 136, 0.34);
+  --aur-3: rgba(198, 97, 63, 0.12);
+  --aur-o: 1;
 
   /* ---- verdict roles: text colour, and a pale fill for the same state ---- */
   --ok: #146c2e;
@@ -219,6 +225,9 @@ html[data-theme='dark'] {
 
   --glow-a: rgba(217, 119, 87, 0.28);
   --glow-b: rgba(198, 97, 63, 0.22);
+  --aur-1: rgba(198, 97, 63, 0.26);
+  --aur-2: rgba(217, 119, 87, 0.18);
+  --aur-3: rgba(232, 176, 136, 0.1);
 
   --ok: #6dd58c;
   --warn: #fdd663;

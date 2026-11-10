@@ -519,9 +519,45 @@
         "manipulation": { "$ref": "#/$defs/VideoSignal" },
         "context": { "$ref": "#/$defs/VideoSignal" },
         "creator_disclosure": { "$ref": "#/$defs/CreatorDisclosure" },
-        "web_evidence": { "type": "array", "maxItems": 5, "items": { "$ref": "#/$defs/WebEvidence" } }
+        "web_evidence": { "type": "array", "maxItems": 5, "items": { "$ref": "#/$defs/WebEvidence" } },
+        "w5h1": { "$ref": "#/$defs/W5H1" },
+        "research": { "$ref": "#/$defs/Research" }
       },
       "required": ["status", "reason", "platform", "duration_sec", "upload_date", "platform_ai_label", "frames", "audio_analyzed", "summary", "transcript", "manipulation", "context"]
+    },
+    "W5H1": {
+      "type": "object",
+      "description": "What the video shows, one short answer per question; empty where the video does not show it. Absent when the model gave none.",
+      "properties": {
+        "what": { "type": "string", "maxLength": 160 },
+        "who": { "type": "string", "maxLength": 160 },
+        "when": { "type": "string", "maxLength": 160 },
+        "where": { "type": "string", "maxLength": 160 },
+        "why": { "type": "string", "maxLength": 160 },
+        "how": { "type": "string", "maxLength": 160 }
+      },
+      "required": ["what", "who", "when", "where", "why", "how"]
+    },
+    "Research": {
+      "type": "object",
+      "description": "One web search on trusted newsrooms and fact-checkers for what the video shows: the trail behind the verdict. No model judges these pages. Absent when no search ran.",
+      "properties": {
+        "query": { "type": "string", "maxLength": 200 },
+        "status": { "type": "string", "enum": ["FOUND", "NONE", "UNAVAILABLE"] },
+        "sources": { "type": "array", "maxItems": 5, "items": { "$ref": "#/$defs/ResearchSource" } }
+      },
+      "required": ["query", "status", "sources"]
+    },
+    "ResearchSource": {
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "maxLength": 200 },
+        "url": { "type": "string", "pattern": "^https://" },
+        "domain": { "type": "string", "maxLength": 80 },
+        "snippet": { "type": "string", "maxLength": 280 },
+        "published": { "type": "string", "description": "Empty when the search did not say." }
+      },
+      "required": ["title", "url", "domain", "snippet", "published"]
     },
     "CreatorDisclosure": {
       "type": "object",

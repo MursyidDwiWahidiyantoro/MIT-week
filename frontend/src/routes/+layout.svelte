@@ -9,6 +9,7 @@
   import '../lib/styles/refinement.css';
   import ThemeSwitch from '$lib/components/ui/ThemeSwitch.svelte';
   import PreviewBadge from '$lib/components/ui/PreviewBadge.svelte';
+  import Aurora from '$lib/components/ui/Aurora.svelte';
   import Icon from '$lib/components/ui/Icon.svelte';
   import { reducedMotion } from '$lib/motion';
 
@@ -59,6 +60,8 @@
 
 <PreviewBadge />
 
+<Aurora />
+
 <header class="top">
   <div class="top-inner">
     <a class="brand" href={resolve('/')} aria-label={t('layout.home')}>
@@ -102,10 +105,11 @@
     position: sticky;
     top: 0;
     z-index: 40;
-    background: color-mix(in srgb, var(--paper) 86%, transparent);
-    -webkit-backdrop-filter: blur(14px);
-    backdrop-filter: blur(14px);
+    /* Nearly solid and without backdrop blur: a blur over the moving aurora
+     * would be recomputed every frame. */
+    background: color-mix(in srgb, var(--paper) 93%, transparent);
     border-bottom: 1px solid var(--border-soft);
+    view-transition-name: top;
   }
   .top-inner {
     display: flex;

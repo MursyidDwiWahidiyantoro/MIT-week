@@ -110,6 +110,9 @@ func NewDeps(cfg *config.Config) Deps {
 		ws := grounding.NewTavilySearcher(cfg.TavilyKey, grounding.New(grounding.WebAllowlist), grounding.WebAllowlist)
 		ws.Prefix = ""
 		p.WebSearch, p.WebGrounder = ws, ws.Grounder
+		// 5W1H research: the same newsroom list, searched with what the video
+		// itself shows; its pages are the trail behind a video's verdict.
+		p.Research, p.ResearchGrounder = ws, ws.Grounder
 	}
 	return Deps{Pipeline: p, Metrics: metrics.New(), Key: key}
 }

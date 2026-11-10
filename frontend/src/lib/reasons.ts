@@ -55,5 +55,10 @@ export function keyReasons(d: DossierParsed): string[] {
     else if (d.verdict.status === 'INSUFFICIENT') add(t('why.insufficient'));
     else add(t('why.mixed'));
   }
+  // The trail behind the conclusion, pointed to last (Sir, 10 Nov 2026).
+  const research = d.video?.status === 'OK' ? d.video.research : null;
+  if (research?.status === 'FOUND' && research.sources.length) {
+    out.splice(MAX_REASONS - 1, 0, t('why.research', { n: research.sources.length }));
+  }
   return out.slice(0, MAX_REASONS);
 }

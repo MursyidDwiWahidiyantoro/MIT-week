@@ -158,9 +158,12 @@
     {#if sent}
       <div class="current">
         {#if sent.kind === 'url'}
-          <span class="cur-item"><Icon name="link" size={18} /><span class="cur-text">{sent.url}</span></span>
+          <span class="cur-item"><Icon name="link" size={18} /><span class="cur-text" class:shimmer={session.running}>{sent.url}</span></span>
         {:else}
-          <span class="cur-item"><img src={sent.preview} alt={t('chat.imageAlt')} /><span class="cur-text">{sent.file.name}</span></span>
+          <span class="cur-item">
+            <span class="thumb" class:scanning={session.running}><img src={sent.preview} alt={t('chat.imageAlt')} /></span>
+            <span class="cur-text">{sent.file.name}</span>
+          </span>
         {/if}
         {#if session.running}
           <button class="btn btn--sm" type="button" onclick={() => session.abort()}><Icon name="stop" size={16} />{t('det.cancel')}</button>
@@ -258,7 +261,19 @@
   }
   .cur-item { display: inline-flex; align-items: center; gap: 8px; min-width: 0; flex: 1 1 16rem; }
   .cur-item :global(svg) { flex: none; color: var(--indigo-text); }
-  .cur-item img { width: 40px; height: 40px; object-fit: cover; border-radius: 8px; flex: none; }
+  .thumb { position: relative; display: block; width: 64px; height: 64px; flex: none; overflow: hidden; border-radius: 12px; }
+  .thumb img { display: block; width: 100%; height: 100%; object-fit: cover; }
+  /* While AMBA works, a beam passes over the picture (transform only). */
+  .thumb.scanning::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, transparent 20%, color-mix(in srgb, var(--brand) 60%, transparent) 50%, transparent 80%);
+    animation: beam 1.5s var(--ease-in-out) infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .thumb.scanning::after { animation: none; opacity: 0.35; }
+  }
   .cur-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--text-sm); }
 
   .error-panel { display: grid; gap: var(--space-2); justify-items: start; padding: var(--space-4); background: var(--coral-tint); border-radius: 12px; }

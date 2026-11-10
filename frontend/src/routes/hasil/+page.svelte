@@ -12,6 +12,7 @@
   import LinkPreview from '$lib/components/hasil/LinkPreview.svelte';
   import VideoAnalysis from '$lib/components/hasil/VideoAnalysis.svelte';
   import RiskMap from '$lib/components/hasil/RiskMap.svelte';
+  import FiveW from '$lib/components/hasil/FiveW.svelte';
   import { t } from '$lib/i18n/index.svelte';
   import { simpleSentence, explanation, basisList } from '$lib/i18n/verdict';
   import { keyReasons } from '$lib/reasons';
@@ -145,8 +146,8 @@
           <p class="score-cap">{t('res.scoreCap')}</p>
         {/if}
         <ul class="why" aria-label={t('res.why')}>
-          {#each reasons as reason (reason)}
-            <li><span class="dot" aria-hidden="true"></span><span>{reason}</span></li>
+          {#each reasons as reason, i (reason)}
+            <li class="rise" style:--i={i + 2}><span class="dot" aria-hidden="true"></span><span>{reason}</span></li>
           {/each}
         </ul>
         <div class="actions">
@@ -155,6 +156,12 @@
         </div>
       </div>
     </section>
+
+    {#if video && (video.w5h1 || video.research)}
+      <section class="card rise" style:--i="1">
+        <FiveW w5h1={video.w5h1} research={video.research} />
+      </section>
+    {/if}
 
     <section class="card rise" style:--i="1">
       <RiskMap {dossier} />
@@ -225,7 +232,7 @@
   .media .item { color: var(--body-2); font-size: var(--text-sm); overflow-wrap: anywhere; }
   .v-body { display: grid; align-content: start; gap: var(--space-4); min-width: 0; }
   .verdict-heading { margin: 0; font-size: inherit; line-height: inherit; }
-  .verdict-heading :global(.badge) { font-size: var(--text-lg); padding: 10px 18px; }
+  .verdict-heading :global(.badge) { font-size: var(--text-lg); padding: 10px 18px; animation: pop 600ms var(--ease-out) 120ms both; transform-origin: left center; }
   .verdict-heading:focus { outline: none; }
   .verdict-heading:focus-visible { outline: var(--focus-ring); outline-offset: 4px; border-radius: 12px; }
   .sentence { margin: 0; max-width: 30ch; font-size: clamp(1.35rem, 1.1rem + 1vw, 1.9rem); font-weight: 400; line-height: 1.3; }
@@ -276,5 +283,8 @@
   }
   @media (max-width: 36rem) {
     .card { padding: var(--space-4); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .verdict-heading :global(.badge) { animation: none; }
   }
 </style>

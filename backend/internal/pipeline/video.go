@@ -162,6 +162,11 @@ func fillVideo(va *models.VideoAnalysis, c *video.Clip, vf *llm.VideoFindings) {
 	va.Summary, va.Transcript = vf.Summary, vf.Transcript
 	va.Manipulation = models.VideoSignal{Score: vf.ManipulationScore, Indicators: nonNilStrings(vf.ManipulationIndicators)}
 	va.Context = models.VideoSignal{Score: vf.ContextMismatchScore, Indicators: nonNilStrings(vf.ContextIndicators)}
+	va.W5H1 = nil
+	if !vf.W5H1.Empty() {
+		w := models.W5H1(vf.W5H1)
+		va.W5H1 = &w
+	}
 }
 
 // videoModelBudget is the model's share of a video audit: what is left of

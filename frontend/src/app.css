@@ -31,7 +31,9 @@
     position: relative;
     margin: 0;
     min-height: 100dvh;
-    background: var(--paper);
+    /* Transparent so the aurora layer ($lib/components/ui/Aurora.svelte),
+     * which sits between the page ground on <html> and the content, shows. */
+    background: transparent;
     color: var(--ink);
     font-size: var(--text-base);
     line-height: var(--leading-normal);
@@ -196,8 +198,8 @@
     color: var(--on-brand);
     border-color: transparent;
   }
-  .btn--primary:hover { background: var(--brand-hover); color: var(--on-brand); }
-  .btn--primary:active { background: var(--brand-deep); }
+  .btn--primary:hover { background: var(--brand-hover); color: var(--on-brand); transform: translateY(-1px); box-shadow: 0 6px 18px -8px color-mix(in srgb, var(--brand) 70%, transparent); }
+  .btn--primary:active { background: var(--brand-deep); transform: scale(0.98); box-shadow: none; }
   .btn--ink { background: var(--ink); color: var(--paper); border-color: transparent; }
   .btn--ink:hover { background: var(--ink); color: var(--paper); }
   .btn--safe { background: var(--safe); color: var(--on-fill); border-color: transparent; }
@@ -413,11 +415,29 @@
 
 /* Page changes: a short cross-fade with a lift; the prompt bar keeps its
  * view-transition-name across pages, so it glides instead of fading. */
-::view-transition-old(root) { animation: vt-out 180ms var(--ease-in) both; }
-::view-transition-new(root) { animation: vt-in 300ms var(--ease-out) both; }
+::view-transition-old(root) { animation: vt-out 200ms var(--ease-in) both; }
+::view-transition-new(root) { animation: vt-in 420ms var(--ease-out) both; }
 ::view-transition-group(prompt) { animation-duration: 380ms; animation-timing-function: var(--ease-out); }
-@keyframes vt-out { to { opacity: 0; } }
-@keyframes vt-in { from { opacity: 0; transform: translateY(10px); } }
+@keyframes vt-out { to { opacity: 0; transform: translateY(-6px); filter: blur(3px); } }
+@keyframes vt-in { from { opacity: 0; transform: translateY(14px); filter: blur(4px); } }
+
+/* Theme change (ThemeSwitch): the new theme is revealed as a growing circle,
+ * so the usual cross-fade is off and every part of the page moves as one. */
+html.theme-vt * { view-transition-name: none !important; }
+html.theme-vt::view-transition-old(root),
+html.theme-vt::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
+
+/* A verdict lands with a small spring. */
+@keyframes pop {
+  from { opacity: 0; transform: scale(0.86); }
+  60% { opacity: 1; transform: scale(1.03); }
+  to { opacity: 1; transform: none; }
+}
+/* A scan beam passes over an item while AMBA checks it. */
+@keyframes beam {
+  from { transform: translateY(-100%); }
+  to { transform: translateY(100%); }
+}
 
 @media (prefers-reduced-motion: reduce) {
   .btn:active,

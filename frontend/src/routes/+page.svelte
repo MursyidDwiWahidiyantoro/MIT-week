@@ -142,15 +142,8 @@
 
 <style>
   /* ---------- hero ---------- */
+  /* The glow behind the hero now comes from the page-wide aurora. */
   .hero { position: relative; isolation: isolate; overflow: hidden; padding: clamp(3rem, 9vw, 6.5rem) 0 0; }
-  .hero::before {
-    content: '';
-    position: absolute;
-    inset: 30% -20% -10%;
-    z-index: -2;
-    background: radial-gradient(50% 45% at 50% 55%, var(--glow-a), transparent 72%);
-    pointer-events: none;
-  }
   .hero-inner { display: grid; justify-items: center; gap: var(--space-5); width: min(100%, 56rem); margin-inline: auto; padding-inline: var(--gutter); text-align: center; }
   .hero-title {
     display: grid;

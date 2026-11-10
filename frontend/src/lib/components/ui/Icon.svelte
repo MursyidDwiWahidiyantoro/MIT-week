@@ -36,7 +36,12 @@
     | 'sun'
     | 'stop'
     | 'info'
-    | 'panel';
+    | 'panel'
+    | 'user'
+    | 'clock'
+    | 'pin'
+    | 'help'
+    | 'steps';
 
   interface Props {
     name: IconName;
@@ -93,6 +98,20 @@
     <path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4" />
   {:else if name === 'stop'}
     <rect x="7" y="7" width="10" height="10" rx="2" />
+  {:else if name === 'user'}
+    <circle cx="12" cy="8.5" r="3.8" />
+    <path d="M4.5 20c.6-3.6 3.7-5.6 7.5-5.6s6.9 2 7.5 5.6" />
+  {:else if name === 'clock'}
+    <circle cx="12" cy="12" r="8.5" />
+    <path d="M12 7.5V12l3 2" />
+  {:else if name === 'pin'}
+    <path d="M12 20.5s-6.5-5.7-6.5-10.4a6.5 6.5 0 0 1 13 0c0 4.7-6.5 10.4-6.5 10.4z" />
+    <circle cx="12" cy="10" r="2.4" />
+  {:else if name === 'help'}
+    <circle cx="12" cy="12" r="8.5" />
+    <path d="M9.6 9.3a2.5 2.5 0 1 1 3.4 2.3c-.6.3-1 .8-1 1.5v.4M12 16.5v.5" />
+  {:else if name === 'steps'}
+    <path d="M5 6.5h14M5 12h10M5 17.5h6" />
   {:else if name === 'info'}
     <circle cx="12" cy="12" r="8.5" />
     <path d="M12 11v5M12 8v.5" />

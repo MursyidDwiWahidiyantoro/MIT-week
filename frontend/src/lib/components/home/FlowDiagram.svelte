@@ -92,6 +92,23 @@
     background: var(--indigo-soft);
     color: var(--indigo-text);
   }
+  /* The four checks light up in turn, as they do while AMBA works. Opacity
+   * only, on a ring of its own, so nothing repaints. */
+  .col:nth-child(3) .node { position: relative; }
+  .col:nth-child(3) .node::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    box-shadow: inset 0 0 0 1.5px var(--indigo);
+    opacity: 0;
+    animation: ping 4.4s var(--ease-in-out) infinite;
+    animation-delay: calc(var(--i, 0) * 0.55s + 0.4s);
+  }
+  @keyframes ping {
+    0%, 28%, 100% { opacity: 0; }
+    9% { opacity: 1; }
+  }
   .nodes--out { gap: 10px; }
   .nodes--out :global(.badge) { width: 100%; }
 
@@ -158,5 +175,6 @@
 
   @media (prefers-reduced-motion: reduce) {
     .dot { animation: none; opacity: 0; }
+    .col:nth-child(3) .node::after { animation: none; }
   }
 </style>

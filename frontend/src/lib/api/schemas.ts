@@ -88,6 +88,37 @@ const webEvidenceSchema = z.object({
   says: z.enum(['AI', 'REAL', 'HOAX'])
 });
 
+/** What the video shows, as 5W1H (Sir, 10 Nov 2026). Each field may be ''. */
+const w5h1Schema = z.object({
+  what: z.string().catch(''),
+  who: z.string().catch(''),
+  when: z.string().catch(''),
+  where: z.string().catch(''),
+  why: z.string().catch(''),
+  how: z.string().catch('')
+});
+
+/** One trusted-source search result behind the conclusion. A bad field never
+ * fails the whole result: it falls back to '' and the UI drops what it can't
+ * show (only http(s) links become an href). */
+const researchSourceSchema = z.object({
+  title: z.string().catch(''),
+  url: z.string().catch(''),
+  domain: z.string().catch(''),
+  snippet: z.string().catch(''),
+  published: z.string().catch('')
+});
+
+/** The web search on trusted domains for what the video shows. */
+const researchSchema = z.object({
+  query: z.string().catch(''),
+  status: z.enum(['FOUND', 'NONE', 'UNAVAILABLE']).catch('NONE'),
+  sources: z.array(researchSourceSchema).nullish().catch([]).transform((v) => v ?? [])
+});
+
+export type VideoW5H1 = z.infer<typeof w5h1Schema>;
+export type VideoResearch = z.infer<typeof researchSchema>;
+
 /** Frame-by-frame analysis of a social video link. Absent for other input. */
 export const videoSchema = z.object({
   status: z.enum(['OK', 'UNAVAILABLE']),
@@ -112,7 +143,10 @@ export const videoSchema = z.object({
   manipulation: videoSignalSchema,
   context: videoSignalSchema,
   creator_disclosure: creatorDisclosureSchema,
-  web_evidence: z.array(webEvidenceSchema).nullish()
+  web_evidence: z.array(webEvidenceSchema).nullish(),
+  // Older servers omit both.
+  w5h1: w5h1Schema.nullish().catch(null).transform((v) => v ?? null),
+  research: researchSchema.nullish().catch(null).transform((v) => v ?? null)
 });
 
 export const verdictSchema = z.object({
