@@ -5,14 +5,14 @@
 </script>
 
 {#if isMockMode}
-  <p class="preview" role="note">
+  <p class="preview-badge" role="note">
     <span class="icon" aria-hidden="true"><Icon name="sparkle" size={14} /></span>
     <span><strong>{t('preview.title')}</strong> {t('preview.body')}</span>
   </p>
 {/if}
 
 <style>
-  .preview {
+  .preview-badge {
     display: flex;
     align-items: flex-start;
     gap: var(--space-2);

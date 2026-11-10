@@ -12,7 +12,9 @@ export default defineConfig({
   testDir: './tests',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 1 : 0,
+  // The API rate limiter (a few audits per minute per client) can refuse the
+  // last audits of a fast run; one retry lets its Retry-After window pass.
+  retries: 1,
   workers: process.env.CI ? 1 : undefined,
   reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'list',
   use: {

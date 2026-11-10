@@ -219,7 +219,7 @@ export const en: Record<MessageKey, string> = {
   "link.label": "Link to a video or post",
   "link.paste": "Paste",
   "link.pasteFailed": "Your browser would not let us read what you copied. Press and hold in the field, then choose Paste.",
-  "link.placeholder": "Paste a TikTok, YouTube, Instagram, Facebook or X link",
+  "link.placeholder": "Paste the link here",
   "link.platform": "Recognised: {platform}",
   "link.web": "Recognised: a web link",
   "lp.blocked": "{platform} does not allow automated reading",

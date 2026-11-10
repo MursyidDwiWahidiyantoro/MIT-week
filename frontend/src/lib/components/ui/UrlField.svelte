@@ -141,7 +141,6 @@
   }
   .paste:hover { background: var(--hover-overlay); }
   .paste:disabled { opacity: var(--disabled-opacity); cursor: not-allowed; }
-  .status { min-height: 1.6em; }
   .msg { display: flex; align-items: flex-start; gap: var(--space-2); margin: 0; font-size: var(--text-sm); font-weight: 700; }
   .msg :global(svg) { flex: none; margin-top: 2px; }
   .msg--error { color: var(--err); }

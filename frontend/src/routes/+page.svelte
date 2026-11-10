@@ -78,7 +78,8 @@
   .hero {
     padding-block: clamp(2.5rem, 7vw, 5.5rem) clamp(2rem, 5vw, 3.5rem);
   }
-  .hero-wrap { max-width: 56rem; }
+  .hero-wrap > * { max-width: 44rem; }
+  .hero-wrap > .hero-title { max-width: 14ch; }
   .hero-title {
     margin: 0 0 var(--space-4);
     font-size: clamp(2.4rem, 1.7rem + 3.6vw, 4.6rem);
@@ -103,7 +104,7 @@
   }
   .hero-form .btn { justify-self: start; }
   .hero-hint { margin: var(--space-3) 0 0; color: var(--body-2); font-size: var(--text-sm); }
-  .hero-hint a { display: inline-block; padding-block: 12px; }
+  .hero-hint { line-height: 2.2; }
 
   .trust {
     display: flex;
@@ -118,7 +119,7 @@
   .trust li { display: inline-flex; align-items: center; gap: var(--space-2); }
   .tick { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--indigo-soft); color: var(--indigo-text); }
 
-  .family-panel { padding: clamp(1.5rem, 4vw, 2.75rem); max-width: 56rem; }
+  .family-panel { padding: clamp(1.5rem, 4vw, 2.75rem); }
   .family-lede { margin: var(--space-3) 0 0; color: var(--body-2); max-width: 36em; }
   .cta-row { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-5); }
 

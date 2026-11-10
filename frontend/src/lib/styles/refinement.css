@@ -57,7 +57,7 @@ html:root body .tick {background:transparent;color:var(--indigo-text)}
 html:root body .panel--indigo {background:var(--indigo-soft);color:var(--ink)}
 html:root body .input,html:root body .textarea,html:root body .select {border-style:solid}
 
-html:root body .preview {background:var(--yellow);color:var(--on-fill)}
+html:root body .preview-badge {background:var(--yellow);color:var(--on-fill)}
 
 
 html:root body .num--indigo {background:var(--brand);color:var(--on-brand)}

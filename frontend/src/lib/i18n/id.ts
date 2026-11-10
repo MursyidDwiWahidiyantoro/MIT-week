@@ -220,7 +220,7 @@ export const id = {
   "link.label": "Tautan video atau postingan",
   "link.paste": "Tempel",
   "link.pasteFailed": "Browser tidak mengizinkan membaca salinan Anda. Tekan lama di kolom, lalu pilih Tempel.",
-  "link.placeholder": "Tempel tautan TikTok, YouTube, Instagram, Facebook, atau X",
+  "link.placeholder": "Tempel tautan di sini",
   "link.platform": "Terbaca: {platform}",
   "link.web": "Terbaca: tautan situs web",
   "lp.blocked": "{platform} tidak mengizinkan pembacaan otomatis",
