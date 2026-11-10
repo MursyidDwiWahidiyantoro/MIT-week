@@ -105,23 +105,17 @@ describe('VideoAnalysis', () => {
     expect(container.querySelectorAll('.meter')).toHaveLength(2);
   });
 
-  it('explains an unavailable video by its reason and offers a screenshot upload, with no frames', () => {
-    render(VideoAnalysis, {
+  it('says what an unread video was judged on, with no failure note, upload button or frames', () => {
+    const { container } = render(VideoAnalysis, {
       video: video({ status: 'UNAVAILABLE', reason: 'private', frames: [], summary: '', transcript: '' }),
       ai
     });
 
-    expect(screen.getByText('Video ini belum bisa dianalisis')).toBeTruthy();
-    expect(screen.getByText('Video ini privat atau hanya bisa ditonton setelah masuk akun.')).toBeTruthy();
-    expect(screen.getByText(/Unggah tangkapan layar videonya/)).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Unggah tangkapan layar' })).toBeTruthy();
+    expect(screen.getByText('Penilaian video ini memakai judul, keterangan, gambar pratinjau, dan pencarian web.')).toBeTruthy();
+    expect(container.textContent).not.toMatch(/belum bisa|gagal|tidak dapat|privat/i);
+    expect(screen.queryByRole('button')).toBeNull();
     expect(screen.queryByRole('img')).toBeNull();
     expect(screen.queryByText('Tanda yang diperiksa')).toBeNull();
-  });
-
-  it('falls back to a general explanation for a reason it does not know', () => {
-    render(VideoAnalysis, { video: video({ status: 'UNAVAILABLE', reason: 'something_new', frames: [] }), ai });
-    expect(screen.getByText('Video ini tidak dapat dianalisis saat ini.')).toBeTruthy();
   });
 
   it('speaks English when the interface does', () => {

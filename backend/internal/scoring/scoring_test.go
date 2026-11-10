@@ -658,7 +658,7 @@ func TestExplanationSimple(t *testing.T) {
 		{
 			name:   "other suspicious",
 			status: models.StatusSuspicious,
-			want:   "Belum jelas benar atau tidak. Cek dulu sebelum menyebarkan.",
+			want:   "Ada tanda yang perlu diwaspadai. Cek dulu sebelum menyebarkan.",
 		},
 		{
 			name:   "insufficient (old payloads only)",
@@ -738,7 +738,7 @@ func TestComputeSetsExplanationSimple(t *testing.T) {
 		{
 			name: "suspicious",
 			in:   Input{AI: sig(20, 0.5), Fact: sig(40, 1.0)},
-			want: "Belum jelas benar atau tidak. Cek dulu sebelum menyebarkan.",
+			want: "Ada tanda yang perlu diwaspadai. Cek dulu sebelum menyebarkan.",
 		},
 		{
 			name: "nothing available is still a verdict",

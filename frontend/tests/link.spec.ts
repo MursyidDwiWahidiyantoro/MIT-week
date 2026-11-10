@@ -2,11 +2,11 @@ import { test, expect } from '@playwright/test';
 
 /**
  * PRD F1 against the real API (LLM_MOCK=true). The test server cannot reach
- * the internet, which is exactly the "page could not be read" case: the
- * result must say so and offer the screenshot route instead of pretending
- * the content was checked.
+ * the internet, which is exactly the "page shows no preview" case: the result
+ * says what it rests on, in plain words and not as an error, and still
+ * concludes (Sir, 10 Nov 2026).
  */
-test('an unreadable link explains itself and offers a screenshot upload', async ({ page }) => {
+test('a link without a preview says what the result rests on and still concludes', async ({ page }) => {
   await page.goto('/deteksi');
   await page.getByRole('tab', { name: 'Tautan' }).click();
   await page.getByLabel(/tautan/i).first().fill('https://bri-verifikasi.example/login');
@@ -14,16 +14,14 @@ test('an unreadable link explains itself and offers a screenshot upload', async 
 
   await expect(page).toHaveURL(/\/hasil$/, { timeout: 20_000 });
   const preview = page.locator('[data-testid="source-metadata"]');
-  await expect(preview).toContainText('Isi halaman tautan tidak dapat dibaca');
+  await expect(preview).toContainText('Halaman ini tidak menampilkan pratinjau.');
+  await expect(preview).toContainText('Penilaian memakai alamat tautan dan pencarian web.');
+  await expect(preview.getByRole('button')).toHaveCount(0);
 
   // The link pillar still ran and found the lookalike; the verdict is never
   // "belum cukup data" for a link this risky.
   await expect(page.getByText('Domain meniru nama layanan populer').first()).toBeAttached();
   await expect(page.locator('[data-testid="verdict-badge"]')).not.toContainText('Belum cukup data');
-
-  await preview.getByRole('button', { name: 'Unggah tangkapan layar' }).click();
-  await expect(page).toHaveURL(/\/deteksi\?tab=file/);
-  await expect(page.getByRole('tab', { name: 'Gambar' })).toHaveAttribute('aria-selected', 'true');
 });
 
 test('the screenshot demo opens the ELA viewer and OCR tactics', async ({ page }) => {

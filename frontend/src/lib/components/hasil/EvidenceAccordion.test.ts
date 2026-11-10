@@ -49,6 +49,21 @@ describe('EvidenceAccordion', () => {
 
   it('says plainly that no fact-check article covers the claim when the server sent none', () => {
     render(EvidenceAccordion, { pillars: pillars([]) });
-    expect(screen.getByText('Belum ada artikel cek fakta yang membahas klaim ini.')).toBeTruthy();
+    expect(screen.getByText('Belum ada artikel cek fakta yang membantah atau membenarkan klaim ini.')).toBeTruthy();
+  });
+
+  it('lists only the articles that decided a debunk, not same-topic ones', () => {
+    const p = pillars([{ ...src(1), match: 'UNVERIFIED' as never }, src(2), { ...src(3), match: 'UNVERIFIED' as never }]);
+    const { container } = render(EvidenceAccordion, { pillars: p });
+    const links = [...container.querySelectorAll('[data-testid="sources"] a')].map((a) => a.textContent);
+    expect(links).toEqual(['[SALAH] Klaim 2']);
+  });
+
+  it('lists no articles when nothing settled the claim, so a safe result shows no "[SALAH]" headlines', () => {
+    const p = pillars([src(1), src(2)]);
+    (p.fact as { status: string }).status = 'UNVERIFIED';
+    const { container } = render(EvidenceAccordion, { pillars: p });
+    expect(container.querySelectorAll('[data-testid="sources"] a')).toHaveLength(0);
+    expect(screen.getByText('Belum ada artikel cek fakta yang membantah atau membenarkan klaim ini.')).toBeTruthy();
   });
 });

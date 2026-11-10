@@ -934,7 +934,7 @@ func LinkReasonText(code string) string {
 	case linkcheck.ReasonSafeBrowsing:
 		return "Tercatat sebagai situs berbahaya oleh Google Safe Browsing"
 	case linkcheck.ReasonUnparseable:
-		return "Alamat tautan tidak dapat dibaca"
+		return "Alamat tautan disusun tidak wajar"
 	case linkcheck.ReasonPageAsksSecret:
 		return "Halaman meminta kata sandi, PIN, OTP, atau nomor kartu"
 	case linkcheck.ReasonPageImpersonation:

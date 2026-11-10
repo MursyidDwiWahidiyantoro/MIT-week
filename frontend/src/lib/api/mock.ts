@@ -122,7 +122,7 @@ function analyzeUrl(raw: string): LinkSignals {
     finalUrl = parsed.href;
     pathAndQuery = `${parsed.pathname}${parsed.search}`;
   } catch {
-    reasons.push({ code: 'MALFORMED', text: 'Alamat tautan tidak dapat dibaca dengan benar.' });
+    reasons.push({ code: 'MALFORMED', text: 'Alamat tautan disusun tidak wajar.' });
   }
 
   if (host.startsWith('xn--') || host.includes('.xn--')) {
@@ -171,7 +171,7 @@ function notCheckedFor(available: { ai: boolean; fact: boolean; link: boolean; e
 function simpleSentence(status: Status, fact: FactStatus): string {
   if (fact === 'CONTRADICTS') return 'Kabar ini dibantah sumber terpercaya. Jangan disebarkan.';
   if (status === 'TAMPERED') return 'Pesan ini memakai pola yang sering muncul pada penipuan. Jangan langsung percaya.';
-  if (status === 'SUSPICIOUS') return 'Belum jelas benar atau tidak. Cek dulu sebelum menyebarkan.';
+  if (status === 'SUSPICIOUS') return 'Ada tanda yang perlu diwaspadai. Cek dulu sebelum menyebarkan.';
   if (status === 'SAFE') return 'Tidak ditemukan tanda bahaya, tapi tetap bijak sebelum menyebarkan.';
   return 'Informasinya belum cukup untuk dipastikan.';
 }

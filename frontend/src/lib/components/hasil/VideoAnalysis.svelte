@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { resolve } from '$app/paths';
   import { t, type MessageKey } from '$lib/i18n/index.svelte';
   import { aiLevel } from '$lib/i18n/verdict';
   import { formatClock, formatDate, platformName } from '$lib/format';
@@ -16,11 +15,6 @@
 
   let { video, ai }: Props = $props();
   const uid = $props.id();
-
-  const REASONS = ['unsupported', 'private', 'too_long', 'too_big', 'timeout', 'download_failed', 'no_tools', 'model_failed'];
-  const reasonKey = $derived(
-    (REASONS.includes(video.reason) ? `video.reason.${video.reason}` : 'video.reason.default') as MessageKey
-  );
 
   const platform = $derived(platformName(video.platform));
   const date = $derived(formatDate(video.upload_date));
@@ -84,18 +78,8 @@
     </div>
 
     {#if video.status === 'UNAVAILABLE'}
-      <div class="unavailable" role="note">
-        <p class="unavailable-title"><Icon name="alert" size={18} /> {t('video.unavailable')}</p>
-        <p class="desc">{t(reasonKey)}</p>
-        <p class="desc">{t('video.unavailableHint')}</p>
-        <!-- A GET form, like LinkPreview: navigates to /deteksi?tab=file. -->
-        <form action={resolve('/deteksi')} method="GET">
-          <input type="hidden" name="tab" value="file" />
-          <button class="btn btn--primary" type="submit">
-            <Icon name="image" size={18} /> {t('lp.upload')}
-          </button>
-        </form>
-      </div>
+      <!-- Footage not read: say what the result rests on, not why the download failed (Sir, 10 Nov). -->
+      <p class="desc">{t('video.previewBasis')}</p>
     {:else}
       {#if video.frames.length}
         <div class="block">
@@ -290,9 +274,5 @@
   .indicators { display: grid; gap: var(--space-1); margin: 0; padding-left: var(--space-5); list-style: disc; color: var(--body-2); }
   .note { margin: 0; font-size: var(--text-sm); color: var(--muted); max-width: var(--measure); }
 
-  /* UNAVAILABLE: the LinkPreview "could not read" note. */
-  .unavailable { display: grid; gap: var(--space-2); }
-  .unavailable-title { margin: 0; display: flex; align-items: center; gap: var(--space-2); font-weight: 800; }
   .desc { margin: 0; color: var(--body-2); max-width: var(--measure); }
-  .unavailable form { justify-self: start; margin-top: var(--space-2); }
 </style>

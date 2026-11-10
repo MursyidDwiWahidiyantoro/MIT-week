@@ -13,11 +13,12 @@ import (
 // simpleMax is the contract's limit for explanation_simple.
 const simpleMax = 140
 
-// VideoNote explains a video link whose footage could not be read: the audit
-// still used the post's own words and a web search.
+// VideoNote says what a video link was judged on when its footage was not
+// read: the post's own words, its preview image and a web search. It names
+// the basis, not the failure.
 func VideoNote(res Result) string {
 	if res.Video != nil && res.Video.Status != models.VideoOK {
-		return "Video tidak bisa diunduh, jadi diperiksa lewat keterangan dan pencarian web."
+		return "Penilaian memakai judul, keterangan, gambar pratinjau, dan pencarian web."
 	}
 	return ""
 }
@@ -32,15 +33,15 @@ func FactNote(res Result) string {
 		}
 		return "Tidak ada klaim yang bisa dicek."
 	}
-	switch {
-	case f.Status == models.FactContradicts:
+	// Same-topic articles that settle nothing are not shown on the result page,
+	// so the sentence does not mention them either.
+	switch f.Status {
+	case models.FactContradicts:
 		return "Ada artikel cek fakta yang membantah klaim ini."
-	case len(f.Sources) == 0:
-		return "Belum ada artikel cek fakta yang membahas klaim ini."
-	case f.Status == models.FactSupports:
+	case models.FactSupports:
 		return "Artikel terpercaya sejalan dengan klaim ini."
 	default:
-		return "Ada artikel terkait, tetapi belum ada yang memutuskan klaim ini."
+		return "Belum ada artikel cek fakta yang membantah atau membenarkan klaim ini."
 	}
 }
 

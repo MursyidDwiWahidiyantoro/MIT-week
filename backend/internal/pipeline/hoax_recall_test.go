@@ -241,9 +241,9 @@ func TestNewsSupportCannotMakeAVideoSafe(t *testing.T) {
 	if shown != 2 {
 		t.Fatalf("support is still shown: %+v", fact.Sources)
 	}
-	// The audit still concludes, and the line says the articles do not settle it.
+	// The audit still concludes, and the line never claims the news supports it.
 	v := Verdict(res, false)
-	if v.Status != models.StatusSafe || !strings.Contains(v.ExplanationSimple, "belum ada yang memutuskan") {
+	if v.Status != models.StatusSafe || strings.Contains(v.ExplanationSimple, "sejalan") {
 		t.Fatalf("verdict = %+v", v)
 	}
 }

@@ -78,8 +78,8 @@ describe('explanation for a link whose preview is blocked', () => {
     ({ ...dossier([], video), source_metadata: { status: 'BLOCKED' } }) as unknown as DossierParsed;
 
   it('mentions the blocked preview only when the video was not analysed either', () => {
-    expect(explanation(blocked(false))).toContain('does not allow automated reading');
-    expect(explanation(blocked(true))).not.toContain('does not allow automated reading');
+    expect(explanation(blocked(false))).toContain('preview is closed');
+    expect(explanation(blocked(true))).not.toContain('preview is closed');
   });
 });
 

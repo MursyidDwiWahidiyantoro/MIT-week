@@ -37,12 +37,20 @@
   // While results stream in (pending) every card stays, as a loading skeleton.
   const order = $derived(pending ? ORDER : ORDER.filter((k) => available(k)));
 
-  /** Fact-check list: what the server sent, at most five, each one a real link. */
+  /**
+   * Fact-check list: only the articles that decided the status, at most five,
+   * each one a real link. Same-topic articles that settle nothing read as
+   * evidence beside a clear verdict (a SAFE result listing "[SALAH] ..."
+   * headlines about other claims), so UNVERIFIED shows none.
+   */
   const MAX_SOURCES = 5;
   const isWebUrl = (u: string): boolean => /^https?:\/\//i.test(u);
-  const factSources = $derived(
-    (pillars.fact.sources ?? []).filter((s) => isWebUrl(s.url)).slice(0, MAX_SOURCES)
-  );
+  const factSources = $derived.by(() => {
+    if (pillars.fact.status === 'UNVERIFIED') return [];
+    const all = (pillars.fact.sources ?? []).filter((s) => isWebUrl(s.url));
+    const deciding = all.filter((s) => s.match === pillars.fact.status);
+    return (deciding.length ? deciding : all).slice(0, MAX_SOURCES);
+  });
 
   // Marked text whose compression differs from the image's other text
   // (forensics TextEvidence >= scoring.ELAEvidenceMin).

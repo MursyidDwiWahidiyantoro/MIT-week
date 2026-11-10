@@ -138,7 +138,8 @@
     </ul>
   </section>
 
-  {#if dossier.video}
+  <!-- Unread footage has nothing to show; the panel stays only for the platform's own AI label. -->
+  {#if dossier.video && (dossier.video.status !== 'UNAVAILABLE' || dossier.video.platform_ai_label)}
     <VideoAnalysis video={dossier.video} ai={dossier.pillars.ai} />
   {/if}
 

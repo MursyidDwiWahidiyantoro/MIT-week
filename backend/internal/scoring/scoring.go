@@ -348,7 +348,7 @@ func explanationSimple(status models.Status, floors []string, video bool) string
 	case models.StatusSafe:
 		return "Tidak ditemukan tanda bahaya, tapi tetap bijak sebelum menyebarkan."
 	case models.StatusSuspicious:
-		return "Belum jelas benar atau tidak. Cek dulu sebelum menyebarkan."
+		return "Ada tanda yang perlu diwaspadai. Cek dulu sebelum menyebarkan."
 	case models.StatusTampered:
 		// §8.2 defines TAMPERED sentences for the floors above. A weighted
 		// score can reach TAMPERED without one (e.g. ELA 69 + AI 100 +

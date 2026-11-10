@@ -58,9 +58,9 @@ func TestSafeLineIsClearAndFitsTheContract(t *testing.T) {
 		{"unreachable video", Result{InputType: models.InputURL,
 			Video:   &models.VideoAnalysis{Status: models.VideoUnavailable},
 			Pillars: models.Pillars{AI: models.AIPillar{Available: true}, Fact: models.FactPillar{Available: true, Status: models.FactUnverified}}},
-			"Tidak ditemukan tanda AI atau bantahan cek fakta. Video tidak bisa diunduh, jadi diperiksa lewat keterangan dan pencarian web."},
+			"Tidak ditemukan tanda AI atau bantahan cek fakta. Penilaian memakai judul, keterangan, gambar pratinjau, dan pencarian web."},
 		{"no article yet", Result{InputType: models.InputURL, Pillars: models.Pillars{Fact: models.FactPillar{Available: true, Status: models.FactUnverified}}},
-			"Tidak ditemukan bantahan cek fakta. Belum ada artikel cek fakta yang membahas klaim ini."},
+			"Tidak ditemukan bantahan cek fakta. Belum ada artikel cek fakta yang membantah atau membenarkan klaim ini."},
 		{"no claim in an image", Result{InputType: models.InputFile, Pillars: models.Pillars{AI: models.AIPillar{Available: true}}},
 			"Tidak ditemukan tanda AI. Gambar ini tidak memuat klaim yang bisa dicek."},
 	} {
