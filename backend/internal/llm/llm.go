@@ -15,8 +15,10 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"math"
 	"net/http"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -573,15 +575,78 @@ func wrap(content string) string {
 	return "<untrusted_content>\n" + content + "\n</untrusted_content>"
 }
 
-// stripFence removes a ```json fence some providers add despite the schema.
+// stripFence returns the JSON object in a gateway answer. Gateways that ignore
+// the schema wrap the object in a ```json fence, write their reasoning before
+// it, or print integers as 85.0 (every number in our schemas is an integer).
+// An answer without a JSON object is returned trimmed, so decoding still fails
+// and the caller moves on to the fallback gateway.
 func stripFence(s string) string {
 	s = strings.TrimSpace(s)
-	if strings.HasPrefix(s, "```") {
-		s = strings.TrimPrefix(s, "```json")
+	if i := strings.LastIndex(s, "```json"); i >= 0 {
+		s = s[i+len("```json"):]
+		if j := strings.Index(s, "```"); j >= 0 {
+			s = s[:j]
+		}
+	} else if strings.HasPrefix(s, "```") {
 		s = strings.TrimPrefix(s, "```")
 		s = strings.TrimSuffix(strings.TrimSpace(s), "```")
 	}
-	return strings.TrimSpace(s)
+	s = strings.TrimSpace(s)
+	obj, ok := largestObject(s)
+	if !ok {
+		return s
+	}
+	out, err := json.Marshal(wholeNumbers(obj))
+	if err != nil {
+		return s
+	}
+	return string(out)
+}
+
+// largestObject decodes the longest JSON object in s, so reasoning text or a
+// small example object before the answer is skipped.
+func largestObject(s string) (map[string]any, bool) {
+	var best map[string]any
+	bestLen := 0
+	for i := 0; i < len(s); i++ {
+		if s[i] != '{' {
+			continue
+		}
+		dec := json.NewDecoder(strings.NewReader(s[i:]))
+		dec.UseNumber()
+		var m map[string]any
+		if dec.Decode(&m) != nil {
+			continue
+		}
+		n := int(dec.InputOffset())
+		if n > bestLen {
+			best, bestLen = m, n
+		}
+		i += n - 1 // objects nested in this one are shorter
+	}
+	return best, best != nil
+}
+
+// wholeNumbers rounds every number to an integer.
+func wholeNumbers(v any) any {
+	switch t := v.(type) {
+	case map[string]any:
+		for k, x := range t {
+			t[k] = wholeNumbers(x)
+		}
+	case []any:
+		for i, x := range t {
+			t[i] = wholeNumbers(x)
+		}
+	case json.Number:
+		if _, err := t.Int64(); err == nil {
+			return t
+		}
+		if f, err := t.Float64(); err == nil && math.Abs(f) < 1e15 {
+			return json.Number(strconv.FormatInt(int64(math.Round(f)), 10))
+		}
+	}
+	return v
 }
 
 // injectionPattern catches the classic instruction-override phrasings in both
