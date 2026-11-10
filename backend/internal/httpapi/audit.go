@@ -29,9 +29,9 @@ func (h *handlers) auditURL(w http.ResponseWriter, r *http.Request) {
 		writeError(w, errInvalidURL)
 		return
 	}
-	raw := strings.TrimSpace(body.URL)
-	if raw == "" || len(raw) > 2048 {
-		writeError(w, errInvalidURL)
+	raw, uerr := security.ValidateInputURL(body.URL)
+	if uerr != nil {
+		writeError(w, newAPIError(http.StatusBadRequest, models.CodeInvalidURL, uerr.Message, false))
 		return
 	}
 	if _, err := security.ValidateFetchURL(raw); err != nil {

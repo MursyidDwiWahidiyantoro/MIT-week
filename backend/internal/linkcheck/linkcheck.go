@@ -62,7 +62,7 @@ var brands = []string{
 	"danamon", "seabank", "gopay", "ovo", "dana", "shopeepay", "linkaja", "qris",
 	"akulaku", "kredivo", "pegadaian",
 	"tokopedia", "shopee", "lazada", "bukalapak", "blibli", "gojek",
-	"whatsapp", "telegram", "instagram", "facebook", "tiktok",
+	"whatsapp", "telegram", "instagram", "facebook", "tiktok", "youtube", "twitter",
 	"kemendikbud", "kemensos", "prakerja", "kominfo", "komdigi", "pajak", "djp",
 	"bpjs", "pln", "telkomsel", "indihome", "jne", "jnt",
 }
@@ -78,6 +78,7 @@ var officialDomains = map[string]bool{
 	"shopee.com": true, "lazada.co.id": true, "bukalapak.com": true,
 	"blibli.com": true, "whatsapp.com": true, "whatsapp.net": true, "wa.me": true,
 	"telegram.org": true, "telegram.me": true, "t.me": true, "instagram.com": true,
+	"youtube.com": true, "youtu.be": true, "twitter.com": true, "x.com": true, "fb.watch": true,
 	"facebook.com": true, "fb.com": true, "tiktok.com": true, "jne.co.id": true,
 	"jet.co.id": true, "btn.co.id": true, "seabank.co.id": true,
 	"akulaku.com": true, "kredivo.com": true, "pegadaian.co.id": true,
@@ -404,15 +405,30 @@ func lookalikeBrand(host string, folded bool) (string, bool) {
 		}
 	}
 	for _, label := range nameLabels(host) {
-		for _, token := range tokens(label) {
-			for _, brand := range brands {
-				if brandMatches(token, brand) {
-					return brand, true
+		for _, variant := range leetVariants(label) {
+			for _, token := range tokens(variant) {
+				for _, brand := range brands {
+					if brandMatches(token, brand) {
+						return brand, true
+					}
 				}
 			}
 		}
 	}
 	return "", false
+}
+
+// leetVariants returns the label as written plus the readings a human sees
+// when digits stand in for letters ("faceb00k"). Plain digit-free labels
+// return only themselves.
+func leetVariants(label string) []string {
+	if !strings.ContainsAny(label, "013457") {
+		return []string{label}
+	}
+	mk := func(one string) string {
+		return strings.NewReplacer("0", "o", "1", one, "3", "e", "4", "a", "5", "s", "7", "t").Replace(label)
+	}
+	return []string{label, mk("i"), mk("l")}
 }
 
 func brandMatches(token, brand string) bool {

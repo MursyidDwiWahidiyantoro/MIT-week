@@ -320,3 +320,22 @@ func TestExplanationSkipsTheBlockedPreviewWhenTheVideoWasAnalysed(t *testing.T) 
 		t.Fatalf("with an analysed video: %q", got)
 	}
 }
+
+func TestAuditURLAttackStringsGetIndonesianInvalidURL(t *testing.T) {
+	for _, u := range []string{
+		"javascript:alert(1)", "data:text/html,<script>alert(1)</script>", "vbscript:x",
+		"https://user:pw@example.org/", "https://example.org/<script>", "https://example.org/a%22b",
+		"https://example.org:8080/", "https://example.org/a b", "ftp://example.org/x",
+	} {
+		b, _ := json.Marshal(map[string]string{"url": u})
+		rec := postJSON(t, "/api/v1/audit/url", string(b), "")
+		if rec.Code != http.StatusBadRequest {
+			t.Errorf("%q: status = %d, want 400", u, rec.Code)
+			continue
+		}
+		var env models.ErrorEnvelope
+		if err := json.Unmarshal(rec.Body.Bytes(), &env); err != nil || env.Error.Code != models.CodeInvalidURL || env.Error.Message == "" {
+			t.Errorf("%q: envelope = %s", u, rec.Body.String())
+		}
+	}
+}
