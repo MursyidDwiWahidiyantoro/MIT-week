@@ -195,7 +195,7 @@
     </div>
   </section>
 
-  {#if dossier.input_type === 'URL' && dossier.source_metadata}
+  {#if dossier.input_type === 'URL' && dossier.source_metadata && !(dossier.source_metadata.status === 'BLOCKED' && dossier.video?.status === 'OK')}
     <Panel title={t('res.panelLink')}>
       <div data-info-key="source.metadata">
         <LinkPreview metadata={dossier.source_metadata} />
