@@ -12,6 +12,7 @@
   import PreviewBadge from '$lib/components/ui/PreviewBadge.svelte';
   import Aurora from '$lib/components/ui/Aurora.svelte';
   import Icon from '$lib/components/ui/Icon.svelte';
+  import Logo from '$lib/components/ui/Logo.svelte';
   import { reducedMotion } from '$lib/motion';
   import { trackPointer } from '$lib/spotlight';
 
@@ -71,7 +72,7 @@
 <header class="top">
   <div class="top-inner">
     <a class="brand" href={resolve('/')} aria-label={t('layout.home')}>
-      <span class="logo" aria-hidden="true"><Icon name="shield-check" size={18} /></span>
+      <span class="logo" aria-hidden="true"><Logo size={36} /></span>
       <span class="wordmark">AMBA</span>
     </a>
     <nav aria-label={t('layout.nav')}>
@@ -140,12 +141,10 @@
   .logo {
     display: grid;
     place-items: center;
-    width: 30px;
-    height: 30px;
+    width: 36px;
+    height: 36px;
     flex: none;
-    border-radius: 9px;
-    background: var(--grad);
-    color: #ffffff;
+    border-radius: 50%;
   }
   .wordmark { font-size: 1.15rem; font-weight: 500; letter-spacing: 0.03em; }
   nav ul { display: flex; gap: 4px; margin: 0; padding: 0; list-style: none; }
