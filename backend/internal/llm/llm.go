@@ -365,17 +365,21 @@ func (c *Client) Classify(ctx context.Context, claim string, results []Evidence)
 			i, r.Title, r.Publisher, r.Rating, r.Snippet)
 	}
 	var parsed struct {
-		Matches []struct {
-			Index int    `json:"index"`
-			Match string `json:"match"`
-		} `json:"matches"`
+		Matches []claimMatch `json:"matches"`
 	}
 	if err := c.complete(ctx, []message{
 		{Role: "system", Content: classifyPrompt},
 		{Role: "user", Content: wrap(b.String())},
 	}, "ClaimMatches", classifySchema, 0, func(s string) error {
 		parsed.Matches = nil
-		return json.Unmarshal([]byte(s), &parsed)
+		if err := json.Unmarshal([]byte(s), &parsed); err == nil {
+			return nil
+		}
+		parsed.Matches = classifyLines(s)
+		if len(parsed.Matches) == 0 {
+			return errAnswer
+		}
+		return nil
 	}); err != nil {
 		return out, err
 	}
@@ -389,6 +393,25 @@ func (c *Client) Classify(ctx context.Context, claim string, results []Evidence)
 		}
 	}
 	return out, nil
+}
+
+type claimMatch struct {
+	Index int    `json:"index"`
+	Match string `json:"match"`
+}
+
+// classifyLine is one "[0] CONTRADICTS" line, the form a gateway that ignores
+// the schema answers in (Gemini through 9router echoes the input's [n] labels).
+var classifyLine = regexp.MustCompile(`(?i)\[(\d+)\][\s:*\-]*(CONTRADICTS|SUPPORTS|UNVERIFIED)\b`)
+
+func classifyLines(s string) []claimMatch {
+	var out []claimMatch
+	for _, m := range classifyLine.FindAllStringSubmatch(s, -1) {
+		if i, err := strconv.Atoi(m[1]); err == nil {
+			out = append(out, claimMatch{Index: i, Match: strings.ToUpper(m[2])})
+		}
+	}
+	return out
 }
 
 // Reply drafts a Balas Sopan message. The caller validates the result.
@@ -430,7 +453,38 @@ func (c *Client) Reply(ctx context.Context, in ReplyInput) (string, error) {
 const (
 	fallbackReserve = 9 * time.Second
 	breakerCooldown = 60 * time.Second
+	// slowBudget is the shortest first-gateway budget whose overrun counts as
+	// the gateway being slow. Overrunning a shorter one (a fact-check
+	// classification gets about 5 s) says more about the budget.
+	slowBudget = 15 * time.Second
 )
+
+// errAnswer is an answer that arrived but did not decode.
+var errAnswer = errors.New("llm: the answer did not decode")
+
+// statusError is a non-200 answer from a gateway.
+type statusError struct{ status int }
+
+func (e *statusError) Error() string { return fmt.Sprintf("llm: gateway answered HTTP %d", e.status) }
+
+// opensBreaker reports whether a failed call says the gateway itself is
+// unwell: no connection, an auth or quota refusal, a server error, or a slow
+// answer within a generous budget. A garbled answer or another 4xx concerns
+// this request only, so the next request still tries the gateway first.
+func opensBreaker(err error, timedOut bool, budget time.Duration) bool {
+	if errors.Is(err, errAnswer) {
+		return false
+	}
+	var se *statusError
+	if errors.As(err, &se) {
+		return se.status == http.StatusUnauthorized || se.status == http.StatusForbidden ||
+			se.status == http.StatusTooManyRequests || se.status >= 500
+	}
+	if timedOut {
+		return budget >= slowBudget
+	}
+	return true
+}
 
 // complete performs one chat completion with a JSON-schema response format
 // and hands the message content to decode. A gateway fails when the call
@@ -444,16 +498,21 @@ func (c *Client) complete(ctx context.Context, messages []message, name, schema 
 		}
 		if err := decode(content); err != nil {
 			slog.Warn("llm gateway call failed", "reason", "invalid_answer", "status", 0)
-			return ErrUnavailable
+			return errAnswer
 		}
 		return nil
 	}
 	if c.Fallback == nil {
-		return try(c, ctx)
+		if try(c, ctx) != nil {
+			return ErrUnavailable
+		}
+		return nil
 	}
 	if !c.skipping() {
-		pctx, cancel := context.WithTimeout(ctx, primaryShare(ctx))
+		share := primaryShare(ctx)
+		pctx, cancel := context.WithTimeout(ctx, share)
 		err := try(c, pctx)
+		timedOut := errors.Is(pctx.Err(), context.DeadlineExceeded)
 		cancel()
 		if err == nil {
 			c.setDown(time.Time{})
@@ -462,10 +521,12 @@ func (c *Client) complete(ctx context.Context, messages []message, name, schema 
 		if ctx.Err() != nil { // the request itself ended: not the gateway's fault
 			return ErrUnavailable
 		}
-		c.setDown(time.Now().Add(breakerCooldown))
+		if opensBreaker(err, timedOut, share) {
+			c.setDown(time.Now().Add(breakerCooldown))
+		}
 	}
-	if err := try(c.Fallback, ctx); err != nil {
-		return err
+	if try(c.Fallback, ctx) != nil {
+		return ErrUnavailable
 	}
 	slog.Info("llm fallback answered", "model", c.Fallback.Model)
 	return nil
@@ -566,7 +627,7 @@ func (c *Client) call(ctx context.Context, messages []message, name, schema stri
 
 	if resp.StatusCode != http.StatusOK {
 		logCallFailure(ctx, "llm gateway", resp.StatusCode)
-		return "", ErrUnavailable
+		return "", &statusError{status: resp.StatusCode}
 	}
 	raw, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if err != nil {

@@ -481,3 +481,74 @@ func TestBareTacticCodesAndBadBoxesDoNotFailTheAnswer(t *testing.T) {
 		t.Fatalf("anomalies = %+v, want only the valid box", f.TextAnomalies)
 	}
 }
+
+// A garbled answer, a 400 or running out of a short budget concerns one
+// request: the next request must still try the first gateway.
+func TestRequestScopedFailuresKeepTheGatewayInUse(t *testing.T) {
+	cases := map[string]http.HandlerFunc{
+		"garbled": func(w http.ResponseWriter, _ *http.Request) {
+			_ = json.NewEncoder(w).Encode(map[string]any{"choices": []map[string]any{{"message": map[string]string{"content": "no json here"}}}})
+		},
+		"bad request": func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusBadRequest) },
+		"short budget": func(_ http.ResponseWriter, r *http.Request) {
+			_, _ = io.Copy(io.Discard, r.Body)
+			select {
+			case <-r.Context().Done():
+			case <-time.After(3 * time.Second):
+			}
+		},
+	}
+	for name, h := range cases {
+		var hits int32
+		primary := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			atomic.AddInt32(&hits, 1)
+			h(w, r)
+		}))
+		fb := gateway(t, `{"ok":true}`, nil)
+		c := New(primary.URL, "k", "m", false)
+		c.Fallback = New(fb.URL, "k", "m2", false)
+		for i := 0; i < 2; i++ {
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+			err := c.complete(ctx, nil, "x", `{}`, 0, func(s string) error {
+				var v map[string]any
+				return json.Unmarshal([]byte(s), &v)
+			})
+			cancel()
+			if err != nil {
+				t.Fatalf("%s call %d: %v", name, i, err)
+			}
+		}
+		if n := atomic.LoadInt32(&hits); n != 2 {
+			t.Errorf("%s: first gateway called %d times, want 2 (no cooldown)", name, n)
+		}
+		primary.Close()
+		fb.Close()
+	}
+}
+
+// Gemini through 9router answers the classification as "[0] CONTRADICTS" lines.
+func TestClassifyReadsPlainLines(t *testing.T) {
+	srv := gateway(t, "Hasil:\n[0] CONTRADICTS\n[1]: unverified\n[2] **SUPPORTS**\n[9] CONTRADICTS", nil)
+	defer srv.Close()
+	c := New(srv.URL, "k", "m", false)
+	got, err := c.Classify(context.Background(), "klaim", []Evidence{{Title: "a"}, {Title: "b"}, {Title: "c"}})
+	if err != nil || strings.Join(got, ",") != "CONTRADICTS,UNVERIFIED,SUPPORTS" {
+		t.Fatalf("got %v, %v", got, err)
+	}
+}
+
+func TestGarbledVideoAnswerKeepsTheGatewayInUse(t *testing.T) {
+	primary := gateway(t, "Analis video forensik. Tugas: isi JSON.", nil)
+	defer primary.Close()
+	fb := gateway(t, validVideoAnswer, nil)
+	defer fb.Close()
+	c := New(primary.URL, "k", "m", false)
+	c.Fallback = New(fb.URL, "k", "m2", false)
+	f, err := c.AnalyzeVideo(context.Background(), videoInput())
+	if err != nil || f.AIScore != 88 {
+		t.Fatalf("got %+v, %v", f, err)
+	}
+	if c.skipping() {
+		t.Fatal("a garbled answer must not put the gateway in its cooldown")
+	}
+}
