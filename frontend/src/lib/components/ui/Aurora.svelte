@@ -9,6 +9,8 @@
   <span class="r r1"></span>
   <span class="r r2"></span>
   <span class="r r3"></span>
+  <span class="stars s1"></span>
+  <span class="stars s2"></span>
 </div>
 
 <style>
@@ -54,6 +56,42 @@
     transform: rotate(-6deg);
     animation: drift-3 40s var(--ease-in-out) infinite alternate;
   }
+  /* Tiny stars: one element each, many dots as shadows, and only opacity
+   * changes, so they cost nothing to animate. Two layers twinkle out of step. */
+  .stars {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 2px;
+    height: 2px;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--star, rgba(255, 226, 205, 0.9));
+    opacity: 0.2;
+    animation: twinkle 5.5s var(--ease-in-out) infinite alternate;
+  }
+  .s1 {
+    box-shadow:
+      6vw 9vh 0 0 currentColor, 17vw 31vh 0 0 currentColor, 29vw 14vh 0 1px currentColor,
+      41vw 47vh 0 0 currentColor, 53vw 6vh 0 0 currentColor, 64vw 28vh 0 1px currentColor,
+      77vw 12vh 0 0 currentColor, 88vw 39vh 0 0 currentColor, 95vw 7vh 0 1px currentColor,
+      11vw 62vh 0 0 currentColor, 36vw 78vh 0 0 currentColor, 71vw 66vh 0 1px currentColor,
+      92vw 84vh 0 0 currentColor, 58vw 91vh 0 0 currentColor;
+  }
+  .s2 {
+    animation-duration: 7.5s;
+    animation-delay: -2.7s;
+    box-shadow:
+      3vw 24vh 0 0 currentColor, 22vw 5vh 0 1px currentColor, 34vw 38vh 0 0 currentColor,
+      47vw 21vh 0 0 currentColor, 60vw 52vh 0 1px currentColor, 82vw 24vh 0 0 currentColor,
+      97vw 55vh 0 0 currentColor, 14vw 83vh 0 1px currentColor, 44vw 70vh 0 0 currentColor,
+      67vw 81vh 0 0 currentColor, 85vw 93vh 0 1px currentColor, 25vw 56vh 0 0 currentColor;
+  }
+  @keyframes twinkle {
+    from { opacity: 0.1; }
+    to { opacity: 0.85; }
+  }
+
   @keyframes drift-1 {
     to { transform: translate3d(14vmax, 8vmax, 0) rotate(4deg) scale(1.12); }
   }
@@ -66,6 +104,7 @@
 
   @media (prefers-reduced-motion: reduce) {
     .r { animation: none; }
+    .stars { animation: none; opacity: 0.35; }
   }
   @media print {
     .aurora { display: none; }

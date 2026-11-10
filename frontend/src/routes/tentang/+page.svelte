@@ -120,7 +120,8 @@
     transition: transform var(--dur-base) var(--ease-out), box-shadow var(--dur-base) var(--ease-out);
   }
   .photo {
-    aspect-ratio: 4 / 5;
+    /* Taller than the picture and bottom-aligned: the head keeps clear space above it (Sir, seq 1118). */
+    aspect-ratio: 4 / 5.6;
     display: flex;
     align-items: flex-end;
     justify-content: center;
@@ -129,7 +130,7 @@
       radial-gradient(120% 90% at 50% 0%, color-mix(in srgb, var(--brand) 38%, transparent), transparent 70%),
       var(--indigo-soft);
   }
-  .photo img { width: 100%; height: 100%; object-fit: cover; object-position: center bottom; display: block; transition: transform var(--dur-slow, 400ms) var(--ease-out); }
+  .photo img { width: 100%; height: auto; flex: none; display: block; transition: transform var(--dur-slow, 400ms) var(--ease-out); }
   .who { display: grid; gap: var(--space-1); padding: var(--space-4) var(--space-3) var(--space-5); text-align: center; text-wrap: balance; }
   .who strong { font-family: var(--font-display); font-size: var(--text-base); font-weight: 600; }
   .who span { color: var(--body-2); font-size: var(--text-sm); }

@@ -13,6 +13,7 @@
   import Aurora from '$lib/components/ui/Aurora.svelte';
   import Icon from '$lib/components/ui/Icon.svelte';
   import { reducedMotion } from '$lib/motion';
+  import { trackPointer } from '$lib/spotlight';
 
   let { children } = $props();
 
@@ -58,6 +59,8 @@
     }
   });
 </script>
+
+<svelte:window onpointermove={trackPointer} />
 
 <a class="skip-link" href="#main">{t('layout.skip')}</a>
 
