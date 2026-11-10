@@ -20,7 +20,7 @@ One input for both links and images. AMBA reads the actual video (frames and aud
 
 ## Operating Context
 
-The link is pasted from WhatsApp or a social app. The result is often read aloud or shown to someone else in the room. Interface languages are Indonesian (default) and English. Results are indicative, not legal proof; the footer and the about page say so.
+The link is pasted from WhatsApp or a social app. The result is often read aloud or shown to someone else in the room. The interface is in Indonesian only (Sir, 10 Nov 2026). Results are indicative, not legal proof; the footer and the about page say so.
 
 ## Capabilities and Constraints
 
@@ -33,9 +33,9 @@ The link is pasted from WhatsApp or a social app. The result is often read aloud
 ## Brand Commitments
 
 - The name AMBA and the line "Cek dulu sebelum percaya." are kept.
-- Visual world, pinned by Sir on 10 Nov 2026: glassmorphism with a simple palette in the spirit of Claude (warm neutrals, one terracotta accent).
-  - Both light and dark themes are glass.
-  - The default theme follows the device.
+- Visual world, pinned by Sir on 10 Nov 2026 (16:31 WITA): the theme and style of the Gemini web app (see DESIGN.md), without its logo or name.
+  - Dark is the default theme; light is one toggle away.
+  - Every page works on phones, tablets and laptops.
 - The look must be professional and free of AI-template patterns.
 
 ## Evidence on Hand
@@ -56,4 +56,4 @@ The link is pasted from WhatsApp or a social app. The result is often read aloud
 
 - WCAG 2.1 AA contrast in both themes: body text at least 4.5:1.
 - Full keyboard use, visible focus, and respect for reduced motion.
-- Atkinson Hyperlegible is the reading face, chosen for older readers.
+- Google Sans Flex at 17px body size is the reading face, roomy for older readers.
