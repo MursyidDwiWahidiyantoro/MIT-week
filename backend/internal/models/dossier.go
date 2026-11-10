@@ -70,6 +70,40 @@ type VideoAnalysis struct {
 	Transcript      string       `json:"transcript"`
 	Manipulation    VideoSignal  `json:"manipulation"`
 	Context         VideoSignal  `json:"context"`
+	// CreatorDisclosure is what the creator says about AI in the post.
+	CreatorDisclosure CreatorDisclosure `json:"creator_disclosure"`
+	// WebEvidence is reputable pages found by searching the video's own
+	// words, at most 5, only those judged to be about this video.
+	WebEvidence []WebEvidence `json:"web_evidence"`
+}
+
+// Creator disclosure levels.
+const (
+	DisclosureNone   = "none"
+	DisclosureWeak   = "weak"
+	DisclosureStrong = "strong"
+)
+
+// CreatorDisclosure is the creator's own statement about AI (level none,
+// weak or strong) and the text it came from.
+type CreatorDisclosure struct {
+	Level  string `json:"level"`
+	Phrase string `json:"phrase"`
+}
+
+// What a web page says about a video (WebEvidence.Says).
+const (
+	WebSaysAI   = "AI"
+	WebSaysReal = "REAL"
+	WebSaysHoax = "HOAX"
+)
+
+// WebEvidence is one reputable page about the video.
+type WebEvidence struct {
+	Title     string `json:"title"`
+	URL       string `json:"url"`
+	Publisher string `json:"publisher"`
+	Says      string `json:"says"`
 }
 
 // VideoFrame is one analysed keyframe: a small JPEG data URL for the UI.
@@ -174,7 +208,9 @@ const (
 // Provenance is what the image declares about where it came from: Content
 // Credentials (c2pa), IPTC/XMP metadata (xmp), generator settings in PNG text
 // (png_text), EXIF (exif), or an AI label visible on the image (watermark).
-// Generator and Camera are "" when not named.
+// Source "creator" is the creator's own AI disclosure and "web" is news
+// coverage of the video (video links only). Generator and Camera are "" when
+// not named.
 type Provenance struct {
 	Kind      ProvenanceKind `json:"kind"`
 	Source    string         `json:"source"`

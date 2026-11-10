@@ -200,6 +200,14 @@ var generators = []struct{ marker, name string }{
 	{"comfyui", "ComfyUI"}, {"novelai", "NovelAI"}, {"invokeai", "InvokeAI"}, {"fooocus", "Fooocus"},
 	{"leonardo.ai", "Leonardo"}, {"ideogram", "Ideogram"}, {"runwayml", "Runway"},
 	{"flux.1", "FLUX"}, {"black forest labs", "FLUX"}, {"grok", "Grok"},
+	// Video generators.
+	{"openai sora", "OpenAI Sora"}, {"with sora", "OpenAI Sora"}, {"dengan sora", "OpenAI Sora"}, {"pakai sora", "OpenAI Sora"},
+	{"#sora", "OpenAI Sora"}, {"sora ai", "OpenAI Sora"}, {"sora 2", "OpenAI Sora"},
+	{"veo 3", "Google Veo"}, {"veo3", "Google Veo"}, {"veo 2", "Google Veo"}, {"google veo", "Google Veo"},
+	{"kling", "Kling"}, {"hailuo", "Hailuo"}, {"haiper", "Haiper"}, {"pixverse", "PixVerse"},
+	{"seedance", "Seedance"}, {"hunyuan", "Hunyuan"}, {"heygen", "HeyGen"}, {"synthesia", "Synthesia"},
+	{"dream machine", "Luma"}, {"lumalabs", "Luma"}, {"luma ai", "Luma"}, {"pika labs", "Pika"}, {"pikalabs", "Pika"},
+	{"runway gen", "Runway"}, {"vidu ai", "Vidu"},
 	{"doubao", "Doubao"}, {"豆包", "Doubao"}, {"jimeng", "Jimeng"}, {"即梦", "Jimeng"},
 }
 

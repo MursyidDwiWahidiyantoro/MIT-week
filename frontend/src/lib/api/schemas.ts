@@ -48,7 +48,7 @@ export const metadataStatusSchema = z.enum(['OK', 'BLOCKED', 'UNAVAILABLE']);
 /** What the image declares about its origin (Jejak AI). */
 export const provenanceSchema = z.object({
   kind: z.enum(['AI_GENERATED', 'AI_EDITED', 'CAMERA', 'NONE']),
-  source: z.enum(['c2pa', 'xmp', 'png_text', 'exif', 'watermark', '']),
+  source: z.enum(['c2pa', 'xmp', 'png_text', 'exif', 'watermark', 'creator', 'web', '']),
   generator: z.string(),
   camera: z.string(),
   c2pa: z.boolean()
@@ -75,6 +75,19 @@ const videoSignalSchema = z.object({
   indicators: z.array(z.string()).nullish().transform((v) => v ?? [])
 });
 
+/** What the creator says about AI in the post (older servers omit it). */
+const creatorDisclosureSchema = z
+  .object({ level: z.enum(['none', 'weak', 'strong']), phrase: z.string() })
+  .nullish();
+
+/** A reputable page about the video; only https links may become an href. */
+const webEvidenceSchema = z.object({
+  title: z.string(),
+  url: z.string().startsWith('https://'),
+  publisher: z.string(),
+  says: z.enum(['AI', 'REAL', 'HOAX'])
+});
+
 /** Frame-by-frame analysis of a social video link. Absent for other input. */
 export const videoSchema = z.object({
   status: z.enum(['OK', 'UNAVAILABLE']),
@@ -97,7 +110,9 @@ export const videoSchema = z.object({
   summary: z.string(),
   transcript: z.string(),
   manipulation: videoSignalSchema,
-  context: videoSignalSchema
+  context: videoSignalSchema,
+  creator_disclosure: creatorDisclosureSchema,
+  web_evidence: z.array(webEvidenceSchema).nullish()
 });
 
 export const verdictSchema = z.object({

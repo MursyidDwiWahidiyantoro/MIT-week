@@ -5,6 +5,7 @@
   import { formatClock, formatDate, platformName } from '$lib/format';
   import Panel from '$lib/components/ui/Panel.svelte';
   import Icon from '$lib/components/ui/Icon.svelte';
+  import VideoProvenance from './VideoProvenance.svelte';
   import type { DossierParsed } from '$lib/api/schemas';
 
   interface Props {
@@ -170,6 +171,7 @@
         </ul>
       </div>
 
+      <VideoProvenance {video} />
       <p class="note">{t('video.caveat')}</p>
     {/if}
   </div>

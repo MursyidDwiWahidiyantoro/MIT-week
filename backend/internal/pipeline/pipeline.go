@@ -277,6 +277,8 @@ func (p *Pipeline) RunStream(ctx context.Context, req Request, emit func(Event))
 			prov     provenance.Result
 			detected <-chan detection
 			clip     *video.Clip // a downloaded social video, judged instead of the preview image
+			// disclosure is what the creator says about AI in the post.
+			disclosure video.Disclosure
 		)
 
 		switch req.InputType {
@@ -300,9 +302,17 @@ func (p *Pipeline) RunStream(ctx context.Context, req Request, emit func(Event))
 			}
 			if c != nil {
 				clip, judged = c, true
-				if c.AILabel {
+				disclosure = video.DetectDisclosure(c.Title, c.Description, c.Tags, c.Uploader)
+				mu.Lock()
+				res.Video.CreatorDisclosure = models.CreatorDisclosure{Level: disclosure.Level, Phrase: disclosure.Phrase}
+				mu.Unlock()
+				switch {
+				case c.AILabel:
 					// The platform's own AI label, visible on the post.
 					prov = provenance.Result{Kind: provenance.AIGenerated, Source: "watermark"}
+				case disclosure.Level == video.DisclosureStrong:
+					// The creator says so: counts as declared AI provenance.
+					prov = provenance.Result{Kind: provenance.AIGenerated, Source: "creator", Generator: provenance.GeneratorIn(c.Uploader + " " + c.Title + " " + disclosure.Phrase)}
 				}
 			} else if md.image != "" {
 				// The link's preview image is what people see when it is shared.
@@ -367,7 +377,7 @@ func (p *Pipeline) RunStream(ctx context.Context, req Request, emit func(Event))
 			if ocr == "" {
 				ocr = req.OCRText
 			}
-			ai, ok := buildAIPillar(aiEvidence{prov: prov, modelOK: modelOK, findings: f, ocr: ocr, det: awaitDetection(gctx, detected)})
+			ai, ok := buildAIPillar(aiEvidence{prov: prov, modelOK: modelOK, findings: f, ocr: ocr, det: awaitDetection(gctx, detected), weakDisclosure: disclosure.Level == video.DisclosureWeak})
 			mu.Lock()
 			res.Pillars.AI = ai
 			mu.Unlock()

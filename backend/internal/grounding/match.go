@@ -42,38 +42,125 @@ func init() {
 	for _, w := range strings.Fields(`yang dan atau di ke dari untuk dengan ini itu pada akan adalah sebagai juga tidak
 		bukan sudah telah oleh dalam karena bahwa para saat kata hari tahun bulan baru lalu soal terkait tentang
 		video foto gambar beredar viral klaim hoaks hoax cek fakta salah benar keliru klarifikasi disinformasi
-		misinformasi menyesatkan narasi unggahan postingan berita resmi warganet media sosial
+		misinformasi menyesatkan narasi unggahan postingan berita resmi warganet media sosial diri jabatan
 		the of and to in is are a an for on with from this that new about video photo`) {
 		stopwords[w] = true
 	}
 }
 
-// keyTerms are the claim's content words: lower-case, at least 4 letters,
-// not stopwords, with a common Indonesian suffix trimmed from long words.
+// phraseSynonyms are multi-word forms folded to one token before splitting,
+// so "wakil presiden" and "wapres" are the same word.
+var phraseSynonyms = strings.NewReplacer(
+	"wakil presiden", "wapres", "wakil gubernur", "wagub", "wakil wali kota", "wawali",
+	"wakil walikota", "wawali", "wakil bupati", "wabup", "wakil menteri", "wamen",
+	"mengundurkan diri", "undur", "pengunduran diri", "undur", "mundur dari jabatan", "undur",
+	"meninggal dunia", "tewas", "kecerdasan buatan", "artificialintelligence",
+)
+
+// wordSynonyms fold whole words (before stemming) to a shared stem.
+var wordSynonyms = map[string]string{
+	"mundur": "undur", "undur": "undur", "pengunduran": "undur", "mengundurkan": "undur", "diundurkan": "undur",
+	"meninggal": "tewas", "wafat": "tewas", "gugur": "tewas", "tewas": "tewas", "meregang": "tewas",
+	"hoax": "hoaks", "hoaks": "hoaks", "wapres": "wapres", "ai": "artificialintelligence",
+	"polri": "polisi", "kepolisian": "polisi", "polisi": "polisi", "pemilu": "pemilu", "pilpres": "pilpres",
+	"bbm": "bbm", "unras": "demo", "demonstrasi": "demo", "unjuk": "demo",
+}
+
+var (
+	prefixes = []string{"meny", "peny", "meng", "peng", "mem", "pem", "men", "pen", "ber", "ter", "me", "pe", "di", "ke", "se"}
+	suffixes = []string{"nya", "kan", "lah", "kah", "an", "i"}
+)
+
+// stem is a light Indonesian stemmer: it strips one suffix and one prefix
+// when at least four letters remain. It does not need to be linguistically
+// right, only to give "mengundurkan", "pengunduran" and "diundurkan" one
+// stem on both sides of a comparison.
+func stem(w string) string {
+	if s, ok := wordSynonyms[w]; ok {
+		return s
+	}
+	for _, suf := range suffixes {
+		keep := 4
+		if suf == "an" || suf == "i" {
+			keep = 5 // short words end in "an" or "i" naturally ("gibran", "kasi")
+		}
+		if strings.HasSuffix(w, suf) && len([]rune(w))-len(suf) >= keep {
+			w = strings.TrimSuffix(w, suf)
+			break
+		}
+	}
+	for _, pre := range prefixes {
+		if strings.HasPrefix(w, pre) && len([]rune(w))-len(pre) >= 4 {
+			rest := strings.TrimPrefix(w, pre)
+			if pre == "meny" || pre == "peny" {
+				rest = "s" + rest
+			}
+			w = rest
+			break
+		}
+	}
+	if s, ok := wordSynonyms[w]; ok {
+		return s
+	}
+	return w
+}
+
+// keyTerms are the claim's content words: lower-case, at least 4 letters
+// (3 when written as an abbreviation), not stopwords, stemmed.
 func keyTerms(s string) map[string]bool {
 	out := map[string]bool{}
-	for _, w := range strings.FieldsFunc(strings.ToLower(s), func(r rune) bool {
-		return !unicode.IsLetter(r) && !unicode.IsDigit(r)
-	}) {
-		if len([]rune(w)) < 4 || stopwords[w] {
+	for _, w := range words(phraseSynonyms.Replace(strings.ToLower(s))) {
+		if stopwords[w] {
 			continue
 		}
-		if len(w) > 6 {
-			for _, suf := range []string{"nya", "kan", "an"} {
-				if strings.HasSuffix(w, suf) {
-					w = strings.TrimSuffix(w, suf)
-					break
-				}
-			}
+		if _, ok := wordSynonyms[w]; !ok && len([]rune(w)) < 4 {
+			continue
 		}
-		out[w] = true
+		out[stem(w)] = true
 	}
 	return out
 }
 
-// SameTopic reports whether text shares at least two of the claim's key
-// terms (all of them when the claim has fewer than two): a source about
-// another subject may neither support nor contradict the claim.
+func words(s string) []string {
+	return strings.FieldsFunc(s, func(r rune) bool { return !unicode.IsLetter(r) && !unicode.IsDigit(r) })
+}
+
+// entities are the proper nouns in a claim: capitalised words that do not
+// open a sentence, and all-caps words of three or more letters.
+func entities(claim string) []string {
+	var out []string
+	start := true
+	for _, tok := range strings.Fields(claim) {
+		w := strings.ToLower(strings.TrimFunc(tok, func(r rune) bool { return !unicode.IsLetter(r) && !unicode.IsDigit(r) }))
+		first := []rune(strings.TrimLeftFunc(tok, func(r rune) bool { return !unicode.IsLetter(r) }))
+		if len(first) > 0 && len([]rune(w)) >= 3 && !stopwords[w] {
+			caps := unicode.IsUpper(first[0])
+			if (caps && !start) || isAllCaps(tok) {
+				out = append(out, w)
+			}
+		}
+		start = strings.HasSuffix(tok, ".") || strings.HasSuffix(tok, "?") || strings.HasSuffix(tok, "!")
+	}
+	return out
+}
+
+func isAllCaps(tok string) bool {
+	letters := 0
+	for _, r := range tok {
+		if unicode.IsLetter(r) {
+			if !unicode.IsUpper(r) {
+				return false
+			}
+			letters++
+		}
+	}
+	return letters >= 3
+}
+
+// SameTopic reports whether text is about the claim's subject: at least two
+// shared stems (all of them when the claim has fewer than two), or one
+// shared proper noun plus one more shared stem. A source about another
+// subject may neither support nor contradict the claim.
 func SameTopic(claim, text string) bool {
 	want := keyTerms(claim)
 	if len(want) == 0 {
@@ -86,5 +173,25 @@ func SameTopic(claim, text string) bool {
 			shared++
 		}
 	}
-	return shared >= min(2, len(want))
+	if shared >= min(2, len(want)) {
+		return true
+	}
+	// One proper noun found in the text (even inside another word, like
+	// "Prabowo's") plus one other shared stem.
+	lower := strings.ToLower(text)
+	for _, e := range entities(claim) {
+		if !strings.Contains(lower, e) {
+			continue
+		}
+		other := 0
+		for w := range want {
+			if have[w] && w != stem(e) {
+				other++
+			}
+		}
+		if other >= 1 {
+			return true
+		}
+	}
+	return false
 }

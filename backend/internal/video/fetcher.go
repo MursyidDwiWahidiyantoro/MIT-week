@@ -48,15 +48,17 @@ func (f *Fetcher) Enabled() bool {
 
 // ytdlpInfoJSON matches standard yt-dlp metadata fields.
 type ytdlpInfoJSON struct {
-	ID          string  `json:"id"`
-	Title       string  `json:"title"`
-	Description string  `json:"description"`
-	Uploader    string  `json:"uploader"`
-	UploadDate  string  `json:"upload_date"`
-	Duration    float64 `json:"duration"`
-	ViewCount   int64   `json:"view_count"`
-	Width       int     `json:"width"`
-	Height      int     `json:"height"`
+	ID          string   `json:"id"`
+	Title       string   `json:"title"`
+	Description string   `json:"description"`
+	Uploader    string   `json:"uploader"`
+	Channel     string   `json:"channel"`
+	Tags        []string `json:"tags"`
+	UploadDate  string   `json:"upload_date"`
+	Duration    float64  `json:"duration"`
+	ViewCount   int64    `json:"view_count"`
+	Width       int      `json:"width"`
+	Height      int      `json:"height"`
 
 	// Platform AI-generated flags
 	AILabel       bool `json:"is_ai_generated"`
@@ -231,7 +233,8 @@ func (f *Fetcher) Fetch(ctx context.Context, rawURL string) (*Clip, error) {
 		ID:          info.ID,
 		Title:       truncateRunes(info.Title, maxTitleRunes),
 		Description: truncateRunes(info.Description, maxDescRunes),
-		Uploader:    info.Uploader,
+		Uploader:    firstNonEmpty(info.Uploader, info.Channel),
+		Tags:        capTags(info.Tags),
 		UploadDate:  info.UploadDate,
 		DurationSec: info.Duration,
 		ViewCount:   info.ViewCount,
@@ -419,4 +422,25 @@ func mapYtDlpError(ctx context.Context, cmdErr error, stderr string) error {
 	default:
 		return ErrDownload
 	}
+}
+
+func firstNonEmpty(a, b string) string {
+	if a != "" {
+		return a
+	}
+	return b
+}
+
+// capTags keeps at most 30 tags of at most 60 runes each.
+func capTags(tags []string) []string {
+	var out []string
+	for _, t := range tags {
+		if len(out) == 30 {
+			break
+		}
+		if t = strings.TrimSpace(t); t != "" {
+			out = append(out, truncateRunes(t, 60))
+		}
+	}
+	return out
 }

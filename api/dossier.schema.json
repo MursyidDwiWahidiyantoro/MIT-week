@@ -373,6 +373,8 @@
             "png_text",
             "exif",
             "watermark",
+            "creator",
+            "web",
             ""
           ]
         },
@@ -515,9 +517,30 @@
         "summary": { "type": "string", "maxLength": 300 },
         "transcript": { "type": "string", "maxLength": 800 },
         "manipulation": { "$ref": "#/$defs/VideoSignal" },
-        "context": { "$ref": "#/$defs/VideoSignal" }
+        "context": { "$ref": "#/$defs/VideoSignal" },
+        "creator_disclosure": { "$ref": "#/$defs/CreatorDisclosure" },
+        "web_evidence": { "type": "array", "maxItems": 5, "items": { "$ref": "#/$defs/WebEvidence" } }
       },
       "required": ["status", "reason", "platform", "duration_sec", "upload_date", "platform_ai_label", "frames", "audio_analyzed", "summary", "transcript", "manipulation", "context"]
+    },
+    "CreatorDisclosure": {
+      "type": "object",
+      "description": "What the creator says about AI in the post. strong: names AI or a generator as the maker. weak: only mentions AI. none: nothing, or news about AI.",
+      "properties": {
+        "level": { "type": "string", "enum": ["none", "weak", "strong"] },
+        "phrase": { "type": "string", "maxLength": 60 }
+      },
+      "required": ["level", "phrase"]
+    },
+    "WebEvidence": {
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "maxLength": 200 },
+        "url": { "type": "string", "pattern": "^https://" },
+        "publisher": { "type": "string", "maxLength": 80 },
+        "says": { "type": "string", "enum": ["AI", "REAL", "HOAX"] }
+      },
+      "required": ["title", "url", "publisher", "says"]
     },
     "VideoFrame": {
       "type": "object",
