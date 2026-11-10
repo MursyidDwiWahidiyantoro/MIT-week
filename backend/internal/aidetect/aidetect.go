@@ -54,9 +54,32 @@ func (s *Sightengine) Enabled() bool { return s != nil && s.User != "" && s.Secr
 // Name is the detector's name as shown in the Dossier.
 func (s *Sightengine) Name() string { return "sightengine" }
 
-// Score returns how likely the image is to be AI-generated, 0 to 100.
-func (s *Sightengine) Score(ctx context.Context, image []byte, mime string) (int, error) {
-	if !s.Enabled() || len(image) == 0 {
+// MaxImageBytes caps what is sent to the detector. Uploads are already capped
+// at the entry (security.ValidateUpload), but link preview images arrive by
+// another road, so the detector checks again instead of trusting its caller.
+const MaxImageBytes = 10 << 20
+
+// sniffImage is the image's real type, read from its bytes; "" for anything
+// that is not a JPEG, PNG, WebP or GIF. A client's Content-Type is never
+// trusted: a text file can call itself image/jpeg.
+func sniffImage(image []byte) string {
+	switch t := http.DetectContentType(image); t {
+	case "image/jpeg", "image/png", "image/webp", "image/gif":
+		return t
+	}
+	return ""
+}
+
+// Score returns how likely the image is to be AI-generated, 0 to 100. The
+// caller's MIME type is ignored: the type is sniffed from the bytes, and an
+// empty, oversized or non-image payload fails before any network call.
+func (s *Sightengine) Score(ctx context.Context, image []byte, _ string) (int, error) {
+	if !s.Enabled() || len(image) == 0 || len(image) > MaxImageBytes {
+		return 0, ErrFailed
+	}
+	mime := sniffImage(image)
+	if mime == "" {
+		slog.Warn("ai detector call skipped", "reason", "not_an_image", "status", 0)
 		return 0, ErrFailed
 	}
 	var body bytes.Buffer
@@ -68,9 +91,6 @@ func (s *Sightengine) Score(ctx context.Context, image []byte, mime string) (int
 	}
 	h := make(textproto.MIMEHeader)
 	h.Set("Content-Disposition", `form-data; name="media"; filename="image"`)
-	if mime == "" {
-		mime = "application/octet-stream"
-	}
 	h.Set("Content-Type", mime)
 	part, err := w.CreatePart(h)
 	if err != nil {
