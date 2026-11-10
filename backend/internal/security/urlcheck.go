@@ -36,8 +36,10 @@ const (
 
 func urlErr(reason, msg string) *URLError { return &URLError{Reason: reason, Message: msg} }
 
-// dangerousEncoded are percent-encodings of < > " ' ` (case-insensitive).
-var dangerousEncoded = []string{"%3c", "%3e", "%22", "%27", "%60"}
+// dangerousEncoded are percent-encodings of < > " ` (case-insensitive). An
+// apostrophe is allowed: news slugs carry it ("it%27s") and nothing on the
+// server builds markup, SQL or shell commands from the URL.
+var dangerousEncoded = []string{"%3c", "%3e", "%22", "%60"}
 
 // ValidateInputURL is the single gate for a user-supplied link. It accepts
 // only plain http(s) links, normalises the host to punycode and returns the
@@ -74,7 +76,7 @@ func ValidateInputURL(raw string) (string, *URLError) {
 	if port := u.Port(); port != "" && port != "80" && port != "443" {
 		return "", urlErr(URLPort, "Tautan dengan port khusus tidak diterima.")
 	}
-	if strings.ContainsAny(host, "<>\"'`") || strings.ContainsAny(u.Path, "<>\"'`") {
+	if strings.ContainsAny(host, "<>\"'`") || strings.ContainsAny(u.Path, "<>\"`") {
 		return "", urlErr(URLDangerous, "Tautan berisi karakter berbahaya dan tidak diperiksa.")
 	}
 	lowEsc := strings.ToLower(u.EscapedPath() + "\x00" + u.Host)

@@ -183,7 +183,7 @@ export const en: Record<MessageKey, string> = {
   "home.description": "Upload an image or paste a link. AMBA checks whether an image was made with AI or edited, and whether a link is safe, then explains why in plain words.",
   "home.familyCheck": "Check for free",
   "home.familyGuide": "Open the family guide",
-  "home.familyLede": "Check first, then forward. Share the result with your family group so everyone stays a step safer.",
+  "home.familyLede": "Check first, then forward. Tell your family what you found so everyone stays a step safer.",
   "home.familyTitle": "Got an image or a link you're unsure about?",
   "home.h1.a": "Check",
   "home.h1.b": "you trust.",

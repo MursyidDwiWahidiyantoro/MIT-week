@@ -26,12 +26,12 @@ func TestValidateInputURLRejects(t *testing.T) {
 		{"at in authority only", "https://@evil.com/", URLUserinfo},
 		{"script tag in path", "https://example.com/<script>alert(1)</script>", URLDangerous},
 		{"quote in path", "https://example.com/a\"onmouseover=\"x", URLDangerous},
-		{"apostrophe in path", "https://example.com/a'b", URLDangerous},
 		{"backtick in path", "https://example.com/a`b", URLDangerous},
+		{"apostrophe in host", "https://exa'mple.com/", URLDangerous},
 		{"encoded lt", "https://example.com/%3Cscript%3E", URLDangerous},
 		{"encoded quote lower", "https://example.com/a%22b", URLDangerous},
-		{"encoded apostrophe", "https://example.com/a%27b", URLDangerous},
 		{"encoded backtick", "https://example.com/a%60b", URLDangerous},
+		{"encoded backtick upper", "https://example.com/a%60B%60", URLDangerous},
 		{"encoded in host", "https://exa%3Cmple.com/", URLUnparsable},
 		{"port 8080", "https://example.com:8080/", URLPort},
 		{"port 22", "http://example.com:22/", URLPort},
@@ -77,6 +77,9 @@ func TestValidateInputURLAccepts(t *testing.T) {
 		{"https://tіktok.com/x", "https://xn--tktok-n2e.com/x"},
 		{"https://www.youtube.com/watch?v=abc&t=10s", "https://www.youtube.com/watch?v=abc&t=10s"},
 		{"https://example.com/a?b='c'", "https://example.com/a?b='c'"},
+		// News slugs carry apostrophes; they are harmless to the server.
+		{"https://www.bbc.com/news/world-it's-official", "https://www.bbc.com/news/world-it's-official"},
+		{"https://example.com/it%27s-official", "https://example.com/it%27s-official"},
 	}
 	for _, tc := range cases {
 		got, err := ValidateInputURL(tc.in)

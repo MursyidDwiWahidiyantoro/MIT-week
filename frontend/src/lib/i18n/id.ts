@@ -184,7 +184,7 @@ export const id = {
   "home.description": "Unggah gambar atau tempel tautan. AMBA memeriksa apakah gambar dibuat dengan AI atau diedit, dan apakah tautannya aman, lalu menjelaskan alasannya dengan kata-kata sederhana.",
   "home.familyCheck": "Periksa gratis",
   "home.familyGuide": "Buka panduan keluarga",
-  "home.familyLede": "Periksa dulu, baru teruskan. Bagikan hasilnya ke grup keluarga, supaya semua orang selangkah lebih aman.",
+  "home.familyLede": "Periksa dulu, baru teruskan. Ceritakan hasilnya ke keluarga, supaya semua orang selangkah lebih aman.",
   "home.familyTitle": "Ada gambar atau tautan yang meragukan?",
   "home.h1.a": "Cek dulu",
   "home.h1.b": "percaya.",
