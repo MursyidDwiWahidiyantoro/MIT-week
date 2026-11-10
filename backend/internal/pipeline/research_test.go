@@ -55,10 +55,12 @@ func TestResearchReusesWhatTheAuditAlreadyFound(t *testing.T) {
 		terms:    "dasco usulan pemakzulan gibran",
 		evidence: []models.WebEvidence{{Title: "Respon Dasco soal usulan pemakzulan", URL: "https://nasional.kompas.com/b", Publisher: "nasional.kompas.com", Says: llm.WebReal}},
 		facts: []models.Source{
-			{Title: "[SALAH] Syarat Pemakzulan Terpenuhi", URL: "https://turnbackhoax.id/x", Publisher: "turnbackhoax.id", Match: models.FactUnverified},
+			{Title: "[SALAH] Syarat Pemakzulan Gibran Terpenuhi", URL: "https://turnbackhoax.id/x", Publisher: "turnbackhoax.id", Match: models.FactUnverified},
 			{Title: "Respon Dasco soal usulan pemakzulan", URL: "https://nasional.kompas.com/b", Publisher: "nasional.kompas.com"},
+			{Title: "Harga cabai naik di pasar", URL: "https://www.detik.com/z", Publisher: "detik.com", Match: models.FactUnverified},
 		},
 		pages: []grounding.Result{
+			{Title: "Respon Dasco soal usulan pemakzulan", URL: "https://nasional.kompas.com/b?page=all", Publisher: "nasional.kompas.com"},
 			{Title: "Dasco: tunggu masa sidang", URL: "https://news.okezone.com/c", Publisher: "news.okezone.com", Snippet: strings.Repeat("dasco ", 80)},
 			{Title: "Blog acak", URL: "https://blog-acak.example/d", Publisher: "blog-acak.example"},
 		},

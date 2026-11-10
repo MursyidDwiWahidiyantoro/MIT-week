@@ -50,22 +50,37 @@ func (p *Pipeline) buildResearch(ctx context.Context, in researchInput) *models.
 	out := models.Research{Status: models.ResearchNone, Sources: []models.ResearchSource{}}
 	seen := map[string]bool{}
 	add := func(title, rawURL, publisher, snippet string) {
-		if len(out.Sources) >= researchMax || seen[rawURL] || !p.trustedPage(rawURL) {
+		if len(out.Sources) >= researchMax || !p.trustedPage(rawURL) {
 			return
 		}
-		seen[rawURL] = true
+		// One page once: the same article comes back with other query strings.
+		domain := domainOf(rawURL, publisher)
+		key := domain + "|" + strings.ToLower(strings.TrimSpace(title))
+		if seen[pageKey(rawURL)] || seen[key] {
+			return
+		}
+		seen[pageKey(rawURL)], seen[key] = true, true
 		out.Sources = append(out.Sources, models.ResearchSource{
 			Title:   truncateRunes(strings.TrimSpace(title), 200),
 			URL:     rawURL,
-			Domain:  domainOf(rawURL, publisher),
+			Domain:  domain,
 			Snippet: truncateRunes(strings.TrimSpace(snippet), 280),
 		})
 	}
 	for _, e := range in.evidence {
 		add(e.Title, e.URL, e.Publisher, "")
 	}
+	// The claim check's sources: those it matched to the claim first, the
+	// others only when they share the video's subject.
 	for _, s := range in.facts {
-		add(s.Title, s.URL, s.Publisher, "")
+		if s.Match == models.FactContradicts || s.Match == models.FactSupports {
+			add(s.Title, s.URL, s.Publisher, "")
+		}
+	}
+	for _, s := range in.facts {
+		if s.Match != models.FactContradicts && s.Match != models.FactSupports && grounding.SameTopic(in.terms, s.Title) {
+			add(s.Title, s.URL, s.Publisher, "")
+		}
 	}
 	for _, r := range in.pages {
 		add(r.Title, r.URL, r.Publisher, r.Snippet)
@@ -108,6 +123,15 @@ func (p *Pipeline) researchGrounder() *grounding.Grounder {
 		return p.ResearchGrounder
 	}
 	return p.WebGrounder
+}
+
+// pageKey is the URL without its query string and fragment.
+func pageKey(rawURL string) string {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return rawURL
+	}
+	return strings.ToLower(u.Host) + strings.TrimSuffix(u.Path, "/")
 }
 
 // domainOf is the page's host without "www.", or the searcher's publisher.

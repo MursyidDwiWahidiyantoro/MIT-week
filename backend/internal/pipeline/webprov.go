@@ -290,11 +290,13 @@ func onSubject(ev []models.WebEvidence, topic string) []models.WebEvidence {
 		if len(out) >= webMaxEvidence {
 			break
 		}
-		// One page once, even when the search returns it again.
-		if seen[e.URL] {
+		// One page once, even when the search returns it again with another
+		// query string.
+		key := strings.ToLower(e.Publisher) + "|" + strings.ToLower(strings.TrimSpace(e.Title))
+		if seen[pageKey(e.URL)] || seen[key] {
 			continue
 		}
-		seen[e.URL] = true
+		seen[pageKey(e.URL)], seen[key] = true, true
 		keep := grounding.SameTopic(topic, e.Title)
 		if !keep && e.Says == llm.WebHoax {
 			keep = grounding.SharesEntity(topic, e.Title)
