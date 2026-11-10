@@ -33,8 +33,25 @@ func TestHelperProcess(t *testing.T) {
 		args = args[sepIdx+1:]
 	}
 
+	if strings.HasPrefix(mode, "ytdlp_") && strings.Contains(strings.Join(args, " "), "--dump-json") {
+		if mode == "ytdlp_probe_fail" {
+			fmt.Fprintln(os.Stderr, "ERROR: unable to extract")
+			os.Exit(1)
+		}
+		if !strings.Contains(strings.Join(args, " "), "--simulate") {
+			fmt.Fprintln(os.Stderr, "probe must use --simulate")
+			os.Exit(1)
+		}
+		fmt.Println(helperInfo(mode))
+		return
+	}
+
 	switch mode {
-	case "ytdlp_success":
+	case "ytdlp_meta_only":
+		fmt.Fprintln(os.Stderr, "ERROR: unable to download video data: HTTP Error 403")
+		os.Exit(1)
+
+	case "ytdlp_success", "ytdlp_long":
 		// Find output directory from -o flag
 		var outTmpl string
 		for i, a := range args {
@@ -77,6 +94,9 @@ func TestHelperProcess(t *testing.T) {
 			"height": 1280,
 			"is_ai_generated": true
 		}`
+		if mode == "ytdlp_long" {
+			infoJSON = helperInfo(mode)
+		}
 		_ = os.WriteFile(filepath.Join(dir, "v.info.json"), []byte(infoJSON), 0644)
 
 		// Write mock v.mp4
@@ -338,5 +358,96 @@ func TestLiveFetchOptIn(t *testing.T) {
 	}
 	if clip.ID == "" {
 		t.Errorf("empty clip ID")
+	}
+}
+
+// helperInfo is what the fake yt-dlp prints for the metadata call.
+func helperInfo(mode string) string {
+	dur := "45.5"
+	if mode == "ytdlp_long" || mode == "ytdlp_meta_only" {
+		dur = "560"
+	}
+	return `{"id":"abc","title":"Sora 2 AI Animal Videos Compilation","description":"kompilasi","uploader":"Kanal Uji","uploader_id":"@kanaluji","tags":["sora"],"upload_date":"20261109","duration":` + dur + `,"width":720,"height":1280}`
+}
+
+func fetcherWith(mode string, log *[]string) *Fetcher {
+	return &Fetcher{
+		YtDlp: "fake-ytdlp", FFmpeg: "fake-ffmpeg", MaxDuration: 30 * time.Minute, MaxBytes: 60 << 20,
+		Frames: 4, FrameMaxSide: 768, AudioMaxSec: 90,
+		cmdRunner: func(ctx context.Context, name string, args ...string) *exec.Cmd {
+			if log != nil && strings.Contains(name, "ytdlp") {
+				*log = append(*log, strings.Join(args, " "))
+			}
+			if strings.Contains(name, "ytdlp") {
+				return helperCommand(mode)(ctx, name, args...)
+			}
+			return helperCommand("ffmpeg_success")(ctx, name, args...)
+		},
+	}
+}
+
+// A 560 s compilation: metadata comes first, then only the first 90 s are
+// downloaded at 480p or less.
+func TestLongVideoIsSampledAtLowResolution(t *testing.T) {
+	var calls []string
+	f := fetcherWith("ytdlp_long", &calls)
+	clip, err := f.Fetch(context.Background(), "https://www.youtube.com/shorts/abcdefghijk")
+	if err != nil || clip == nil || len(clip.Frames) == 0 {
+		t.Fatalf("clip=%v err=%v", clip, err)
+	}
+	if len(calls) != 2 || !strings.Contains(calls[0], "--simulate") || !strings.Contains(calls[0], "--dump-json") {
+		t.Fatalf("calls = %q", calls)
+	}
+	dl := calls[1]
+	for _, want := range []string{"--download-sections *0-90", "height<=480"} {
+		if !strings.Contains(dl, want) {
+			t.Errorf("download lacks %q: %s", want, dl)
+		}
+	}
+	if strings.Contains(dl, "height<=720") {
+		t.Errorf("download must not ask for 720p: %s", dl)
+	}
+	if clip.DurationSec != 560 || clip.UploaderID != "@kanaluji" || clip.Title == "" {
+		t.Fatalf("clip = %+v", clip)
+	}
+	// A short clip is downloaded whole.
+	calls = nil
+	if _, err := fetcherWith("ytdlp_success", &calls).Fetch(context.Background(), "https://www.tiktok.com/@user/video/7123456789"); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(calls[len(calls)-1], "--download-sections") {
+		t.Errorf("short clip must not be cut: %s", calls[len(calls)-1])
+	}
+}
+
+// When the download fails the metadata is kept: the title still tells the
+// creator's disclosure and feeds the search.
+func TestFailedDownloadKeepsTheMetadata(t *testing.T) {
+	clip, err := fetcherWith("ytdlp_meta_only", nil).Fetch(context.Background(), "https://www.youtube.com/shorts/abcdefghijk")
+	if err != ErrDownload {
+		t.Fatalf("err = %v, want ErrDownload", err)
+	}
+	if clip == nil || len(clip.Frames) != 0 || clip.Title != "Sora 2 AI Animal Videos Compilation" || clip.Uploader != "Kanal Uji" {
+		t.Fatalf("clip = %+v", clip)
+	}
+}
+
+// A dead probe is not final: the download is still tried and gives the answer.
+func TestProbeFailureFallsBackToTheDownload(t *testing.T) {
+	var calls []string
+	f := fetcherWith("ytdlp_probe_fail", &calls)
+	clip, err := f.Fetch(context.Background(), "https://www.tiktok.com/@user/video/1")
+	if clip != nil || err == nil || len(calls) != 2 {
+		t.Fatalf("clip=%v err=%v calls=%d", clip, err, len(calls))
+	}
+}
+
+func TestTooLongSourceIsRefusedBeforeDownload(t *testing.T) {
+	var calls []string
+	f := fetcherWith("ytdlp_long", &calls)
+	f.MaxDuration = 300 * time.Second
+	_, err := f.Fetch(context.Background(), "https://www.youtube.com/shorts/abcdefghijk")
+	if err != ErrTooLong || len(calls) != 1 {
+		t.Fatalf("err=%v calls=%d", err, len(calls))
 	}
 }

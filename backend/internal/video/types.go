@@ -25,6 +25,7 @@ type Clip struct {
 	Title       string   // title capped to 300 runes
 	Description string   // description capped to 2000 runes
 	Uploader    string   // channel/account name
+	UploaderID  string   // account handle or id (yt-dlp "uploader_id"), "" when unknown
 	Tags        []string // creator tags, capped (yt-dlp "tags")
 	UploadDate  string   // YYYYMMDD
 	DurationSec float64  // total duration in seconds

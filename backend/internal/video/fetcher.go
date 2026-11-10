@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"math"
@@ -15,7 +16,7 @@ import (
 )
 
 const (
-	defaultMaxDuration  = 180 * time.Second
+	defaultMaxDuration  = 30 * time.Minute
 	defaultMaxBytes     = 60 * 1024 * 1024 // 60 MB
 	defaultFrames       = 8
 	defaultFrameMaxSide = 768
@@ -53,6 +54,8 @@ type ytdlpInfoJSON struct {
 	Description string   `json:"description"`
 	Uploader    string   `json:"uploader"`
 	Channel     string   `json:"channel"`
+	UploaderID  string   `json:"uploader_id"`
+	ChannelID   string   `json:"channel_id"`
 	Tags        []string `json:"tags"`
 	UploadDate  string   `json:"upload_date"`
 	Duration    float64  `json:"duration"`
@@ -67,7 +70,14 @@ type ytdlpInfoJSON struct {
 	TikTokAITag   bool `json:"aigc_label_type"`
 }
 
-// Fetch downloads the social video using yt-dlp, extracts metadata, frames, and audio.
+// Fetch reads a social video's metadata with a fast call, then downloads it
+// at 480p or less (only its first 90 s when it runs over 120 s), and extracts
+// frames and audio.
+//
+// When the metadata is known but the download or the frame extraction fails,
+// Fetch returns the metadata-only Clip (no Frames) together with the error, so
+// the caller can still read the title, the creator's disclosure and the
+// description. A nil Clip means nothing was learned.
 func (f *Fetcher) Fetch(ctx context.Context, rawURL string) (*Clip, error) {
 	if !f.Enabled() {
 		return nil, ErrNoTools
@@ -85,13 +95,6 @@ func (f *Fetcher) Fetch(ctx context.Context, rawURL string) (*Clip, error) {
 
 	start := time.Now()
 
-	// Create temp directory for this fetch
-	tmpDir, err := os.MkdirTemp("", "amba-video-*")
-	if err != nil {
-		return nil, fmt.Errorf("video: create temp dir: %w", err)
-	}
-	defer os.RemoveAll(tmpDir)
-
 	maxDurSec := int(f.MaxDuration.Seconds())
 	if maxDurSec <= 0 {
 		maxDurSec = int(defaultMaxDuration.Seconds())
@@ -100,6 +103,34 @@ func (f *Fetcher) Fetch(ctx context.Context, rawURL string) (*Clip, error) {
 	if maxBytes <= 0 {
 		maxBytes = defaultMaxBytes
 	}
+
+	// Step 1: metadata only. A failure here is not final: the download below
+	// reads the same metadata and gives the definite error.
+	meta, metaErr := f.probe(ctx, extractor, rawURL)
+	var metaInfo *ytdlpInfoJSON
+	var metaRaw []byte
+	if metaErr == nil {
+		metaInfo, metaRaw = meta.info, meta.raw
+		if time.Duration(metaInfo.Duration*float64(time.Second)) > f.maxDuration() {
+			return nil, ErrTooLong
+		}
+	} else if errors.Is(metaErr, ErrPrivate) || errors.Is(metaErr, ErrUnsupported) || errors.Is(metaErr, ErrTooLong) {
+		return nil, metaErr
+	}
+	// partial is what a failed download still returns.
+	partial := func(err error) (*Clip, error) {
+		if metaInfo == nil {
+			return nil, err
+		}
+		return f.clipFrom(platform, metaInfo, metaRaw, "", nil, nil), err
+	}
+
+	// Create temp directory for this fetch
+	tmpDir, err := os.MkdirTemp("", "amba-video-*")
+	if err != nil {
+		return partial(fmt.Errorf("video: create temp dir: %w", err))
+	}
+	defer os.RemoveAll(tmpDir)
 
 	// Prepare output template
 	outputTemplate := filepath.Join(tmpDir, "v.%(ext)s")
@@ -119,25 +150,24 @@ func (f *Fetcher) Fetch(ctx context.Context, rawURL string) (*Clip, error) {
 		"--use-extractors", extractor,
 		"--max-filesize", fmt.Sprintf("%d", maxBytes),
 		"--match-filter", fmt.Sprintf("duration<=%d", maxDurSec),
-		"-f", "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720][ext=mp4]/best[height<=720]/best",
+		"-f", downloadFormat,
 		"--merge-output-format", "mp4",
 		"--write-info-json",
 		"--write-subs",
 		"--write-auto-subs",
 		"--sub-langs", "id.*,en.*",
 		"--sub-format", "vtt",
-		"-o", outputTemplate,
-		"--",
-		rawURL,
 	}
-
-	var cmd *exec.Cmd
-	if f.cmdRunner != nil {
-		cmd = f.cmdRunner(ctx, f.YtDlp, args...)
-	} else {
-		cmd = exec.CommandContext(ctx, f.YtDlp, args...)
+	// A long video is only sampled: its first 90 s say enough, and the whole
+	// download would overrun the fetch deadline (10 Nov: a 560 s compilation).
+	analyzed := 0.0
+	if metaInfo != nil && metaInfo.Duration > longVideoSec {
+		args = append(args, "--download-sections", fmt.Sprintf("*0-%d", sampleSec))
+		analyzed = sampleSec
 	}
+	args = append(args, "-o", outputTemplate, "--", rawURL)
 
+	cmd := f.command(ctx, f.YtDlp, args...)
 	var stderrBuf bytes.Buffer
 	cmd.Stderr = &stderrBuf
 
@@ -172,32 +202,41 @@ func (f *Fetcher) Fetch(ctx context.Context, rawURL string) (*Clip, error) {
 		}
 	}
 
-	// If cmdErr returned an error and we did not get a valid video file or info JSON, map error
-	if cmdErr != nil && (readInfoErr != nil || videoFile == "") {
+	// A failed download that left no file: map the error and keep the metadata.
+	if videoFile == "" || (readInfoErr != nil && metaInfo == nil) {
 		mappedErr := mapYtDlpError(ctx, cmdErr, stderrBuf.String())
 		slog.Warn("video fetch failed",
 			"platform", platform,
 			"duration_ms", time.Since(start).Milliseconds(),
 			"error_category", mappedErr.Error(),
+			"metadata_kept", metaInfo != nil,
 		)
-		return nil, mappedErr
+		if errors.Is(mappedErr, ErrPrivate) || errors.Is(mappedErr, ErrUnsupported) || errors.Is(mappedErr, ErrTooLong) {
+			return nil, mappedErr
+		}
+		return partial(mappedErr)
 	}
 
-	if readInfoErr != nil || videoFile == "" {
-		mappedErr := mapYtDlpError(ctx, cmdErr, stderrBuf.String())
-		return nil, mappedErr
-	}
-
+	// The download's own metadata is the more complete; the probe's will do.
 	var info ytdlpInfoJSON
-	if err := json.Unmarshal(infoData, &info); err != nil {
+	if readInfoErr == nil && json.Unmarshal(infoData, &info) == nil {
+		// keep
+	} else if metaInfo != nil {
+		info, infoData = *metaInfo, metaRaw
+	} else {
 		return nil, ErrDownload
 	}
 
-	aiLabel := detectAILabel(infoData, &info)
-
 	// Verify duration limit from metadata
-	if f.MaxDuration > 0 && time.Duration(info.Duration*float64(time.Second)) > f.MaxDuration {
+	if time.Duration(info.Duration*float64(time.Second)) > f.maxDuration() {
 		return nil, ErrTooLong
+	}
+	frameSpan := info.Duration
+	if analyzed > 0 {
+		frameSpan = analyzed
+	}
+	if analyzed > 0 {
+		frameSpan = analyzed
 	}
 
 	// Read subtitles if available
@@ -213,12 +252,12 @@ func (f *Fetcher) Fetch(ctx context.Context, rawURL string) (*Clip, error) {
 		frameMaxSide = defaultFrameMaxSide
 	}
 
-	frames, err := f.extractFrames(ctx, videoFile, info.Duration, framesCount, frameMaxSide, tmpDir)
+	frames, err := f.extractFrames(ctx, videoFile, frameSpan, framesCount, frameMaxSide, tmpDir)
 	if err != nil {
 		slog.Warn("video keyframe extraction failed", "platform", platform, "error", err.Error())
-		if len(frames) == 0 {
-			return nil, ErrDownload
-		}
+	}
+	if len(frames) == 0 {
+		return f.clipFromOrMeta(platform, &info, infoData, metaInfo, metaRaw), ErrDownload
 	}
 
 	// Extract audio (optional)
@@ -228,33 +267,114 @@ func (f *Fetcher) Fetch(ctx context.Context, rawURL string) (*Clip, error) {
 	}
 	audioBytes := f.extractAudio(ctx, videoFile, audioMaxSec, tmpDir)
 
-	clip := &Clip{
-		Platform:    platform,
-		ID:          info.ID,
-		Title:       truncateRunes(info.Title, maxTitleRunes),
-		Description: truncateRunes(info.Description, maxDescRunes),
-		Uploader:    firstNonEmpty(info.Uploader, info.Channel),
-		Tags:        capTags(info.Tags),
-		UploadDate:  info.UploadDate,
-		DurationSec: info.Duration,
-		ViewCount:   info.ViewCount,
-		Width:       info.Width,
-		Height:      info.Height,
-		AILabel:     aiLabel,
-		Subtitles:   subtitles,
-		Frames:      frames,
-		Audio:       audioBytes,
-	}
+	clip := f.clipFrom(platform, &info, infoData, subtitles, frames, audioBytes)
 
 	slog.Info("video fetched",
 		"platform", platform,
 		"duration_sec", info.Duration,
+		"sampled_sec", analyzed,
 		"frames", len(frames),
 		"audio_bytes", len(audioBytes),
 		"elapsed_ms", time.Since(start).Milliseconds(),
 	)
 
 	return clip, nil
+}
+
+const (
+	// downloadFormat keeps the download small and fast: 480p or less.
+	downloadFormat = "bestvideo[height<=480][ext=mp4]+bestaudio[ext=m4a]/best[height<=480][ext=mp4]/best[height<=480]/worst"
+	// longVideoSec is the length over which only the first sampleSec seconds
+	// are downloaded.
+	longVideoSec = 120
+	sampleSec    = 90
+	// probeBudget bounds the metadata call.
+	probeBudget = 8 * time.Second
+)
+
+func (f *Fetcher) maxDuration() time.Duration {
+	if f.MaxDuration > 0 {
+		return f.MaxDuration
+	}
+	return defaultMaxDuration
+}
+
+func (f *Fetcher) command(ctx context.Context, name string, args ...string) *exec.Cmd {
+	if f.cmdRunner != nil {
+		return f.cmdRunner(ctx, name, args...)
+	}
+	return exec.CommandContext(ctx, name, args...)
+}
+
+type probeResult struct {
+	info *ytdlpInfoJSON
+	raw  []byte
+}
+
+// probe reads the post's metadata without downloading anything
+// (yt-dlp --simulate --dump-json), within probeBudget.
+func (f *Fetcher) probe(ctx context.Context, extractor, rawURL string) (probeResult, error) {
+	pctx, cancel := context.WithTimeout(ctx, probeBudget)
+	defer cancel()
+	cmd := f.command(pctx, f.YtDlp,
+		"--ignore-config", "--no-playlist", "--no-warnings", "--no-progress",
+		"--socket-timeout", "8", "--retries", "1",
+		"--use-extractors", extractor,
+		"--simulate", "--dump-json",
+		"--", rawURL)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		if ctx.Err() == nil && pctx.Err() != nil {
+			return probeResult{}, ErrTimeout
+		}
+		return probeResult{}, mapYtDlpError(ctx, err, stderr.String())
+	}
+	raw := bytes.TrimSpace(stdout.Bytes())
+	// --dump-json prints one JSON object per line; the first is the post.
+	if i := bytes.IndexByte(raw, '\n'); i > 0 {
+		raw = raw[:i]
+	}
+	var info ytdlpInfoJSON
+	if err := json.Unmarshal(raw, &info); err != nil {
+		return probeResult{}, ErrDownload
+	}
+	return probeResult{info: &info, raw: raw}, nil
+}
+
+// clipFrom builds the Clip from metadata; frames and audio may be empty.
+func (f *Fetcher) clipFrom(platform string, info *ytdlpInfoJSON, raw []byte, subtitles string, frames []Frame, audio []byte) *Clip {
+	return &Clip{
+		Platform:    platform,
+		ID:          info.ID,
+		Title:       truncateRunes(info.Title, maxTitleRunes),
+		Description: truncateRunes(info.Description, maxDescRunes),
+		Uploader:    firstNonEmpty(info.Uploader, info.Channel),
+		UploaderID:  truncateRunes(firstNonEmpty(info.UploaderID, info.ChannelID), 80),
+		Tags:        capTags(info.Tags),
+		UploadDate:  info.UploadDate,
+		DurationSec: info.Duration,
+		ViewCount:   info.ViewCount,
+		Width:       info.Width,
+		Height:      info.Height,
+		AILabel:     detectAILabel(raw, info),
+		Subtitles:   subtitles,
+		Frames:      frames,
+		Audio:       audio,
+	}
+}
+
+// clipFromOrMeta is the metadata-only clip after a failed frame extraction:
+// the download's own metadata, or the probe's when that failed to parse.
+func (f *Fetcher) clipFromOrMeta(platform string, info *ytdlpInfoJSON, raw []byte, metaInfo *ytdlpInfoJSON, metaRaw []byte) *Clip {
+	if info != nil {
+		return f.clipFrom(platform, info, raw, "", nil, nil)
+	}
+	if metaInfo != nil {
+		return f.clipFrom(platform, metaInfo, metaRaw, "", nil, nil)
+	}
+	return nil
 }
 
 func detectAILabel(rawJSON []byte, info *ytdlpInfoJSON) bool {
