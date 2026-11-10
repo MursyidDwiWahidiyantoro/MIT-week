@@ -135,6 +135,11 @@ type Input struct {
 	// social video. The AI floors then apply as for an uploaded image (its
 	// AIDeclared comes from the platform's AI label or a visible AI mark).
 	Video bool
+	// PreviewImage is true when a video link's footage could not be
+	// downloaded and the AI pillar judged its preview picture instead, with a
+	// score at the photo bar (AILikelyMin). The AI floors then apply as for an
+	// uploaded image: a reason to check, never more than SUSPICIOUS on its own.
+	PreviewImage bool
 	// VideoManipulation and VideoContext are the model's 0-100 signals for a
 	// video edited to mislead and for a caption the footage does not support.
 	VideoManipulation int
@@ -220,7 +225,7 @@ func Compute(in Input) models.Verdict {
 	// event, whatever else it shows; one edited with AI is altered; one whose
 	// visible signs are clear deserves a check before it is shared. These
 	// come after LINK_STRONG so a risky link in the image keeps its score.
-	if (in.UploadedImage || in.Video) && in.AI.Available {
+	if (in.UploadedImage || in.Video || in.PreviewImage) && in.AI.Available {
 		switch {
 		case in.AIDeclared == DeclaredAIGenerated:
 			score = atLeast(score, 85)

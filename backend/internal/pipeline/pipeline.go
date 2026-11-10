@@ -883,6 +883,14 @@ func Verdict(res Result, injectionSuspected bool) models.Verdict {
 	if v := res.Video; v != nil && v.Status != models.VideoOK && declaredFromText(res.Pillars.AI.Provenance) {
 		in.Video = true
 	}
+	// A video link whose footage could not be downloaded is judged from its
+	// preview picture alone. A picture at the photo bar for AI is a reason to
+	// check, not proof about the video (10 Nov: an Instagram reel the labelled
+	// set calls AI scored 95 on its preview and came out SAFE, "Tidak
+	// ditemukan tanda AI").
+	if v := res.Video; v != nil && v.Status != models.VideoOK && res.Pillars.AI.Available && res.Pillars.AI.Score >= scoring.AILikelyMin {
+		in.PreviewImage = true
+	}
 	switch res.Pillars.AI.Provenance.Kind {
 	case models.ProvenanceAIGenerated:
 		in.AIDeclared = scoring.DeclaredAIGenerated
