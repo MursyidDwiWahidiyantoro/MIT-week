@@ -303,7 +303,23 @@ func (f *Fetcher) command(ctx context.Context, name string, args ...string) *exe
 	if f.cmdRunner != nil {
 		return f.cmdRunner(ctx, name, args...)
 	}
-	return exec.CommandContext(ctx, name, args...)
+	return boundedCommand(ctx, name, args...)
+}
+
+// commandWaitDelay bounds how long Wait may block after ctx ends.
+const commandWaitDelay = 3 * time.Second
+
+// boundedCommand is exec.CommandContext that cannot outlive ctx by more than
+// commandWaitDelay. yt-dlp starts ffmpeg for merges and sections; when ctx
+// ends only yt-dlp was killed, ffmpeg kept the stderr pipe open and Wait
+// blocked until it exited (10 Nov: a 484 s video answered after 117 s, past
+// the server's write timeout, so nginx served a 502). The whole process group
+// is killed where the platform allows it, and WaitDelay caps the rest.
+func boundedCommand(ctx context.Context, name string, args ...string) *exec.Cmd {
+	cmd := exec.CommandContext(ctx, name, args...)
+	killProcessGroup(cmd)
+	cmd.WaitDelay = commandWaitDelay
+	return cmd
 }
 
 type probeResult struct {
@@ -450,13 +466,7 @@ func (f *Fetcher) extractFrames(ctx context.Context, videoFile string, duration 
 			outFramePath,
 		}
 
-		var cmd *exec.Cmd
-		if f.cmdRunner != nil {
-			cmd = f.cmdRunner(ctx, f.FFmpeg, args...)
-		} else {
-			cmd = exec.CommandContext(ctx, f.FFmpeg, args...)
-		}
-
+		cmd := f.command(ctx, f.FFmpeg, args...)
 		if err := cmd.Run(); err != nil {
 			continue
 		}
@@ -486,13 +496,7 @@ func (f *Fetcher) extractAudio(ctx context.Context, videoFile string, maxSec int
 		outAudioPath,
 	}
 
-	var cmd *exec.Cmd
-	if f.cmdRunner != nil {
-		cmd = f.cmdRunner(ctx, f.FFmpeg, args...)
-	} else {
-		cmd = exec.CommandContext(ctx, f.FFmpeg, args...)
-	}
-
+	cmd := f.command(ctx, f.FFmpeg, args...)
 	if err := cmd.Run(); err != nil {
 		return nil
 	}
