@@ -33,6 +33,9 @@ type Config struct {
 	// TavilyKey (TAVILY_API_KEY) searches the allowlisted fact-checkers'
 	// sites when no Google Fact Check key is set.
 	TavilyKey string
+	// TavilyBackupKey (TAVILY_API_KEY_2) is a second account's key, used
+	// once the first key's credits run out (Tavily's free plan: 1,000 a month).
+	TavilyBackupKey string
 	// Sightengine credentials for the optional AI-image detector. Both
 	// empty: no detector (the AI pillar uses metadata and the model).
 	SightengineUser   string
@@ -109,6 +112,7 @@ func Load() (*Config, error) {
 		SafeBrowsing:      env("GOOGLE_SAFE_BROWSING_KEY", os.Getenv("GOOGLE_API_KEY")),
 		FactCheckKey:      env("GOOGLE_FACTCHECK_KEY", os.Getenv("GOOGLE_API_KEY")),
 		TavilyKey:         os.Getenv("TAVILY_API_KEY"),
+		TavilyBackupKey:   os.Getenv("TAVILY_API_KEY_2"),
 		SightengineUser:   os.Getenv("SIGHTENGINE_API_USER"),
 		SightengineSecret: os.Getenv("SIGHTENGINE_API_SECRET"),
 		MetricsAddr:       os.Getenv("METRICS_ADDR"),

@@ -83,12 +83,19 @@ func NewDeps(cfg *config.Config) Deps {
 	if cfg.SightengineUser != "" {
 		p.Detector = aidetect.NewSightengine(cfg.SightengineUser, cfg.SightengineSecret)
 	}
+	// A second Tavily account takes over when the first one's credits run out.
+	var tavilyBackup []string
+	if cfg.TavilyBackupKey != "" {
+		tavilyBackup = []string{cfg.TavilyBackupKey}
+	}
 	switch {
 	case cfg.FactCheckKey != "":
 		p.Searcher = grounding.NewFactCheckSearcher(cfg.FactCheckKey, grounder)
 	case cfg.TavilyKey != "":
 		// Free alternative: web search restricted to the fact-checkers' sites.
-		p.Searcher = grounding.NewTavilySearcher(cfg.TavilyKey, grounder, grounding.DefaultAllowlist)
+		ts := grounding.NewTavilySearcher(cfg.TavilyKey, grounder, grounding.DefaultAllowlist)
+		ts.Backup = tavilyBackup
+		p.Searcher = ts
 	case cfg.Retrieval && !cfg.LLMMock:
 		// Keyless fallback: Bing News RSS, kept to the trusted-publisher list.
 		ns := retrieval.New(grounder)
@@ -109,6 +116,7 @@ func NewDeps(cfg *config.Config) Deps {
 		// the video's own words instead of a "cek fakta" query.
 		ws := grounding.NewTavilySearcher(cfg.TavilyKey, grounding.New(grounding.WebAllowlist), grounding.WebAllowlist)
 		ws.Prefix = ""
+		ws.Backup = tavilyBackup
 		p.WebSearch, p.WebGrounder = ws, ws.Grounder
 		// 5W1H research: the same newsroom list, searched with what the video
 		// itself shows; its pages are the trail behind a video's verdict.

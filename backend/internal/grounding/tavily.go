@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"sync/atomic"
 	"time"
 )
 
@@ -22,7 +23,12 @@ const DefaultTavilyEndpoint = "https://api.tavily.com/search"
 // Indonesian fact-checkers put at the start of a title ("[HOAKS]", "[SALAH]",
 // "[KLARIFIKASI]"); like Google's rating it is a hint for the classifier only.
 type TavilySearcher struct {
-	Key        string
+	Key string
+	// Backup is tried in order once a key's credits are used up (HTTP 432 or
+	// 433) or the key is refused (401); the searcher then stays on the key
+	// that answered, so a spent key costs one extra request, not one per search.
+	Backup     []string
+	active     atomic.Int32
 	Endpoint   string
 	HTTP       *http.Client
 	Grounder   *Grounder
@@ -47,7 +53,24 @@ func NewTavilySearcher(key string, g *Grounder, domains []string) *TavilySearche
 }
 
 // Enabled reports whether searches will be attempted.
-func (s *TavilySearcher) Enabled() bool { return s != nil && s.Key != "" }
+func (s *TavilySearcher) Enabled() bool { return s != nil && len(s.keys()) > 0 }
+
+// keys is the primary key, then the backups, without empty ones.
+func (s *TavilySearcher) keys() []string {
+	out := make([]string, 0, 1+len(s.Backup))
+	for _, k := range append([]string{s.Key}, s.Backup...) {
+		if k = strings.TrimSpace(k); k != "" {
+			out = append(out, k)
+		}
+	}
+	return out
+}
+
+// spent is a status after which the next key is worth trying: the key was
+// refused, or its plan or pay-as-you-go credits are used up.
+func spent(status int) bool {
+	return status == http.StatusUnauthorized || status == 432 || status == 433
+}
 
 var titleTag = regexp.MustCompile(`^\s*\[([^\]]{2,40})\]`)
 
@@ -73,16 +96,31 @@ func (s *TavilySearcher) Search(ctx context.Context, query string) ([]Result, er
 	if err != nil {
 		return nil, ErrSearchFailed
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.Endpoint, bytes.NewReader(payload))
-	if err != nil {
-		return nil, ErrSearchFailed
+	keys := s.keys()
+	var resp *http.Response
+	for i := int(s.active.Load()); i < len(keys); i++ {
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.Endpoint, bytes.NewReader(payload))
+		if err != nil {
+			return nil, ErrSearchFailed
+		}
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+keys[i])
+		resp, err = s.HTTP.Do(req)
+		if err != nil {
+			// Never log err or the query: the claim is user content.
+			slog.Warn("tavily search call failed", "reason", failureReason(ctx), "status", 0)
+			return nil, ErrSearchFailed
+		}
+		if spent(resp.StatusCode) && i+1 < len(keys) {
+			_ = resp.Body.Close()
+			// Never log a key, only its place in the list.
+			slog.Warn("tavily key spent, using the next one", "status", resp.StatusCode, "next_key", i+2)
+			s.active.CompareAndSwap(int32(i), int32(i+1))
+			continue
+		}
+		break
 	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+s.Key)
-	resp, err := s.HTTP.Do(req)
-	if err != nil {
-		// Never log err or the query: the claim is user content.
-		slog.Warn("tavily search call failed", "reason", failureReason(ctx), "status", 0)
+	if resp == nil {
 		return nil, ErrSearchFailed
 	}
 	defer func() { _ = resp.Body.Close() }()
