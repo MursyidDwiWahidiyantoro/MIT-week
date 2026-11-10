@@ -454,3 +454,30 @@ func TestVideoAnswerWithFloatScoresDecodes(t *testing.T) {
 		t.Fatalf("got %+v, err %v", vf, err)
 	}
 }
+
+// Gemini via 9router sent "tactics": ["OUTRAGE_BAIT"]; that used to fail the
+// whole video answer.
+func TestBareTacticCodesAndBadBoxesDoNotFailTheAnswer(t *testing.T) {
+	raw := `{"summary":"s","transcript":"","claim":"","search_query":"","ai_score":0,"ai_indicators":[],"ai_watermark":"",` +
+		`"manipulation_score":0,"manipulation_indicators":[],"context_mismatch_score":0,"context_indicators":[],"ocr_text":"",` +
+		`"tactics":["OUTRAGE_BAIT",{"code":"FEAR","phrase":"akun diblokir"},7],"injection_suspected":false}`
+	var vf VideoFindings
+	if err := decodeRequired(stripFence(raw), &vf, videoRequired...); err != nil {
+		t.Fatal(err)
+	}
+	vf = sanitizeVideo(vf)
+	if len(vf.Tactics) != 1 || vf.Tactics[0].Code != "FEAR" {
+		t.Fatalf("tactics = %+v, want only the one with a phrase", vf.Tactics)
+	}
+
+	var f Findings
+	img := `{"text_anomalies":[{"bounding_box":{"x":1},"extracted_text":"a","reason":"b"},` +
+		`{"bounding_box":[100,100,200,300],"extracted_text":"Rp 9.000","reason":"font beda"}],"tactics":["FEAR"]}`
+	if err := json.Unmarshal([]byte(stripFence(img)), &f); err != nil {
+		t.Fatal(err)
+	}
+	f = sanitize(f)
+	if len(f.TextAnomalies) != 1 || f.TextAnomalies[0].ExtractedText != "Rp 9.000" {
+		t.Fatalf("anomalies = %+v, want only the valid box", f.TextAnomalies)
+	}
+}

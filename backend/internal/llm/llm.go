@@ -48,10 +48,49 @@ type Anomaly struct {
 	Reason        string `json:"reason"`
 }
 
+// UnmarshalJSON never fails: a malformed item becomes a zero box, which
+// sanitize drops, instead of sinking the whole answer.
+func (a *Anomaly) UnmarshalJSON(b []byte) error {
+	var raw struct {
+		BoundingBox   json.RawMessage `json:"bounding_box"`
+		ExtractedText string          `json:"extracted_text"`
+		Reason        string          `json:"reason"`
+	}
+	*a = Anomaly{}
+	if json.Unmarshal(b, &raw) != nil {
+		return nil
+	}
+	a.ExtractedText, a.Reason = raw.ExtractedText, raw.Reason
+	var box [4]int
+	if json.Unmarshal(raw.BoundingBox, &box) == nil {
+		a.BoundingBox = box
+	}
+	return nil
+}
+
 // Tactic is a candidate persuasion phrase; internal/tactics verifies it.
 type Tactic struct {
 	Code   string `json:"code"`
 	Phrase string `json:"phrase"`
+}
+
+// UnmarshalJSON also takes the bare code ("FEAR") that gateways ignoring the
+// schema send, and never fails: an item without a phrase is dropped later.
+func (t *Tactic) UnmarshalJSON(b []byte) error {
+	*t = Tactic{}
+	var code string
+	if json.Unmarshal(b, &code) == nil {
+		t.Code = code
+		return nil
+	}
+	var raw struct {
+		Code   string `json:"code"`
+		Phrase string `json:"phrase"`
+	}
+	if json.Unmarshal(b, &raw) == nil {
+		*t = Tactic(raw)
+	}
+	return nil
 }
 
 // Input is one audit as the model sees it.
