@@ -92,16 +92,17 @@
 <p class="disclaimer">{t('about.disclaimerShort')}</p>
 
 <style>
-  .head { max-width: 54rem; margin-bottom: var(--space-7); }
+  .head { max-width: 54rem; margin-bottom: var(--space-8); }
   h1 { margin-bottom: var(--space-3); }
 
-  .team { margin-bottom: var(--space-7); }
+  .team { margin-bottom: var(--space-8); }
   .team-lede { margin-top: var(--space-3); }
+  .head h1 { font-size: clamp(2.25rem, 1.6rem + 2.6vw, 3.5rem); font-weight: 500; letter-spacing: -0.02em; }
   .team-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: var(--space-4);
-    margin: var(--space-5) 0 0;
+    margin: var(--space-6) 0 0;
     padding: 0;
     list-style: none;
   }
@@ -129,15 +130,15 @@
       var(--indigo-soft);
   }
   .photo img { width: 100%; height: 100%; object-fit: cover; object-position: center bottom; display: block; transition: transform var(--dur-slow, 400ms) var(--ease-out); }
-  .who { display: grid; gap: var(--space-1); padding: var(--space-3) var(--space-4) var(--space-4); text-align: center; }
-  .who strong { font-family: var(--font-display); font-size: 1.05em; }
+  .who { display: grid; gap: var(--space-1); padding: var(--space-4) var(--space-3) var(--space-5); text-align: center; text-wrap: balance; }
+  .who strong { font-family: var(--font-display); font-size: var(--text-base); font-weight: 600; }
   .who span { color: var(--body-2); font-size: var(--text-sm); }
   @media (hover: hover) and (prefers-reduced-motion: no-preference) {
     .member:hover { transform: translateY(-4px); }
     .member:hover .photo img { transform: scale(1.04); }
   }
 
-  .data { padding: clamp(1.25rem, 3vw, 2rem); }
+  .data { padding: clamp(1.25rem, 3vw, 2.25rem); margin-bottom: var(--space-2); }
   dl { display: grid; gap: var(--space-5); margin: var(--space-5) 0 0; }
   .row {
     display: flex;
@@ -163,7 +164,7 @@
   .tag--no { background: var(--coral); }
   .tag--none { background: var(--safe); }
 
-  .two-col { display: grid; grid-template-columns: 1fr; gap: var(--space-5); margin-top: var(--space-5); }
+  .two-col { display: grid; grid-template-columns: 1fr; gap: var(--space-5); margin-top: var(--space-6); }
   @media (min-width: 48rem) { .two-col { grid-template-columns: repeat(2, 1fr); } }
   .two-col > * { min-width: 0; padding: clamp(1.25rem, 3vw, 1.9rem); display: flex; flex-direction: column; }
   .limits { background: var(--yellow); }

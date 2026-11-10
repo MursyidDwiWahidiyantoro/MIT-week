@@ -7,6 +7,7 @@
   import '../app.css';
   import '../lib/styles/fonts.css';
   import '../lib/styles/refinement.css';
+  import '../lib/styles/premium.css';
   import ThemeSwitch from '$lib/components/ui/ThemeSwitch.svelte';
   import PreviewBadge from '$lib/components/ui/PreviewBadge.svelte';
   import Aurora from '$lib/components/ui/Aurora.svelte';
@@ -27,7 +28,7 @@
   ];
   const current = (href: string): boolean =>
     href === '/deteksi' ? path === '/deteksi' || path === '/hasil' : path.startsWith(href);
-  const wide = $derived(path === '/deteksi' || path === '/hasil' || path.startsWith('/edukasi'));
+  const wide = $derived(path === '/deteksi' || path === '/hasil' || path.startsWith('/edukasi') || path === '/tentang');
 
   // Page changes run through the View Transitions API where it exists.
   onNavigate((navigation) => {

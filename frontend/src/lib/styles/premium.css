@@ -1,0 +1,174 @@
+/*
+ * Premium layer (Sir, 10 Nov 2026): safe, even spacing on every page, a soft
+ * glow on the things you can touch, and calm motion throughout.
+ *
+ * Rules kept here, so the pages stay light on a phone:
+ *   - glow is box-shadow and gradients only: no blur filters, no canvas;
+ *   - motion is transform and opacity, nothing that triggers layout;
+ *   - hover effects only where a pointer exists; reduced motion drops all of
+ *     it and keeps the static glow;
+ *   - every glow is a colour-mix of an existing token, so it follows the
+ *     dark and light themes and the contrast checks still read real tokens.
+ * Prefixed html:root body for specificity over Svelte's scoped selectors.
+ */
+
+:root {
+  /* the glow colours: clay in light, the logo orange in dark */
+  --glow: color-mix(in srgb, var(--brand) 38%, transparent);
+  --glow-soft: color-mix(in srgb, var(--brand) 16%, transparent);
+  --glow-edge: color-mix(in srgb, var(--brand) 55%, transparent);
+  --glow-ok: color-mix(in srgb, var(--ok) 34%, transparent);
+  --glow-warn: color-mix(in srgb, #d9a21b 38%, transparent);
+  --glow-err: color-mix(in srgb, var(--err) 34%, transparent);
+  --lift-shadow: 0 1px 2px rgba(20, 20, 19, 0.08), 0 14px 34px -16px rgba(20, 20, 19, 0.28);
+
+  /* safe space: nothing touches a screen edge, notch or home bar */
+  --safe-l: max(var(--gutter), env(safe-area-inset-left, 0px));
+  --safe-r: max(var(--gutter), env(safe-area-inset-right, 0px));
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --rhythm: clamp(2rem, 5vw, 3.5rem);
+}
+html[data-theme='dark'] {
+  --glow: color-mix(in srgb, var(--brand) 48%, transparent);
+  --glow-soft: color-mix(in srgb, var(--brand) 22%, transparent);
+  --lift-shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 16px 40px -16px rgba(0, 0, 0, 0.7);
+}
+
+/* ---------------------------------------------------------------- layout */
+
+/* The page is a column, so a short page (the check page before a result)
+ * keeps its footer at the bottom of the screen instead of mid-page. */
+html:root body { display: flex; flex-direction: column; }
+html:root body main { flex: 1 0 auto; width: 100%; }
+
+html:root body .wrap { padding-inline: var(--safe-l) var(--safe-r); }
+html:root body .page-wrap { padding-block: clamp(1.5rem, 4vw, 3rem) clamp(3rem, 7vw, 5rem); }
+
+html:root body main :is(h1, h2, h3, p, li) { overflow-wrap: break-word; }
+
+html:root body .foot { padding-bottom: calc(var(--space-5) + var(--safe-b)); }
+
+/* --------------------------------------------------------------- top bar */
+
+html:root body .top { border-bottom-color: transparent; }
+html:root body .top::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--glow-edge) 30%, var(--grad-3) 55%, var(--glow-edge) 80%, transparent);
+  background-size: 220% 100%;
+  opacity: 0.8;
+  animation: sweep 14s linear infinite;
+  pointer-events: none;
+}
+@keyframes sweep { from { background-position: 0 0; } to { background-position: -220% 0; } }
+
+html:root body .logo {
+  box-shadow: 0 0 0 0 var(--glow), 0 4px 14px -4px var(--glow);
+  animation: logo-glow 4.2s var(--ease-in-out) infinite;
+}
+@keyframes logo-glow {
+  0%, 100% { box-shadow: 0 0 0 0 transparent, 0 4px 14px -4px var(--glow); }
+  50% { box-shadow: 0 0 0 5px var(--glow-soft), 0 6px 22px -4px var(--glow); }
+}
+
+html:root body .top-link { transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), box-shadow var(--dur-base) var(--ease-out); }
+html:root body .top-link[aria-current='page'] {
+  background: var(--indigo-soft);
+  box-shadow: 0 0 0 1px var(--glow-soft), 0 6px 20px -8px var(--glow);
+}
+
+/* --------------------------------------------------------------- buttons */
+
+html:root body .btn { position: relative; overflow: hidden; isolation: isolate; }
+html:root body .btn--primary {
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.18) inset, 0 8px 24px -10px var(--glow);
+}
+html:root body .btn--primary::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, 0.28) 50%, transparent 65%);
+  transform: translateX(-120%);
+  pointer-events: none;
+}
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  html:root body .btn--primary:hover { box-shadow: 0 1px 0 rgba(255, 255, 255, 0.2) inset, 0 12px 32px -8px var(--glow); }
+  html:root body .btn--primary:hover::after { transform: translateX(120%); transition: transform 700ms var(--ease-out); }
+}
+html:root body .btn--primary:active { box-shadow: none; }
+
+/* A visible, glowing focus for keyboard users, on top of the outline. */
+html:root body :focus-visible:not(.prompt-input) { box-shadow: 0 0 0 5px var(--glow-soft); }
+/* The prompt pill shows the focus glow itself; its input draws none. */
+html:root body .prompt-input:focus-visible { box-shadow: none; outline: none; }
+
+/* ----------------------------------------------------------------- input */
+
+html:root body .prompt { transition: box-shadow var(--dur-base) var(--ease-out); }
+html:root body .prompt:focus-within {
+  box-shadow: var(--shadow-prompt), 0 0 0 5px var(--glow-soft), 0 18px 54px -16px var(--glow);
+}
+html:root body .prompt.busy {
+  box-shadow: var(--shadow-prompt), 0 0 0 5px var(--glow-soft), 0 18px 54px -12px var(--glow);
+}
+
+/* ----------------------------------------------------------------- cards */
+
+html:root body :is(.card, .glass, .lift, .member, .ex, .learn, .cue, .panel, .f-item) {
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-base) var(--ease-out),
+    transform var(--dur-base) var(--ease-out);
+}
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  html:root body :is(.card.lift, .member, .f-item):hover {
+    transform: translateY(-3px);
+    box-shadow: 0 0 0 1px var(--glow-soft), var(--lift-shadow), 0 20px 48px -22px var(--glow);
+  }
+  html:root body .cue:hover { box-shadow: 0 0 0 1px var(--glow-soft); }
+}
+html:root body .cue[open] { box-shadow: 0 0 0 1px var(--glow-soft), 0 14px 36px -20px var(--glow); }
+
+/* ------------------------------------------------------ verdicts and meters */
+
+html:root body .badge.tone--safe { box-shadow: 0 8px 26px -12px var(--glow-ok); }
+html:root body .badge.tone--warn { box-shadow: 0 8px 26px -12px var(--glow-warn); }
+html:root body .badge.tone--danger { box-shadow: 0 8px 26px -12px var(--glow-err); }
+html:root body .meter-fill { box-shadow: 0 0 12px -2px var(--meter-color, var(--indigo)); }
+
+/* ------------------------------------------------------------------- type */
+
+/* The accent line of a title flows slowly: it is only a gradient sliding. */
+html:root body .gradient-text {
+  background-size: 220% 100%;
+  animation: grad-flow 9s var(--ease-in-out) infinite alternate;
+}
+@keyframes grad-flow { from { background-position: 0% 50%; } to { background-position: 100% 50%; } }
+
+/* ----------------------------------------------------------------- entry */
+
+/* Each page's blocks settle in one after the other. The animation only runs
+ * once, never hides anything afterwards, and uses no fill past its end. */
+html:root body .page-wrap > * { animation: settle 520ms var(--ease-out) backwards; }
+html:root body .page-wrap > :nth-child(2) { animation-delay: 70ms; }
+html:root body .page-wrap > :nth-child(3) { animation-delay: 140ms; }
+html:root body .page-wrap > :nth-child(4) { animation-delay: 210ms; }
+html:root body .page-wrap > :nth-child(n + 5) { animation-delay: 280ms; }
+@keyframes settle { from { opacity: 0; transform: translateY(14px); } }
+
+/* ------------------------------------------------------------ reduced motion */
+
+@media (prefers-reduced-motion: reduce) {
+  html:root body .top::after,
+  html:root body .logo,
+  html:root body .gradient-text,
+  html:root body .page-wrap > * { animation: none; }
+  html:root body .logo { box-shadow: 0 4px 14px -4px var(--glow); }
+}
+@media print {
+  html:root body .top::after { display: none; }
+  html:root body .page-wrap > * { animation: none; }
+}

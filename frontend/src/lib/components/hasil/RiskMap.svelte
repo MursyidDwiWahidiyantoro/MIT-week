@@ -119,7 +119,7 @@
     white-space: nowrap;
   }
   .row:not(:first-child) .tick span { display: none; }
-  .value { text-align: right; font-size: var(--text-lg); color: var(--ink); }
+  .value { white-space: nowrap; text-align: right; font-size: var(--text-lg); color: var(--ink); }
   .over .value { color: var(--err); }
   .value small { color: var(--muted); font-size: var(--text-xs); margin-left: 2px; }
   .dash { color: var(--muted); }
@@ -134,7 +134,7 @@
   @keyframes grow { from { transform: scaleX(0); } }
 
   @media (max-width: 30rem) {
-    .row { grid-template-columns: minmax(0, 1fr) 4rem; row-gap: 6px; padding-block: 8px; }
+    .row { grid-template-columns: minmax(0, 1fr) auto; row-gap: 6px; padding-block: 8px; }
     .track { grid-column: 1 / -1; grid-row: 2; }
     .tick span { display: none; }
     .row--fact { grid-template-columns: minmax(0, 1fr); }

@@ -238,7 +238,7 @@
   .panel {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
-    gap: var(--space-4);
+    gap: var(--space-2);
     min-width: 0;
     padding: var(--space-5);
     border: 1.5px dashed transparent;
