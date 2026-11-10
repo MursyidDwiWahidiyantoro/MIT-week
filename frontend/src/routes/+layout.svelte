@@ -16,12 +16,14 @@
   let { children } = $props();
 
   // One shell for every page (Sir, 10 Nov 2026: parents need few pages and
-  // few buttons): a top bar with the two destinations, always visible, with
-  // no hidden menu on phones, and a one-line footer.
+  // few buttons): a top bar with the three destinations, always visible, with
+  // no hidden menu on phones, and a one-line footer. Tentang is in the bar
+  // again at Sir's request (seq 1029).
   const path = $derived(page.url.pathname);
-  const NAV: Array<{ href: '/deteksi' | '/edukasi'; label: MessageKey; icon: 'search' | 'book' }> = [
+  const NAV: Array<{ href: '/deteksi' | '/edukasi' | '/tentang'; label: MessageKey; icon: 'search' | 'book' | 'info' }> = [
     { href: '/deteksi', label: 'nav.check', icon: 'search' },
-    { href: '/edukasi', label: 'nav.learn', icon: 'book' }
+    { href: '/edukasi', label: 'nav.learn', icon: 'book' },
+    { href: '/tentang', label: 'nav.about', icon: 'info' }
   ];
   const current = (href: string): boolean =>
     href === '/deteksi' ? path === '/deteksi' || path === '/hasil' : path.startsWith(href);
@@ -172,9 +174,24 @@
   .foot a { display: inline-flex; align-items: center; min-height: 44px; padding-inline: 4px; color: var(--body-2); }
   .foot a:hover { color: var(--ink); }
 
+  /* Phones: each destination is its icon over its word, as in a tab bar, so
+   * all three stay visible with their names. */
+  @media (max-width: 30rem) {
+    nav ul { gap: 2px; }
+    .top-link {
+      flex-direction: column;
+      justify-content: center;
+      gap: 2px;
+      min-width: 60px;
+      min-height: 52px;
+      padding: 4px 6px;
+      border-radius: 14px;
+      font-size: var(--text-xs);
+      line-height: 1.1;
+    }
+  }
   /* The narrowest phones keep the mark and drop the written name. */
   @media (max-width: 23.75rem) {
     .wordmark { display: none; }
-    .top-link { padding: 0 12px; }
   }
 </style>
