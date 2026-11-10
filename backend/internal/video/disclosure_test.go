@@ -90,3 +90,15 @@ func TestDetectDisclosureNegatives(t *testing.T) {
 		t.Fatal("need at least 15 negatives")
 	}
 }
+
+func TestDetectDisclosureOfficialGeneratorChannels(t *testing.T) {
+	for _, up := range []string{"Runway", "Pika Labs", "HaiperAI", "Kling AI"} {
+		if got := DetectDisclosure("Create compositing mattes in seconds", "", nil, up); got.Level != DisclosureStrong {
+			t.Errorf("%s: level = %s", up, got.Level)
+		}
+	}
+	// A fashion account whose name merely contains the word is not a generator.
+	if got := DetectDisclosure("Fall collection", "", nil, "Runway Diaries"); got.Level != DisclosureNone {
+		t.Errorf("level = %s", got.Level)
+	}
+}

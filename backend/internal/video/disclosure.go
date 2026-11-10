@@ -88,6 +88,13 @@ var (
 		"ai video", "aivideo", "ai art", "aiart", "aigc", "ai generated", "ai film", "ai shorts", "ai clips",
 	}
 
+	// uploaderExact are generator brands that are also common words, so only
+	// an account named exactly that counts (the official "Runway" channel).
+	uploaderExact = map[string]bool{
+		"runway": true, "pika": true, "luma": true, "kling": true, "vidu": true, "haiper": true,
+		"pixverse": true, "genmo": true, "moonvalley": true, "lumaai": true, "hailuoai": true,
+	}
+
 	// newsOutlets in an account name mean reporting, not creating.
 	newsOutlets = []string{
 		"kompas", "detik", "cnn", "bbc", "tempo", "liputan6", "metro tv", "metrotv", "tvone", "tv one",
@@ -106,6 +113,9 @@ func DetectDisclosure(title, description string, tags []string, uploader string)
 	upl := strings.ToLower(uploader)
 	if containsAny(upl, newsOutlets) {
 		return Disclosure{Level: DisclosureNone}
+	}
+	if uploaderExact[normTag(uploader)] {
+		return Disclosure{Level: DisclosureStrong, Phrase: clipPhrase(uploader)}
 	}
 	for _, b := range uploaderBrands {
 		if strings.Contains(upl, b) {
