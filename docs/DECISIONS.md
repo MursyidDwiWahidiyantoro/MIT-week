@@ -292,10 +292,10 @@ would also work; `-text` stays correct either way.
 
 ## 2026-11-06 · Maru is the engine; the model never supplies a source
 
-The gateway is 9router with the `Maru` combo. Four behaviours found by probing
+The gateway is an OpenAI-compatible LLM gateway with the `Maru` combo. Four behaviours found by probing
 it directly shaped the client, and each one is now covered by a test:
 
-1. **9router streams by default.** A request without `stream:false` returns
+1. **The gateway streams by default.** A request without `stream:false` returns
    `text/event-stream`, which the old client could not parse. Every call now
    sends `stream:false` explicitly *and* decodes an SSE body if the gateway
    streams anyway.
@@ -836,3 +836,40 @@ status code only, and `DOMAIN_AGE_LOOKUP=false` switches it off. The privacy
 notice on /tentang says so. Tested with a fake registry; the development
 environment cannot reach real RDAP servers, so live coverage per TLD (.id in
 particular) still has to be checked after deploy.
+
+## 2026-11-10 · Video thresholds from 33 labelled clips, creator disclosure and web provenance
+
+Data: three runs of the old pipeline over 33 social clips (11 real news, 10 AI,
+12 hoax; labels verified by a second reviewer), pooled to 33 real, 30 AI and 36
+hoax readings.
+
+| AI score line | real flagged | AI flagged | hoax flagged |
+|---|---|---|---|
+| 45 | 2/33 | 18/30 | 6/36 |
+| 50 to 65 | 1/33 | 16/30 | 2/36 |
+| 70, 75 | 1/33 | 14/30 | 2/36 |
+| 80 (old) | 0/33 | 7/30 | 2/36 |
+
+- `VideoAILikelyMin = 55` (video only). The plateau is 50 to 65. At 80 only 23%
+  of AI clips were flagged; at 55, 53%. The image line `AILikelyMin` stays 80:
+  this set has no image rows. `AI_LIKELY` lifts the score to 45 only, never to
+  `TAMPERED`.
+- `VideoManipulationMin = 70`, unchanged: real news never exceeded 60.
+- `VideoContextMin = 85` (was 70): real news scored 75 and 80 for context twice
+  (same clip). Context mismatch is the noisiest signal, so it trades recall for
+  precision.
+- Combined (55, 70, 85): real 1/33 (3.0%), AI 16/30 (53%), hoax 7/36 (19%). Old
+  combined (80, 70, 70): real 2/33, AI 10/30, hoax 10/36.
+- Creator disclosure (deterministic, `video/disclosure.go`): a strong
+  disclosure sets provenance source `creator` and the `AI_PROVENANCE` floor (85);
+  a weak one adds 8 to the AI score when the model answered. On the same URLs:
+  strong on 9/10 AI clips, 0/11 real, 0/12 hoax. The AI class is official
+  generator channels, so this is an upper bound; anonymous reposts carry no such
+  text.
+- Web provenance (`pipeline/webprov.go`): the title or first description
+  sentence, with links, hashtags and emoji removed (3 to 10 words), plus
+  " video AI hoaks", searched on Tavily over a 26-host allowlist. Hits pass
+  `SameTopic`, then a model classification (AI, REAL, HOAX, UNRELATED); HOAX also
+  needs a fact-checker host. Any failure returns no evidence and never marks the
+  audit degraded. This signal is not measured by the offline set.
+- 90% overall accuracy is not claimed. The web search needs a live run.
