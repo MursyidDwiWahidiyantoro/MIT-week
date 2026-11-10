@@ -1,7 +1,6 @@
 <script lang="ts">
   import { tick } from 'svelte';
   import { resolve } from '$app/paths';
-  import { locale } from '$lib/i18n/index.svelte';
   import { QUESTIONS, UI, type Text } from '$lib/data/belajar';
   import Icon from '$lib/components/ui/Icon.svelte';
 
@@ -19,7 +18,7 @@
   let resultHeading: HTMLElement | null = $state(null);
 
   const tx = (text: Text, params?: Record<string, string | number>): string => {
-    let out = text[locale.value];
+    let out = text.id;
     for (const [k, v] of Object.entries(params ?? {})) out = out.replaceAll(`{${k}}`, String(v));
     return out;
   };

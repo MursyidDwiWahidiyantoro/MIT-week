@@ -2,8 +2,6 @@ import type { DossierParsed } from '$lib/api/schemas';
 import { t } from '$lib/i18n/index.svelte';
 import { aiLines, linkReason } from '$lib/i18n/verdict';
 import tacticsId from '$lib/data/tactics.json';
-import tacticsEn from '$lib/data/tactics.en.json';
-import { locale } from '$lib/i18n/index.svelte';
 
 /** Below this a signal is background noise, not a reason. */
 const NOTABLE = 40;
@@ -25,7 +23,7 @@ export function keyReasons(d: DossierParsed): string[] {
 
   if (fact.available && fact.status === 'CONTRADICTS') add(t('why.fact'));
 
-  if (link.available) for (const r of link.reasons.slice(0, 2)) add(linkReason(r.code, r.text));
+  if (link.available) for (const r of link.reasons.slice(0, 2)) add(linkReason(r.text));
 
   if (d.video?.platform_ai_label) add(t('video.aiLabel'));
 
@@ -47,7 +45,7 @@ export function keyReasons(d: DossierParsed): string[] {
   if (ela.available && ela.score >= 50 && ela.anomalies.length) add(t('ev.areas', { n: ela.anomalies.length }));
 
   if (d.tactics.length) {
-    const labels: Record<string, { label: string }> = locale.value === 'en' ? tacticsEn : tacticsId;
+    const labels: Record<string, { label: string }> = tacticsId;
     const names = [...new Set(d.tactics.map((x) => labels[x.code]?.label).filter(Boolean))];
     if (names.length) add(t('why.tactics', { list: names.slice(0, 3).join(', ') }));
   }

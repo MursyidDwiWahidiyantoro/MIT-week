@@ -1,7 +1,6 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/svelte';
 import EvidenceAccordion from './EvidenceAccordion.svelte';
-import { locale } from '$lib/i18n/index.svelte';
 import type { DossierParsed } from '$lib/api/schemas';
 
 type Pillars = DossierParsed['pillars'];
@@ -22,7 +21,6 @@ function pillars(sources: ReturnType<typeof src>[], factAvailable = true): Pilla
   } as unknown as Pillars;
 }
 
-beforeEach(() => locale.set('id'));
 
 describe('EvidenceAccordion', () => {
   it('shows only the checks that ran and never says one could not be checked', () => {

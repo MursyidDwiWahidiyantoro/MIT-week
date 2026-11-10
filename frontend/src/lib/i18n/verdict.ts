@@ -1,12 +1,10 @@
 /**
- * Server-written copy, localised. The API speaks Indonesian (TECH_SPEC §2);
- * every sentence it writes is derived from codes in the Dossier, so the
- * English interface rebuilds the same sentence from the same codes. In
- * Indonesian the server's own text is shown unchanged (it can be richer,
- * e.g. the demo cases' explanations).
+ * Server-written copy. The API speaks Indonesian (TECH_SPEC §2) and the
+ * interface is Indonesian only, so the server's own sentences are shown
+ * unchanged; only the parts the page builds from codes go through t().
  */
 import type { DossierParsed } from '$lib/api/schemas';
-import { t, locale, type MessageKey } from './index.svelte';
+import { t, type MessageKey } from './index.svelte';
 
 const has = (key: string): key is MessageKey => t(key as MessageKey) !== key;
 
@@ -15,28 +13,9 @@ export function simpleSentence(d: DossierParsed): string {
   // Old payloads can still carry INSUFFICIENT. It is shown as a neutral
   // conclusion, never as "not enough data", so the server's sentence is not used.
   if (d.verdict.status === 'INSUFFICIENT') return t('simple.INSUFFICIENT');
-  if (locale.value === 'id') return d.verdict.explanation_simple;
-  const floors = d.verdict.floors_applied;
-  for (const floor of [
-    'FACT_CONTRADICTED',
-    'LINK_MALICIOUS',
-    'LINK_STRONG',
-    'AI_PROVENANCE',
-    'ELA_CORROBORATED',
-    'AI_EDITED',
-    'AI_LIKELY',
-    'VIDEO_MANIPULATED',
-    'VIDEO_CONTEXT_MISMATCH'
-  ]) {
-    if (!floors.includes(floor)) continue;
-    // A social video link reaches AI_LIKELY through its frames, not an image.
-    if (floor === 'AI_LIKELY' && d.video) return t('simple.AI_LIKELY_VIDEO');
-    return t(`simple.${floor}` as MessageKey);
-  }
-  return t(`simple.${d.verdict.status}` as MessageKey);
+  return d.verdict.explanation_simple;
 }
 
-/** Mirrors the server's explanation(): honest limits in plain words. */
 /** The server's sentence that lists what could not be checked is dropped: the page shows what the result is based on instead. */
 export function withoutNotChecked(text: string): string {
   return text
@@ -47,31 +26,20 @@ export function withoutNotChecked(text: string): string {
 }
 
 export function explanation(d: DossierParsed): string {
-  if (locale.value === 'id') return withoutNotChecked(d.verdict.explanation);
-  const parts: string[] = [];
-  const md = d.source_metadata;
-  // A blocked preview matters only when the video was not analysed either.
-  if (md?.status === 'BLOCKED' && d.video?.status !== 'OK') parts.push(t('expl.blocked'));
-  if (md?.status === 'UNAVAILABLE') parts.push(t('expl.unavailable'));
-  const basis = d.verdict.basis.filter((b) => b !== 'llm_untrusted');
-  if (basis.length) parts.push(t('expl.checked', { list: basis.map((b) => t(`expl.pillar.${b}` as MessageKey)).join(', ') }));
-  parts.push(t('expl.indicative'));
-  return parts.join(' ');
+  return withoutNotChecked(d.verdict.explanation);
 }
 
-export function linkReason(code: string, serverText: string): string {
-  if (locale.value === 'id') return serverText;
-  const key = `reason.${code}`;
-  return has(key) ? t(key) : t('reason.default');
+/** A link check reason, in the server's words. */
+export function linkReason(serverText: string): string {
+  return serverText;
 }
 
 export function caveat(serverText: string): string {
-  return locale.value === 'id' ? serverText : t('ai.caveat');
+  return serverText;
 }
 
 export function reliabilityNote(serverText: string | null | undefined): string {
-  if (!serverText) return '';
-  return locale.value === 'id' ? serverText : t('ela.reliabilityNote');
+  return serverText ?? '';
 }
 
 type AIPillar = DossierParsed['pillars']['ai'];
@@ -84,9 +52,8 @@ export function aiLevel(score: number): 'high' | 'medium' | 'low' {
 /**
  * The Jejak AI card in plain words: which image was checked, what the file
  * declares about its origin (or how likely it looks AI-made), and the
- * dedicated detector's answer when one ran. Built from codes, so both
- * languages say the same thing. `fromVideo`: the score came from the frames
- * of an analysed social video, not from the link's preview image.
+ * dedicated detector's answer when one ran. `fromVideo`: the score came from
+ * the frames of an analysed social video, not from the link's preview image.
  */
 export function aiLines(ai: AIPillar, inputType: DossierParsed['input_type'], fromVideo = false): string[] {
   const lines: string[] = [];

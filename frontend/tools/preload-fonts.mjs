@@ -10,11 +10,7 @@ import path from 'node:path';
 
 const BUILD = 'build';
 const ASSETS = path.join(BUILD, '_app/immutable/assets');
-const WANTED = [
-  /^bricolage-grotesque-latin-wght-normal\..+\.woff2$/,
-  /^atkinson-hyperlegible-latin-400-normal\..+\.woff2$/,
-  /^atkinson-hyperlegible-latin-700-normal\..+\.woff2$/
-];
+const WANTED = [/^google-sans-flex-latin-wght-normal\..+\.woff2$/];
 
 const files = fs.readdirSync(ASSETS);
 const links = WANTED.map((re) => {

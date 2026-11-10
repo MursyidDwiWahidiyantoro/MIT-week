@@ -135,7 +135,7 @@
           {#if pillars.link.final_url}<p class="url">{t('ev.finalUrl', { url: pillars.link.final_url })}</p>{/if}
           {#if (pillars.link.reasons ?? []).length}
             <ul>
-              {#each pillars.link.reasons ?? [] as r (r.code)}<li>{linkReason(r.code, r.text)}</li>{/each}
+              {#each pillars.link.reasons ?? [] as r (r.code)}<li>{linkReason(r.text)}</li>{/each}
             </ul>
           {:else}
             <p>{t('ev.noReasons')}</p>

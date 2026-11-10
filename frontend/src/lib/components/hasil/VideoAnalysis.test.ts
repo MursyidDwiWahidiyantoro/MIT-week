@@ -1,7 +1,6 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { render, screen, within } from '@testing-library/svelte';
 import VideoAnalysis from './VideoAnalysis.svelte';
-import { locale } from '$lib/i18n/index.svelte';
 import { id } from '$lib/i18n/id';
 import type { DossierParsed } from '$lib/api/schemas';
 
@@ -44,7 +43,6 @@ const row = (container: HTMLElement, key: string) =>
   container.querySelector<HTMLElement>(`[data-signal="${key}"]`)?.textContent ?? '';
 
 describe('VideoAnalysis', () => {
-  beforeEach(() => locale.set('id'));
 
   it('heads the card with platform, length, upload date and the platform AI label', () => {
     const { container } = render(VideoAnalysis, { video: video(), ai });
@@ -118,15 +116,6 @@ describe('VideoAnalysis', () => {
     expect(screen.queryByText('Tanda yang diperiksa')).toBeNull();
   });
 
-  it('speaks English when the interface does', () => {
-    locale.set('en');
-    const { container } = render(VideoAnalysis, { video: video(), ai });
-
-    expect(screen.getByRole('heading', { level: 2, name: 'Video analysis' })).toBeTruthy();
-    expect(container.querySelector('.meta')?.textContent).toContain('Uploaded November 7, 2026');
-    expect(screen.getByRole('img', { name: 'Frame 2, second 8' })).toBeTruthy();
-    expect(row(container, 'context')).toContain('High mismatch');
-  });
 
   it('never claims certainty in the video copy', () => {
     for (const [key, text] of Object.entries(id).filter(([k]) => k.startsWith('video.'))) {

@@ -3,12 +3,10 @@
 @tailwind utilities;
 
 /* ==========================================================================
-   AMBA: global base and component roles.
-   The palette and the glass recipe live in tokens.css; this file builds the
-   vocabulary from them: the page light, .glass, .card, .btn, .pill, fields.
-   Glass is reserved for surfaces that have something under them: the sticky
-   header, the checker, the verdict lens, the error page. Everything else is a
-   quieter translucent card or plain type on the page.
+   AMBA: global base and component roles in the style of the Gemini web app.
+   Soft tonal surfaces with no hard borders, pill buttons and chips, a round
+   prompt bar, Google Sans Flex at light weights for large text, and one
+   three-colour gradient used for the greeting and the "thinking" state.
    ========================================================================== */
 
 @layer base {
@@ -20,9 +18,9 @@
     -webkit-text-size-adjust: 100%;
     overflow-x: clip;
     scroll-behavior: smooth;
-    accent-color: var(--brand);
-    caret-color: var(--brand);
-    scrollbar-color: var(--border-strong) transparent;
+    accent-color: var(--indigo);
+    caret-color: var(--indigo);
+    scrollbar-color: var(--border) transparent;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -33,72 +31,55 @@
     position: relative;
     margin: 0;
     min-height: 100dvh;
-    background: transparent;
+    background: var(--paper);
     color: var(--ink);
     font-size: var(--text-base);
     line-height: var(--leading-normal);
     overflow-x: clip;
     font-variant-numeric: lining-nums;
-  }
-
-  /* The light the glass sits in: three soft fields and a fine grain, fixed to
-   * the viewport so the frosted surfaces always have something to frost. */
-  body::before,
-  body::after {
-    content: '';
-    position: fixed;
-    inset: 0;
-    z-index: -1;
-    pointer-events: none;
-  }
-  body::before {
-    background:
-      radial-gradient(52rem 38rem at 88% -8%, var(--field-a), transparent 62%),
-      radial-gradient(44rem 36rem at 6% 58%, var(--field-b), transparent 64%),
-      radial-gradient(58rem 42rem at 46% 112%, var(--field-c), transparent 62%),
-      var(--paper);
-  }
-  body::after {
-    opacity: var(--grain-opacity);
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    -webkit-font-smoothing: antialiased;
+    -webkit-tap-highlight-color: transparent;
   }
 
   h1, h2, h3, h4 {
     font-family: var(--font-display);
     font-style: normal;
-    font-weight: 600;
-    letter-spacing: -0.022em;
+    font-weight: 500;
+    letter-spacing: -0.01em;
     line-height: var(--leading-tight);
     text-wrap: balance;
     margin: 0;
   }
+  h1 { font-weight: 400; }
 
   p { text-wrap: pretty; }
 
   a {
-    color: inherit;
-    text-decoration-thickness: 1.5px;
+    color: var(--indigo-text);
+    text-decoration-thickness: 1px;
     text-underline-offset: 0.2em;
-    text-decoration-color: color-mix(in srgb, currentColor 45%, transparent);
-    transition: color var(--dur-fast) var(--ease-out), text-decoration-color var(--dur-fast) var(--ease-out);
+    transition: color var(--dur-fast) var(--ease-out);
   }
 
-  a:hover { color: var(--indigo-text); text-decoration-color: currentColor; }
+  a:hover { color: var(--ink); }
 
   :focus-visible {
     outline: var(--focus-ring);
     outline-offset: var(--focus-offset);
-    border-radius: 6px;
+    border-radius: 8px;
   }
+  /* Headings receive focus from script after a page change (for screen
+   * readers); they are not controls, so they draw no ring. */
+  [tabindex='-1']:focus { outline: none; }
 
   ::selection {
-    background: color-mix(in srgb, var(--brand) 26%, transparent);
+    background: var(--indigo-soft);
     color: var(--ink);
   }
 
-  ::-webkit-scrollbar { width: 12px; height: 12px; }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
   ::-webkit-scrollbar-thumb {
-    background: color-mix(in srgb, var(--border-strong) 70%, transparent);
+    background: var(--border);
     border: 3px solid transparent;
     border-radius: 999px;
     background-clip: padding-box;
@@ -116,18 +97,28 @@
     margin-inline: auto;
     padding-inline: var(--gutter);
   }
+  .wrap--wide { max-width: var(--maxw-wide); }
 
   .section { padding-block: var(--section-pad); }
 
   /* ---- type roles ---- */
   .display {
     font-family: var(--font-display);
-    font-weight: 600;
-    letter-spacing: -0.03em;
+    font-weight: 400;
+    letter-spacing: -0.015em;
     line-height: var(--leading-display);
   }
 
-  .h1 { font-size: var(--text-page); line-height: var(--leading-display); }
+  /* The greeting's colour: the three-colour gradient, clipped to the text. */
+  .gradient-text {
+    background: var(--grad);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .h1 { font-size: var(--text-page); font-weight: 400; line-height: var(--leading-display); }
   .h2 { font-size: var(--text-2xl); line-height: var(--leading-tight); }
   .h3 { font-size: var(--text-xl); }
 
@@ -138,12 +129,9 @@
     margin: 0;
   }
 
-  /* No eyebrow labels above headings (AMBA design rules): where the markup
-   * still carries one, it reads as an ordinary line of supporting text. */
   .eyebrow {
     display: block;
     margin: 0 0 var(--space-2);
-    font-family: var(--font-sans);
     font-size: var(--text-sm);
     font-weight: 400;
     letter-spacing: 0;
@@ -151,59 +139,42 @@
     color: var(--muted);
   }
 
-  /* ---- glass: the material ---- */
-  .glass {
-    position: relative;
-    background: var(--glass-bg);
-    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.35);
-    backdrop-filter: blur(var(--glass-blur)) saturate(1.35);
-    border: 1px solid var(--glass-border);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--glass-highlight), 0 0 0 1px var(--glass-edge), var(--glass-shadow);
-  }
-
-  .glass--strong { background: var(--glass-bg-strong); }
-
-  /* A quieter pane for secondary content: translucent, no blur. */
+  /* ---- surfaces: tonal, no hard border ---- */
+  .glass,
   .card {
-    background: var(--glass-bg);
-    border: 1px solid var(--glass-edge);
+    position: relative;
+    background: var(--card);
+    border: 0;
     border-radius: var(--radius-lg);
-    box-shadow: var(--glass-highlight), var(--shadow-1);
+    box-shadow: none;
   }
 
-  .card--flat { box-shadow: var(--glass-highlight); }
-  .card--ink { background: var(--panel-dark); color: var(--on-panel-dark); border-color: transparent; }
+  .glass--strong { background: var(--white); }
+  .card--flat { box-shadow: none; }
+  .card--ink { background: var(--panel-dark); color: var(--on-panel-dark); }
   .card--safe { background: var(--safe); color: var(--on-fill); }
   .card--yellow { background: var(--yellow); color: var(--on-fill); }
   .card--coral { background: var(--coral); color: var(--on-fill); }
   .card--indigo { background: var(--indigo-soft); color: var(--ink); }
-  .card--soft { background: var(--indigo-soft); color: var(--ink); }
+  .card--soft { background: var(--surface-2); color: var(--ink); }
 
-  /* Hover is a change of light, never a jump. */
-  .lift {
-    transition:
-      background-color var(--dur-fast) var(--ease-out),
-      box-shadow var(--dur-base) var(--ease-out),
-      border-color var(--dur-fast) var(--ease-out);
-  }
-  .lift:hover { box-shadow: var(--glass-highlight), var(--shadow-2); }
+  .lift { transition: background-color var(--dur-fast) var(--ease-out); }
+  .lift:hover { background: var(--surface-2); }
 
-  /* ---- buttons ---- */
+  /* ---- buttons: pills ---- */
   .btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: var(--space-2);
-    min-height: 52px;
+    min-height: 48px;
     padding: 0 var(--space-5);
-    border: 1px solid var(--glass-edge);
-    border-radius: var(--radius-md);
-    background: var(--glass-bg-strong);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-pill);
+    background: transparent;
     color: var(--ink);
-    box-shadow: var(--glass-highlight), var(--shadow-1);
     font-family: var(--font-sans);
-    font-weight: 700;
+    font-weight: 500;
     font-size: var(--text-base);
     line-height: 1.15;
     text-align: center;
@@ -212,30 +183,31 @@
     touch-action: manipulation;
     transition:
       background-color var(--dur-fast) var(--ease-out),
-      box-shadow var(--dur-base) var(--ease-out),
+      border-color var(--dur-fast) var(--ease-out),
+      color var(--dur-fast) var(--ease-out),
       transform var(--dur-fast) var(--ease-out);
   }
 
-  .btn:hover { background: var(--white); color: var(--ink); box-shadow: var(--glass-highlight), var(--shadow-2); }
-  .btn:active { transform: translateY(1px); box-shadow: var(--glass-highlight); }
+  .btn:hover { background: var(--hover-overlay); color: var(--ink); }
+  .btn:active { transform: scale(0.98); }
 
   .btn--primary {
     background: var(--brand);
     color: var(--on-brand);
     border-color: transparent;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), var(--shadow-2);
   }
   .btn--primary:hover { background: var(--brand-hover); color: var(--on-brand); }
   .btn--primary:active { background: var(--brand-deep); }
-  .btn--ink { background: var(--panel-dark); color: var(--on-panel-dark); border-color: transparent; }
-  .btn--ink:hover { background: var(--panel-dark); color: var(--on-panel-dark); }
-  .btn--safe { background: var(--safe); color: var(--on-fill); }
-  .btn--quiet { background: transparent; box-shadow: none; border-color: var(--border); }
+  .btn--ink { background: var(--ink); color: var(--paper); border-color: transparent; }
+  .btn--ink:hover { background: var(--ink); color: var(--paper); }
+  .btn--safe { background: var(--safe); color: var(--on-fill); border-color: transparent; }
+  .btn--tonal { background: var(--card); border-color: transparent; }
+  .btn--tonal:hover { background: var(--surface-2); }
+  .btn--quiet { border-color: transparent; }
   .btn--sm {
-    min-height: 44px;
+    min-height: 40px;
     padding: 0 var(--space-4);
     font-size: var(--text-sm);
-    border-radius: var(--radius-sm);
   }
 
   .btn:disabled,
@@ -243,31 +215,65 @@
     opacity: var(--disabled-opacity);
     cursor: not-allowed;
     transform: none;
-    box-shadow: none;
   }
 
-  /* ---- navigation ---- */
-  .nav-link {
+  /* Round icon buttons: the menu, the theme, the prompt's own controls. */
+  .icon-btn {
+    display: inline-grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    flex: none;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--body-2);
+    cursor: pointer;
+    transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+  }
+  .icon-btn:hover { background: var(--hover-overlay); color: var(--ink); }
+
+  /* Suggestion chips under the prompt. */
+  .chip-btn {
     display: inline-flex;
     align-items: center;
+    gap: var(--space-2);
     min-height: 44px;
-    padding: 0 14px;
-    border-radius: var(--radius-sm);
-    font-weight: 700;
+    padding: 0 var(--space-4);
+    border: 0;
+    border-radius: var(--radius-pill);
+    background: var(--card);
+    color: var(--ink);
+    font: inherit;
+    font-size: var(--text-sm);
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
+  }
+  .chip-btn:hover { background: var(--surface-2); }
+  .chip-btn:active { transform: scale(0.98); }
+
+  /* ---- navigation items in the rail and the drawer ---- */
+  .nav-link {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    min-height: 44px;
+    padding: 0 var(--space-4);
+    border-radius: var(--radius-pill);
+    font-weight: 500;
     font-size: var(--text-sm);
     text-decoration: none;
     color: var(--body-2);
-    transition:
-      background-color var(--dur-fast) var(--ease-out),
-      color var(--dur-fast) var(--ease-out);
+    transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
   }
 
   .nav-link:hover { background: var(--hover-overlay); color: var(--ink); }
 
   .nav-link[aria-current='page'] {
-    background: var(--glass-bg-strong);
+    background: var(--indigo-soft);
     color: var(--ink);
-    box-shadow: var(--glass-highlight), 0 0 0 1px var(--glass-edge);
   }
 
   .pill {
@@ -275,12 +281,12 @@
     align-items: center;
     gap: var(--space-2);
     min-height: 32px;
-    padding: 3px 12px;
-    border: 1px solid var(--border);
+    padding: 4px 12px;
+    border: 0;
     border-radius: var(--radius-pill);
-    background: var(--glass-bg-strong);
+    background: var(--surface-2);
     color: var(--ink);
-    font-weight: 700;
+    font-weight: 500;
     font-size: var(--text-sm);
     line-height: 1.2;
   }
@@ -290,13 +296,12 @@
   .textarea,
   .select {
     width: 100%;
-    min-height: 54px;
+    min-height: 52px;
     padding: 12px var(--space-4);
     background: var(--field-bg);
     color: var(--ink);
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
-    box-shadow: inset 0 1px 2px rgba(31, 30, 28, 0.05);
     font: inherit;
     font-size: var(--text-base);
     transition:
@@ -316,7 +321,7 @@
   .select:focus-visible {
     outline: none;
     border-color: var(--focus);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--focus) 28%, transparent);
+    box-shadow: 0 0 0 1px var(--focus);
   }
 
   .input[aria-invalid='true'],
@@ -325,7 +330,7 @@
   .field { display: grid; gap: var(--space-2); }
   .field > label,
   .field > .label {
-    font-weight: 700;
+    font-weight: 500;
     font-size: var(--text-sm);
     color: var(--body-2);
   }
@@ -333,7 +338,7 @@
   .error-text {
     margin: 0;
     color: var(--err);
-    font-weight: 700;
+    font-weight: 500;
     font-size: var(--text-sm);
   }
 
@@ -342,12 +347,12 @@
     position: absolute;
     left: var(--space-4);
     top: -100px;
-    z-index: 60;
+    z-index: 80;
     padding: var(--space-3) var(--space-4);
-    background: var(--panel-dark);
-    color: var(--on-panel-dark);
-    border-radius: var(--radius-sm);
-    font-weight: 700;
+    background: var(--brand);
+    color: var(--on-brand);
+    border-radius: var(--radius-pill);
+    font-weight: 500;
     text-decoration: none;
     transition: top var(--dur-fast) var(--ease-out);
   }
@@ -378,12 +383,57 @@
   .tabular { font-variant-numeric: tabular-nums; }
 }
 
-/* ---- calm motion: the reduced-motion preference ---- */
+/* ==========================================================================
+   Motion. The `inview` action ($lib/motion) marks an element
+   data-motion="wait" on mount (never under reduced motion, never without
+   script) and "in" once it enters the viewport, so nothing is hidden unless
+   the reveal is certain to run.
+   ========================================================================== */
+
+[data-motion] .rise,
+[data-motion].rise {
+  transition:
+    opacity 500ms var(--ease-out) calc(var(--i, 0) * var(--stagger)),
+    transform 500ms var(--ease-out) calc(var(--i, 0) * var(--stagger));
+}
+[data-motion='wait'] .rise,
+[data-motion='wait'].rise { opacity: 0; transform: translateY(12px); }
+
+/* Shimmer: the gradient sweeps through a line of text while AMBA works. */
+.shimmer {
+  background: linear-gradient(90deg, var(--muted) 0%, var(--muted) 35%, var(--ink) 50%, var(--muted) 65%, var(--muted) 100%);
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  animation: shimmer 2.2s linear infinite;
+}
+@keyframes shimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+
+/* Page changes: a short cross-fade with a lift; the prompt bar keeps its
+ * view-transition-name across pages, so it glides instead of fading. */
+::view-transition-old(root) { animation: vt-out 180ms var(--ease-in) both; }
+::view-transition-new(root) { animation: vt-in 300ms var(--ease-out) both; }
+::view-transition-group(prompt) { animation-duration: 380ms; animation-timing-function: var(--ease-out); }
+@keyframes vt-out { to { opacity: 0; } }
+@keyframes vt-in { from { opacity: 0; transform: translateY(10px); } }
+
 @media (prefers-reduced-motion: reduce) {
-  .btn:active { transform: none; }
+  .btn:active,
+  .chip-btn:active { transform: none; }
+  .shimmer {
+    animation: none;
+    background: none;
+    color: var(--muted);
+    -webkit-text-fill-color: currentColor;
+  }
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) { animation: none !important; }
 }
 
-/* Browsers without backdrop-filter get a solid pane, never unreadable text. */
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .glass { background: var(--white); }
+@media print {
+  [data-motion] .rise,
+  [data-motion].rise { opacity: 1 !important; transform: none !important; }
 }

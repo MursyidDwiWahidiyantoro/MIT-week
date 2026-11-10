@@ -39,11 +39,11 @@
     margin: 0;
     padding: 6px 14px;
     border: var(--border-width) solid var(--border);
-    border-radius: var(--radius-pill);
-    box-shadow: var(--shadow-hard-xs);
+    border-radius: var(--radius-sm);
     color: var(--ink);
     font-family: var(--font-display);
     font-weight: 800;
+    font-stretch: 108%;
     font-size: var(--text-base);
     line-height: 1.25;
   }
@@ -51,7 +51,7 @@
   .tone--safe { background: var(--safe); }
   .tone--warn { background: var(--yellow); }
   .tone--danger { background: var(--coral); }
-  .tone--neutral { background: var(--indigo-soft); }
+  .tone--neutral { background: var(--surface-2); }
   .score {
     font-family: var(--font-sans);
     font-weight: 700;

@@ -67,3 +67,6 @@ workspace-dont-push/
 # impeccable review captures (regenerated, not source)
 .impeccable/review/
 .impeccable/live/
+
+# design-taste-frontend working sheets (regenerated, not source)
+.taste-skill/

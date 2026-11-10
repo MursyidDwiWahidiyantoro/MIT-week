@@ -1,6 +1,5 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { simpleSentence, aiLines, explanation } from './verdict';
-import { locale } from './index.svelte';
 import type { DossierParsed } from '$lib/api/schemas';
 
 /** Just enough of a dossier for the lead sentence: floors, status, video. */
@@ -20,40 +19,14 @@ function dossier(floors: string[], video: boolean): DossierParsed {
   } as DossierParsed;
 }
 
-describe('lead sentence for video floors', () => {
-  beforeEach(() => locale.set('en'));
-
-  it('says the caption does not match the footage for VIDEO_CONTEXT_MISMATCH', () => {
-    expect(simpleSentence(dossier(['VIDEO_CONTEXT_MISMATCH'], true))).toBe(
-      'The caption does not match what the footage shows. Check before you share.'
-    );
-  });
-
-  it('says the video looks edited to mislead for VIDEO_MANIPULATED, ahead of a context mismatch', () => {
-    expect(simpleSentence(dossier(['VIDEO_CONTEXT_MISMATCH', 'VIDEO_MANIPULATED'], true))).toBe(
-      'This video looks edited to mislead. Check before you share.'
-    );
-  });
-
-  it('speaks of the video, not an image, when AI_LIKELY comes from a video', () => {
-    expect(simpleSentence(dossier(['AI_LIKELY', 'VIDEO_MANIPULATED'], true))).toBe(
-      'This video looks AI-generated. Check before you share.'
-    );
-    expect(simpleSentence(dossier(['AI_LIKELY'], false))).toBe('This image looks AI-generated. Check before sharing.');
-  });
-
-  it('keeps the stronger floors first and the server wording in Indonesian', () => {
-    expect(simpleSentence(dossier(['VIDEO_CONTEXT_MISMATCH', 'LINK_STRONG'], true))).toBe(
-      'This link shows scam signs. Better not click it.'
-    );
-    locale.set('id');
+describe('lead sentence', () => {
+  it("shows the server's Indonesian sentence unchanged, whatever the floors", () => {
     expect(simpleSentence(dossier(['VIDEO_CONTEXT_MISMATCH'], true))).toBe('Kalimat dari server.');
+    expect(simpleSentence(dossier(['AI_LIKELY', 'LINK_STRONG'], false))).toBe('Kalimat dari server.');
   });
 });
 
 describe('Jejak AI card for a video link', () => {
-  beforeEach(() => locale.set('id'));
-
   const ai: DossierParsed['pillars']['ai'] = {
     available: true,
     score: 82,
@@ -72,20 +45,7 @@ describe('Jejak AI card for a video link', () => {
   });
 });
 
-describe('explanation for a link whose preview is blocked', () => {
-  beforeEach(() => locale.set('en'));
-  const blocked = (video: boolean) =>
-    ({ ...dossier([], video), source_metadata: { status: 'BLOCKED' } }) as unknown as DossierParsed;
-
-  it('mentions the blocked preview only when the video was not analysed either', () => {
-    expect(explanation(blocked(false))).toContain('preview is closed');
-    expect(explanation(blocked(true))).not.toContain('preview is closed');
-  });
-});
-
 describe('INSUFFICIENT and the not-checked sentence', () => {
-  beforeEach(() => locale.set('id'));
-
   it('shows an old INSUFFICIENT payload as a neutral conclusion, not as missing data', () => {
     const d = dossier([], false);
     d.verdict.status = 'INSUFFICIENT';

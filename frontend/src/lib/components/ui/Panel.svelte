@@ -34,31 +34,29 @@
 </section>
 
 <style>
-  /* A secondary pane: translucent over the page light, no blur. The frosted
-   * glass is kept for surfaces with content under them. */
+  /* A tonal pane, as Gemini draws its cards: no border, a round corner. */
   .panel {
-    background: var(--glass-bg);
-    border: 1px solid var(--glass-edge);
+    background: var(--card);
+    border: 0;
     border-radius: var(--radius-lg);
-    box-shadow: var(--glass-highlight), var(--shadow-1);
-    padding: clamp(1.25rem, 3vw, 1.85rem);
+    box-shadow: none;
+    padding: clamp(1.1rem, 3vw, 1.6rem);
     min-width: 0;
-    margin-bottom: var(--space-5);
   }
-  .panel--paper { background: color-mix(in srgb, var(--paper) 70%, transparent); }
-  .panel--ink { background: var(--panel-dark); color: var(--on-panel-dark); border-color: transparent; }
+  .panel--paper { background: var(--paper); }
+  .panel--ink { background: var(--panel-dark); color: var(--on-panel-dark); }
   .panel--safe { background: var(--safe); color: var(--on-fill); }
   .panel--yellow { background: var(--yellow); color: var(--on-fill); }
   .panel--coral { background: var(--coral); color: var(--on-fill); }
   .panel--indigo { background: var(--indigo-soft); color: var(--ink); }
-  .panel--soft { background: color-mix(in srgb, var(--indigo-soft) 70%, transparent); color: var(--ink); }
+  .panel--soft { background: var(--surface-2); color: var(--ink); }
 
-  h2 { font-size: 1.4em; margin: 0 0 var(--space-4); }
+  h2 { font-size: var(--text-lg); font-weight: 500; margin: 0 0 var(--space-4); }
   .body { min-width: 0; }
   .footer {
     margin-top: var(--space-5);
     padding-top: var(--space-4);
-    border-top: 1px solid var(--glass-edge);
+    border-top: 1px solid var(--border);
   }
   .panel--ink :global(a) { color: var(--on-panel-dark); }
 </style>

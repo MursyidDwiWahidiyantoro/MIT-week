@@ -1,323 +1,315 @@
 <script lang="ts">
-  import { t, locale, type MessageKey } from '$lib/i18n/index.svelte';
+  import { t, type MessageKey } from '$lib/i18n/index.svelte';
   import { resolve } from '$app/paths';
   import { page } from '$app/state';
+  import { onNavigate } from '$app/navigation';
+  import { fade } from 'svelte/transition';
   import '../lib/styles/tokens.css';
   import '../app.css';
   import '../lib/styles/fonts.css';
-  import ThemeSwitch from '$lib/components/ui/ThemeSwitch.svelte';
-  import LangSwitch from '$lib/components/a11y/LangSwitch.svelte';
   import '../lib/styles/refinement.css';
+  import ThemeSwitch from '$lib/components/ui/ThemeSwitch.svelte';
   import PreviewBadge from '$lib/components/ui/PreviewBadge.svelte';
   import Icon from '$lib/components/ui/Icon.svelte';
+  import { reducedMotion } from '$lib/motion';
 
   let { children } = $props();
-  // On phones the display controls live behind one toggle, so the
-  // header stays two rows and never overlaps the navigation.
-  let toolsOpen = $state(false);
 
-  const LINKS: Array<{ href: string; label: MessageKey; match: string[] }> = [
-    { href: '/deteksi', label: 'nav.check', match: ['/deteksi', '/hasil'] },
-    { href: '/edukasi', label: 'nav.learn', match: ['/edukasi'] },
-    { href: '/tentang', label: 'nav.about', match: ['/tentang'] }
+  // Desktop: a side rail that can shrink to icons. Phones and tablets: the
+  // same rail slides in as a drawer from the top bar's menu button.
+  let collapsed = $state(false);
+  let drawerOpen = $state(false);
+  let closeButton: HTMLButtonElement | undefined = $state();
+
+  const LINKS: Array<{ href: '/edukasi' | '/tentang'; label: MessageKey; icon: 'book' | 'info' }> = [
+    { href: '/edukasi', label: 'nav.learn', icon: 'book' },
+    { href: '/tentang', label: 'nav.about', icon: 'info' }
   ];
+  const path = $derived(page.url.pathname);
+  const onCheck = $derived(path === '/' || path === '/deteksi' || path === '/hasil');
+  const wide = $derived(path.startsWith('/edukasi'));
+
+  // Page changes run through the View Transitions API where it exists: the
+  // page cross-fades and the prompt bar (view-transition-name: prompt)
+  // glides between pages. Reduced motion skips it.
+  onNavigate((navigation) => {
+    if (!document.startViewTransition || reducedMotion()) return;
+    return new Promise((done) => {
+      document.startViewTransition(async () => {
+        done();
+        await navigation.complete;
+      });
+    });
+  });
 
   // Move focus to the main heading on NAVIGATION only. Focusing on the initial
-  // mount would paint a focus ring on a heading the user never touched, which
-  // reads as a glitch.
+  // mount would paint a focus ring on a heading the user never touched.
   let previousPath: string | null = null;
   $effect(() => {
-    const path = page.url.pathname;
+    const now = page.url.pathname;
     if (previousPath === null) {
-      previousPath = path; // first render: record, do not focus
+      previousPath = now;
       return;
     }
-    if (path === previousPath) return;
-    previousPath = path;
-
-    const main = document.getElementById('main');
-    const heading = main?.querySelector('h1');
+    if (now === previousPath) return;
+    previousPath = now;
+    drawerOpen = false;
+    const heading = document.getElementById('main')?.querySelector('h1');
     if (heading) {
       heading.setAttribute('tabindex', '-1');
       heading.focus({ preventScroll: true });
     }
   });
+
+  $effect(() => {
+    if (drawerOpen) closeButton?.focus();
+  });
 </script>
+
+<svelte:window onkeydown={(e) => { if (e.key === 'Escape' && drawerOpen) drawerOpen = false; }} />
 
 <a class="skip-link" href="#main">{t('layout.skip')}</a>
 
 <PreviewBadge />
 
-<header class="site-header">
-  <div class="wrap header-inner">
-    <div class="lead">
+<div class="app" class:collapsed>
+  <aside class="rail" class:open={drawerOpen} id="app-rail" aria-label={t('layout.nav')}>
+    <div class="rail-head">
+      <button
+        class="icon-btn rail-toggle"
+        type="button"
+        aria-label={collapsed ? t('shell.expand') : t('shell.collapse')}
+        aria-expanded={!collapsed}
+        onclick={() => (collapsed = !collapsed)}
+      >
+        <Icon name="menu" size={22} />
+      </button>
+      <button
+        class="icon-btn drawer-close"
+        type="button"
+        bind:this={closeButton}
+        aria-label={t('shell.menuClose')}
+        onclick={() => (drawerOpen = false)}
+      >
+        <Icon name="menu" size={22} />
+      </button>
       <a class="brand" href={resolve('/')} aria-label={t('layout.home')}>
-        <span class="logo" aria-hidden="true"><Icon name="shield-check" size={22} /></span>
+        <span class="logo" aria-hidden="true"><Icon name="shield-check" size={18} /></span>
+        <span class="wordmark lbl">AMBA</span>
+      </a>
+    </div>
+
+    <a class="new-check" href={resolve('/')} aria-current={onCheck ? 'page' : undefined} title={t('shell.newCheck')}>
+      <Icon name="plus" size={20} />
+      <span class="lbl">{t('shell.newCheck')}</span>
+    </a>
+
+    <nav aria-label={t('layout.nav')}>
+      <ul>
+        {#each LINKS as link (link.href)}
+          <li>
+            <a
+              class="nav-link"
+              href={resolve(link.href)}
+              aria-current={path.startsWith(link.href) ? 'page' : undefined}
+              title={t(link.label)}
+            >
+              <Icon name={link.icon} size={20} />
+              <span class="lbl">{t(link.label)}</span>
+            </a>
+          </li>
+        {/each}
+      </ul>
+    </nav>
+
+    <div class="rail-foot">
+      <ThemeSwitch withLabel />
+    </div>
+  </aside>
+
+  {#if drawerOpen}
+    <button
+      class="scrim"
+      type="button"
+      tabindex="-1"
+      aria-label={t('shell.menuClose')}
+      onclick={() => (drawerOpen = false)}
+      transition:fade={{ duration: reducedMotion() ? 0 : 200 }}
+    ></button>
+  {/if}
+
+  <div class="main-col" inert={drawerOpen}>
+    <header class="topbar">
+      <button
+        class="icon-btn"
+        type="button"
+        aria-label={t('shell.menuOpen')}
+        aria-expanded={drawerOpen}
+        aria-controls="app-rail"
+        onclick={() => (drawerOpen = true)}
+      >
+        <Icon name="menu" size={22} />
+      </button>
+      <a class="brand" href={resolve('/')} aria-label={t('layout.home')}>
+        <span class="logo" aria-hidden="true"><Icon name="shield-check" size={18} /></span>
         <span class="wordmark">AMBA</span>
       </a>
-
-      <nav aria-label={t('layout.nav')}>
-        <ul>
-          {#each LINKS as link (link.href)}
-            <li>
-              <a
-                class="nav-link"
-                href={resolve(link.href as '/' | '/deteksi' | '/edukasi' | '/tentang')}
-                aria-current={link.match.includes(page.url.pathname) ? 'page' : undefined}
-              >
-                {t(link.label)}
-              </a>
-            </li>
-          {/each}
-        </ul>
-      </nav>
-    </div>
-
-    <button
-      class="tools-toggle"
-      type="button"
-      aria-expanded={toolsOpen}
-      aria-controls="site-tools"
-      aria-label={toolsOpen ? t('layout.displayClose') : t('layout.displayOpen')}
-      onclick={() => (toolsOpen = !toolsOpen)}
-    >
-      <Icon name="type" size={20} />
-      <span>{t('layout.display')}</span>
-    </button>
-
-    <div class="tools" id="site-tools" class:open={toolsOpen}>
-      <LangSwitch />
+      <span class="spacer"></span>
       <ThemeSwitch />
-    </div>
-  </div>
-</header>
+    </header>
 
-<main id="main" tabindex="-1" class:is-home={page.url.pathname === '/'}>
-  {#if page.url.pathname === '/'}
-    {@render children()}
-  {:else}
-    <div class="wrap page-wrap">
-      {@render children()}
-    </div>
-  {/if}
-</main>
+    <main id="main" tabindex="-1" class:is-home={path === '/'}>
+      {#if path === '/'}
+        {@render children()}
+      {:else}
+        <div class="wrap page-wrap" class:wrap--wide={wide}>
+          {@render children()}
+        </div>
+      {/if}
+    </main>
 
-<footer class="site-footer">
-  <div class="wrap footer-inner">
-    <p class="footer-brand">AMBA</p>
-    <p class="footer-note">
-      {t('layout.footerNote1')} <strong>{t('layout.footerIndicative')}</strong>,
-      {t('layout.footerNote2')}
-    </p>
-    <ul class="footer-links">
-      <li><a href={resolve('/deteksi')}>{t('nav.check')}</a></li>
-      <li><a href={resolve('/edukasi')}>{t('nav.learn')}</a></li>
-      <li><a href={resolve('/tentang')}>{t('nav.about')}</a></li>
-    </ul>
+    <!-- PRD §10: the legal disclaimer stays verbatim on every page. -->
+    <footer class="foot">
+      <div class="wrap" class:wrap--wide={wide}>
+        <p class="foot-line">{t('shell.footer')}</p>
+        <p class="foot-legal">{t('disclaimer.full')}</p>
+      </div>
+    </footer>
   </div>
-  <!-- PRD §10: the legal disclaimer is kept verbatim, in Indonesian, in every language. -->
-  <div class="wrap footer-legal">
-    {#if locale.value === 'en'}<p class="footer-legal-note">{t('about.disclaimerNoteEn')}</p>{/if}
-    <p class="footer-legal-text" lang="id">{t('disclaimer.full')}</p>
-  </div>
-</footer>
+</div>
 
 <style>
-  /* The one glass surface every page shares: content scrolls under it. */
-  .site-header {
-    position: sticky;
-    top: 0;
-    z-index: 40;
-    background: var(--glass-bg);
-    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.35);
-    backdrop-filter: blur(var(--glass-blur)) saturate(1.35);
-    border-bottom: 1px solid var(--glass-edge);
-    box-shadow: var(--glass-highlight);
-  }
-  .header-inner {
+  .app { min-height: 100dvh; }
+
+  /* ---------- the rail ---------- */
+  .rail {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 60;
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-3) var(--space-5);
-    padding-block: 10px;
+    flex-direction: column;
+    gap: var(--space-2);
+    width: min(86vw, 300px);
+    padding: 12px;
+    background: var(--rail-bg);
+    overflow-y: auto;
+    transform: translateX(-105%);
+    transition: transform var(--dur-slow) var(--ease-out), width var(--dur-base) var(--ease-out);
+    visibility: hidden;
   }
-  .lead {
-    display: flex;
-    align-items: center;
-    gap: var(--space-5);
-    min-width: 0;
-  }
+  .rail.open { transform: none; visibility: visible; box-shadow: var(--shadow-3); }
+  .rail-head { display: flex; align-items: center; gap: 4px; min-height: 48px; }
+  .rail-toggle { display: none; }
   .brand {
     display: inline-flex;
     align-items: center;
     gap: 10px;
     min-height: 44px;
-    text-decoration: none;
+    padding: 0 8px;
     color: var(--ink);
-    flex: none;
+    text-decoration: none;
   }
   .brand:hover { color: var(--ink); }
   .logo {
     display: grid;
     place-items: center;
-    width: 38px;
-    height: 38px;
-    background: var(--brand);
-    color: var(--on-brand);
-    border-radius: 11px;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), var(--shadow-1);
-  }
-  .wordmark {
-    font-family: var(--font-display);
-    font-weight: 650;
-    font-size: 1.4rem;
-    letter-spacing: -0.03em;
-  }
-  nav ul {
-    display: flex;
-    align-items: center;
-    gap: 2px;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-  }
-  .tools {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
+    width: 30px;
+    height: 30px;
     flex: none;
+    border-radius: 10px;
+    background: var(--grad);
+    color: #ffffff;
   }
-  .tools-toggle {
-    display: none;
+  .wordmark { font-size: 1.2rem; font-weight: 500; letter-spacing: 0.02em; }
+
+  .new-check {
+    display: flex;
     align-items: center;
-    gap: var(--space-2);
-    min-height: 44px;
-    padding: 0 14px;
-    background: var(--glass-bg-strong);
+    gap: var(--space-3);
+    min-height: 48px;
+    margin: var(--space-2) 0 var(--space-1);
+    padding: 0 var(--space-4);
+    border-radius: var(--radius-pill);
+    background: var(--card);
     color: var(--ink);
-    border: 1px solid var(--glass-edge);
-    border-radius: var(--radius-sm);
-    font: inherit;
     font-size: var(--text-sm);
-    font-weight: 700;
+    font-weight: 500;
+    text-decoration: none;
+    transition: background-color var(--dur-fast) var(--ease-out);
+  }
+  .new-check:hover { background: var(--surface-2); color: var(--ink); }
+  .new-check[aria-current='page'] { background: var(--indigo-soft); }
+
+  nav ul { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+  .rail-foot { margin-top: auto; padding-top: var(--space-3); }
+
+  .scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 55;
+    border: 0;
+    background: rgba(0, 0, 0, 0.5);
     cursor: pointer;
   }
-  .tools-toggle[aria-expanded='true'] { background: var(--white); box-shadow: var(--shadow-1); }
 
-  main {
-    padding-block: 0;
-    min-height: calc(100dvh - 160px);
-  }
-  main:focus { outline: none; }
-  .page-wrap {
-    padding-block: clamp(1.75rem, 4vw, 3rem) clamp(3rem, 6vw, 4.5rem);
-  }
-
-  .site-footer {
-    border-top: 1px solid var(--glass-edge);
-    background: color-mix(in srgb, var(--paper) 55%, transparent);
-    padding-block: clamp(2rem, 5vw, 3rem);
-  }
-  .footer-inner {
+  /* ---------- the main column ---------- */
+  .main-col { display: flex; flex-direction: column; min-height: 100dvh; min-width: 0; }
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 40;
     display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: var(--space-3) var(--space-6);
-  }
-  .footer-brand {
-    margin: 0;
-    font-family: var(--font-display);
-    font-weight: 650;
-    font-size: 1.2rem;
-    letter-spacing: -0.03em;
-  }
-  .footer-note {
-    margin: 0;
-    flex: 1 1 24rem;
-    color: var(--body-2);
-    font-size: var(--text-sm);
-    max-width: 52ch;
-  }
-  .footer-links {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-1) var(--space-4);
-    margin: 0;
-    padding: 0;
-    list-style: none;
-  }
-  .footer-links a {
-    display: inline-flex;
     align-items: center;
-    min-height: 44px;
-    font-weight: 700;
-    font-size: var(--text-sm);
-    text-decoration: none;
-    color: var(--body-2);
+    gap: 4px;
+    min-height: 60px;
+    padding: 6px 8px;
+    background: color-mix(in srgb, var(--paper) 88%, transparent);
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
   }
-  .footer-links a:hover { color: var(--ink); text-decoration: underline; }
-  .footer-legal {
-    margin-top: var(--space-5);
-    padding-top: var(--space-4);
-    border-top: 1px solid var(--glass-edge);
-  }
-  .footer-legal-note,
-  .footer-legal-text {
-    margin: 0;
-    max-width: 96ch;
-    color: var(--muted);
-    font-size: var(--text-xs);
-    line-height: 1.6;
-  }
-  .footer-legal-note { margin-bottom: var(--space-1); font-weight: 700; }
+  .spacer { flex: 1; }
 
-  /* Phones: row 1 brand + display toggle, row 2 the three destinations,
-   * row 3 (opened on demand) the language and theme controls. */
-  @media (max-width: 48rem) {
-    .header-inner {
+  main { flex: 1; min-width: 0; }
+  main:focus { outline: none; }
+  .page-wrap { padding-block: clamp(1rem, 3vw, 2rem) clamp(2.5rem, 6vw, 4rem); }
+
+  .foot { padding: var(--space-6) 0 calc(var(--space-6) + env(safe-area-inset-bottom)); }
+  .foot-line { margin: 0 0 var(--space-2); color: var(--body-2); font-size: var(--text-sm); }
+  .foot-legal { margin: 0; color: var(--muted); font-size: var(--text-xs); line-height: 1.6; }
+
+  /* ---------- desktop: the rail sits beside the page ---------- */
+  @media (min-width: 64rem) {
+    .app {
       display: grid;
-      grid-template-columns: 1fr auto;
-      align-items: center;
-      gap: 8px 12px;
-      padding-block: 8px;
+      grid-template-columns: var(--rail-w) minmax(0, 1fr);
+      transition: grid-template-columns var(--dur-base) var(--ease-out);
     }
-    .lead { display: contents; }
-    .brand { grid-column: 1; grid-row: 1; }
-    .logo { width: 36px; height: 36px; border-radius: 10px; }
-    .wordmark { font-size: 1.3rem; }
-    .tools-toggle {
-      display: inline-flex;
-      grid-column: 2;
-      grid-row: 1;
+    .app.collapsed { grid-template-columns: var(--rail-w-collapsed) minmax(0, 1fr); }
+    .rail {
+      position: sticky;
+      top: 0;
+      width: auto;
+      height: 100dvh;
+      transform: none;
+      visibility: visible;
+      box-shadow: none;
     }
-    .tools {
-      display: none;
-      grid-column: 1 / -1;
-      grid-row: 3;
-      flex-wrap: wrap;
-      gap: 8px;
-      justify-content: flex-start;
-      padding-bottom: 4px;
-    }
-    .tools.open { display: flex; }
-    nav {
-      grid-column: 1 / -1;
-      grid-row: 2;
-      width: 100%;
-    }
-    nav ul {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 4px;
-      width: 100%;
-    }
-    nav :global(.nav-link) {
-      width: 100%;
+    .rail-toggle { display: inline-grid; }
+    .drawer-close { display: none; }
+    .collapsed .rail .lbl { display: none; }
+    .collapsed .rail .brand { display: none; }
+    .collapsed .rail .new-check,
+    .collapsed .rail :global(.nav-link) {
       justify-content: center;
-      padding: 0 4px;
-      text-align: center;
-      white-space: nowrap;
+      width: 48px;
+      padding: 0;
     }
+    .topbar { display: none; }
+    .scrim { display: none; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .rail,
+    .app { transition: none; }
   }
 </style>

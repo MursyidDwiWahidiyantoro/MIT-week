@@ -77,7 +77,10 @@ const textPairs = [
    * --on-fill; --ink flips between themes, so text on it is --on-ink. */
   ['on-fill', 'safe'], ['on-fill', 'yellow'], ['on-fill', 'coral'],
   ['on-ink', 'ink'],
-  ['on-brand', 'brand'], ['on-brand', 'indigo'],
+  /* --brand is the light-blue pill (text --on-brand); --indigo is the blue
+   * fill of a finished step (text --on-indigo-text). */
+  ['on-brand', 'brand'], ['on-indigo-text', 'indigo'],
+  ['ink', 'card'], ['body-2', 'card'], ['muted', 'card'], ['indigo-text', 'card'],
   ['ink', 'paper'], ['ink', 'white'],
   ['ink', 'indigo-soft'], ['ink', 'indigo-tint'], ['on-fill', 'safe'],
   ['ink', 'coral-tint'], ['ink', 'yellow-tint'],

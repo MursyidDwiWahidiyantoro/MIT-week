@@ -1,10 +1,7 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/svelte';
 import Quiz from './Quiz.svelte';
-import { locale } from '$lib/i18n/index.svelte';
 import { QUESTIONS } from '$lib/data/belajar';
-
-beforeEach(() => locale.set('id'));
 
 async function answerCurrent(optionId: string, last = false): Promise<void> {
   const radios = screen.getAllByRole('radio') as HTMLInputElement[];
@@ -20,7 +17,6 @@ describe('Quiz', () => {
     for (const q of QUESTIONS) {
       expect(q.options.some((o) => o.id === q.answer)).toBe(true);
       expect(q.explain.id.length).toBeGreaterThan(10);
-      expect(q.explain.en.length).toBeGreaterThan(10);
     }
   });
 

@@ -2,9 +2,27 @@
   import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
   import { t, type MessageKey } from '$lib/i18n/index.svelte';
-  import { readLink, type LinkProblem } from '$lib/link-input';
+  import type { LinkProblem } from '$lib/link-input';
+  import { inview } from '$lib/motion';
+  import { handOver } from '$lib/handoff';
+  import { EXAMPLES, openExample } from '$lib/demos';
   import Icon from '$lib/components/ui/Icon.svelte';
-  import UrlField from '$lib/components/ui/UrlField.svelte';
+  import PromptBar from '$lib/components/ui/PromptBar.svelte';
+
+  let url = $state('');
+  let problem = $state<LinkProblem | null>(null);
+
+  // The check runs on /deteksi: a link travels as ?q=, an image is handed
+  // over in memory and the page starts the check as soon as it opens.
+  function onlink(link: string): void {
+    // eslint-disable-next-line svelte/no-navigation-without-resolve -- resolve() is applied to the route; the query string is appended
+    void goto(`${resolve('/deteksi')}?q=${encodeURIComponent(link)}`);
+  }
+  function onfile(file: File): void {
+    handOver(file);
+    // eslint-disable-next-line svelte/no-navigation-without-resolve -- resolve() is applied to the route; the query string is appended
+    void goto(`${resolve('/deteksi')}?tab=file&from=prompt`);
+  }
 
   // What one check covers, in the order a forwarded video is examined.
   const CHECKS: Array<{ icon: 'video' | 'search' | 'link' | 'image'; title: MessageKey; body: MessageKey }> = [
@@ -13,20 +31,6 @@
     { icon: 'link', title: 'home.checks.link.t', body: 'home.checks.link.b' },
     { icon: 'image', title: 'home.checks.image.t', body: 'home.checks.image.b' }
   ];
-
-  let url = $state('');
-  let problem = $state<LinkProblem | null>(null);
-
-  // The check starts on /deteksi, which reads ?q= and runs it at once. The
-  // link is cleaned here first, so a pasted share text never reaches the URL.
-  function submit(event: SubmitEvent): void {
-    event.preventDefault();
-    const reading = readLink(url);
-    problem = reading.problem;
-    if (!reading.url) return;
-    // eslint-disable-next-line svelte/no-navigation-without-resolve -- resolve() is applied to the route; the query string is appended
-    void goto(`${resolve('/deteksi')}?q=${encodeURIComponent(reading.url)}`);
-  }
 </script>
 
 <svelte:head>
@@ -34,237 +38,158 @@
   <meta name="description" content={t('home.description')} />
 </svelte:head>
 
-<section class="hero" id="top">
-  <div class="wrap hero-grid">
-    <div class="hero-copy">
-      <h1 class="hero-title">{t('home.h1')}</h1>
-      <p class="hero-lede">{t('home.lede')}</p>
+<section class="home" use:inview>
+  <div class="glow" aria-hidden="true"></div>
+  <div class="center">
+    <h1 class="greet">
+      <span class="g1 gradient-text rise" style:--i="0">{t('home.greet1')}</span>
+      <span class="g2 rise" style:--i="1">{t('home.greet2')}</span>
+    </h1>
 
-      <form class="checker glass" onsubmit={submit} novalidate aria-label={t('det.form')}>
-        <UrlField id="hero-url" bind:value={url} bind:problem />
-        <div class="checker-actions">
-          <button class="btn btn--primary" type="submit">{t('det.start')}</button>
-          <p class="checker-hint">
-            {t('home.hint')}
-            <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- resolve() plus a query string -->
-            <a href={`${resolve('/deteksi')}?tab=file`}>{t('home.hintLink')}</a>
-          </p>
-        </div>
-      </form>
+    <div class="dock rise" style:--i="2">
+      <PromptBar id="hero-url" bind:value={url} bind:problem {onlink} {onfile} />
     </div>
 
-    <!-- The mechanism shown, not claimed: a forwarded fake seen through the
-         verdict lens. The image is a labelled simulation from the demo set. -->
-    <figure class="sample" aria-labelledby="sample-caption">
-      <img
-        src="/edukasi/quiz-diedit.jpg"
-        alt={t('home.sample.alt')}
-        width="360"
-        height="480"
-        fetchpriority="high"
-        decoding="async"
-      />
-      <div class="lens glass">
-        <p class="lens-verdict">
-          <Icon name="alert" size={18} />
-          <span>{t('home.sample.verdict')}</span>
-        </p>
-        <p class="lens-score tabular">{t('home.sample.score')}</p>
-        <p class="lens-reason">{t('home.sample.reason')}</p>
-      </div>
-      <figcaption id="sample-caption">{t('home.sample.label')}</figcaption>
-    </figure>
-  </div>
-</section>
-
-<section class="checks" aria-labelledby="checks-title">
-  <div class="wrap checks-grid">
-    <h2 class="checks-title" id="checks-title">{t('home.checks.title')}</h2>
-    <dl class="check-list">
-      {#each CHECKS as check (check.title)}
-        <div class="check">
-          <dt><Icon name={check.icon} size={22} /><span>{t(check.title)}</span></dt>
-          <dd>{t(check.body)}</dd>
-        </div>
+    <div class="chips rise" style:--i="3" role="group" aria-label={t('home.chips')}>
+      {#each EXAMPLES as ex (ex.id)}
+        <button class="chip-btn" type="button" onclick={() => openExample(ex.id)}>
+          <Icon name={ex.icon} size={18} />
+          <span>{t(ex.label)}</span>
+        </button>
       {/each}
-    </dl>
+    </div>
+
+    <p class="disclaimer rise" style:--i="4">
+      {t('home.disclaimer')}
+      <a href={resolve('/tentang')}>{t('home.disclaimerLink')}</a>
+    </p>
   </div>
 </section>
 
-<section class="learn">
-  <div class="wrap learn-row">
-    <p class="learn-text">{t('home.learn.text')}</p>
-    <a class="btn" href={resolve('/edukasi')}>
-      <Icon name="book" size={18} />
-      {t('home.learn.cta')}
-    </a>
+<section class="checks" aria-labelledby="checks-title" use:inview>
+  <div class="wrap wrap--wide">
+    <h2 id="checks-title" class="checks-title rise">{t('home.checks.title')}</h2>
+    <ul class="check-grid">
+      {#each CHECKS as check, i (check.title)}
+        <li class="check rise" style:--i={i + 1}>
+          <span class="ic" aria-hidden="true"><Icon name={check.icon} size={24} /></span>
+          <h3>{t(check.title)}</h3>
+          <p>{t(check.body)}</p>
+        </li>
+      {/each}
+    </ul>
+    <p class="learn rise" style:--i="5">
+      {t('home.learn.text')}
+      <a href={resolve('/edukasi')}>{t('home.learn.cta')}</a>
+    </p>
   </div>
 </section>
 
 <style>
-  .hero {
-    padding-block: clamp(2.25rem, 6vw, 5rem) clamp(2.5rem, 6vw, 4.5rem);
+  /* ---------- the greeting screen ---------- */
+  .home {
+    position: relative;
+    isolation: isolate;
+    display: flex;
+    min-height: calc(100dvh - 60px);
+    overflow: hidden;
   }
-  .hero-grid {
+  /* The soft blue light Gemini puts behind its greeting, breathing slowly. */
+  .glow {
+    position: absolute;
+    inset: -10% -10% 0;
+    z-index: -1;
+    background:
+      radial-gradient(48% 42% at 50% 62%, var(--glow-a), transparent 72%),
+      radial-gradient(34% 26% at 50% 82%, var(--glow-b), transparent 72%);
+    animation: breathe 9s var(--ease-in-out) infinite alternate;
+    pointer-events: none;
+  }
+  @keyframes breathe {
+    from { opacity: 0.75; transform: scale(1); }
+    to { opacity: 1; transform: scale(1.06); }
+  }
+  .center {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: var(--space-5);
+    width: min(100%, 50rem);
+    margin-inline: auto;
+    padding: var(--space-6) var(--gutter) var(--space-5);
+  }
+  .greet {
     display: grid;
-    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
-    gap: clamp(2rem, 5vw, 4.5rem);
-    align-items: center;
-  }
-  .hero-title {
-    margin: 0 0 var(--space-4);
-    font-size: var(--text-display);
-    line-height: var(--leading-display);
-    letter-spacing: -0.035em;
-    max-width: 15ch;
-  }
-  .hero-lede {
+    gap: 6px;
     margin: 0;
-    max-width: 44ch;
-    font-size: var(--text-lg);
-    color: var(--body-2);
+    text-align: center;
+    font-size: clamp(1.75rem, 1.2rem + 2.2vw, 2.6rem);
+    font-weight: 400;
+    line-height: 1.22;
+    letter-spacing: -0.01em;
   }
-
-  .checker {
-    display: grid;
-    gap: var(--space-4);
-    margin-top: var(--space-6);
-    padding: clamp(1.1rem, 3vw, 1.6rem);
-    max-width: 40rem;
-  }
-  .checker-actions {
+  .g1 { font-weight: 500; }
+  .g2 { color: var(--muted); font-weight: 350; font-size: 0.72em; }
+  .chips {
     display: flex;
     flex-wrap: wrap;
-    align-items: center;
-    gap: var(--space-3) var(--space-5);
-  }
-  .checker-hint {
-    margin: 0;
-    flex: 1 1 16rem;
-    color: var(--body-2);
-    font-size: var(--text-sm);
-  }
-  .checker-hint a { color: var(--indigo-text); font-weight: 700; }
-
-  /* The example: a phone-sized screenshot, the lens overlapping its foot. */
-  .sample {
-    position: relative;
-    justify-self: center;
-    width: min(100%, 22.5rem);
-    margin: 0 0 var(--space-6);
-  }
-  .sample img {
-    display: block;
-    width: 100%;
-    height: auto;
-    border-radius: var(--radius-lg);
-    box-shadow: 0 0 0 1px var(--glass-edge), var(--shadow-2);
-  }
-  .lens {
-    position: absolute;
-    left: -9%;
-    right: -9%;
-    bottom: -1.5rem;
-    padding: var(--space-4) var(--space-5);
-    border-radius: var(--radius-md);
-  }
-  .lens p { margin: 0; }
-  .lens-verdict {
-    display: flex;
-    align-items: center;
+    justify-content: center;
     gap: var(--space-2);
-    color: var(--err);
-    font-weight: 700;
   }
-  .lens-score {
-    margin-top: 2px !important;
-    font-size: var(--text-sm);
-    color: var(--body-2);
-  }
-  .lens-reason {
-    margin-top: var(--space-2) !important;
-    font-size: var(--text-sm);
-    color: var(--ink);
-  }
-  figcaption {
-    position: absolute;
-    top: var(--space-3);
-    right: var(--space-3);
-    padding: 2px 10px;
-    border-radius: var(--radius-pill);
-    background: var(--glass-bg-strong);
-    color: var(--ink);
+  .chips :global(svg) { color: var(--indigo-text); }
+  .disclaimer {
+    margin: 0;
+    text-align: center;
+    color: var(--muted);
     font-size: var(--text-xs);
-    font-weight: 700;
-    box-shadow: 0 0 0 1px var(--glass-edge);
   }
 
-  /* What is checked: a definition list on hairlines, not a row of cards. */
-  .checks {
-    padding-block: clamp(2.5rem, 6vw, 5rem);
-    border-top: 1px solid var(--glass-edge);
-  }
-  .checks-grid {
+  /* ---------- what one check covers ---------- */
+  .checks { padding-block: var(--section-pad); }
+  .checks-title { font-size: var(--text-2xl); margin-bottom: var(--space-5); }
+  .check-grid {
     display: grid;
-    grid-template-columns: minmax(0, 4fr) minmax(0, 8fr);
-    gap: var(--space-6) clamp(2rem, 5vw, 4.5rem);
-  }
-  .checks-title {
-    font-size: var(--text-2xl);
-    max-width: 14ch;
-  }
-  .check-list {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0 clamp(1.5rem, 3vw, 3rem);
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+    gap: var(--space-3);
     margin: 0;
+    padding: 0;
+    list-style: none;
   }
   .check {
-    padding-block: var(--space-4) var(--space-5);
-    border-top: 1px solid var(--border);
-  }
-  .check dt {
-    display: flex;
-    align-items: center;
+    display: grid;
+    align-content: start;
     gap: var(--space-2);
-    font-weight: 700;
-    color: var(--ink);
+    padding: var(--space-5);
+    background: var(--card);
+    border-radius: var(--radius-lg);
   }
-  .check dt :global(svg) { color: var(--indigo-text); flex: none; }
-  .check dd {
-    margin: var(--space-2) 0 0;
-    color: var(--body-2);
-    font-size: var(--text-sm);
-    line-height: 1.6;
+  .ic { color: var(--indigo-text); }
+  .check h3 { font-size: var(--text-lg); font-weight: 500; }
+  .check p { margin: 0; color: var(--body-2); font-size: var(--text-sm); line-height: 1.6; }
+  .learn { margin: var(--space-5) 0 0; color: var(--body-2); }
+  .learn a { font-weight: 500; }
+
+  /* ---------- phones: the prompt sits at the bottom, as in a chat app ---------- */
+  @media (max-width: 47.99rem) {
+    .center { justify-content: flex-start; padding-top: clamp(2rem, 14vh, 7rem); }
+    .greet { order: 1; }
+    .chips { order: 2; }
+    .dock {
+      order: 3;
+      position: sticky;
+      bottom: 0;
+      margin-top: auto;
+      padding-bottom: calc(var(--space-2) + env(safe-area-inset-bottom));
+    }
+    .disclaimer { order: 4; }
+    .glow {
+      background:
+        radial-gradient(70% 34% at 50% 92%, var(--glow-a), transparent 72%),
+        radial-gradient(60% 24% at 50% 100%, var(--glow-b), transparent 72%);
+    }
   }
 
-  .learn { padding-block: 0 clamp(3rem, 7vw, 5.5rem); }
-  .learn-row {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-4) var(--space-6);
-    padding-top: var(--space-5);
-    border-top: 1px solid var(--glass-edge);
-  }
-  .learn-text {
-    margin: 0;
-    font-family: var(--font-display);
-    font-size: var(--text-xl);
-    font-weight: 600;
-    letter-spacing: -0.015em;
-    max-width: 36ch;
-  }
-
-  @media (max-width: 60rem) {
-    .hero-grid { grid-template-columns: minmax(0, 1fr); }
-    .sample { margin-top: var(--space-4); width: min(86%, 21rem); }
-    .checks-grid { grid-template-columns: minmax(0, 1fr); }
-  }
-  @media (max-width: 40rem) {
-    .check-list { grid-template-columns: minmax(0, 1fr); }
-    .checker-actions .btn { width: 100%; }
-    .lens { left: -6%; right: -6%; }
+  @media (prefers-reduced-motion: reduce) {
+    .glow { animation: none; }
   }
 </style>

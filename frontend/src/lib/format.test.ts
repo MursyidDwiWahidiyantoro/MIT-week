@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { formatClock, formatDate, formatScore, platformName, statusLabel } from './format';
-import { locale } from './i18n/index.svelte';
 
 describe('statusLabel', () => {
   it('never returns a certainty claim', () => {
@@ -51,12 +50,8 @@ describe('formatClock', () => {
 });
 
 describe('formatDate', () => {
-  it('writes an upload date in the interface language', () => {
-    locale.set('id');
+  it('writes an upload date in Indonesian', () => {
     expect(formatDate('2026-11-07')).toBe('7 November 2026');
-    locale.set('en');
-    expect(formatDate('2026-11-07')).toBe('November 7, 2026');
-    locale.set('id');
   });
 
   it('shows nothing for an unknown or impossible date', () => {

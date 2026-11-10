@@ -1,56 +1,63 @@
 /*
- * AMBA design tokens: frosted glass over warm neutrals, one terracotta accent.
- * The palette follows Sir's brief (10 Nov 2026): glassmorphism with a simple
- * Claude-like palette, light and dark both glass, the device choosing the
- * default. :root is the light theme; html[data-theme='dark'] overrides it.
+ * AMBA design tokens in the style of the Gemini web app (Sir, 10 Nov 2026).
+ * Values measured on gemini.google.com the same day: page #0f0f0f, side
+ * rail #1f1f1f, prompt pill #1e1f20 (radius 32px), text #e3e3e3; light page
+ * #faf9f9. Dark is the default theme (app.html sets data-theme="dark" before
+ * the first paint) and light is the visitor's option. :root holds the light
+ * values and html[data-theme='dark'] the dark ones, the shape
+ * tools/check-contrast.mjs reads.
  *
- * Tokens that tools/check-contrast.mjs reads are opaque hex values: a glass
- * surface is listed by the colour it composites to over the page, so the
- * check measures what the eye sees. The translucent glass recipe lives in the
- * --glass-* tokens, which the check does not read.
- *
- * Legacy names (--indigo-*, --safe, --coral, ...) stay as roles so existing
- * components keep working; their values now come from this palette.
+ * Legacy names (--indigo-*, --safe, --coral, --glass-*, --panel-dark) stay as
+ * roles so existing components keep working.
  */
 :root {
   color-scheme: light;
 
   /* ---- neutrals ---- */
-  --paper: #f4f3ee;
-  --white: #fbfaf7;
-  --surface-2: #efede6;
-  --ink: #1f1e1c;
-  --body-2: #45443f;
-  --muted: #5d5c56;
-  --ink-soft: #6a6963;
-  --border: #dad7ce;
-  --border-strong: #8f8c82;
+  --paper: #faf9f9;
+  --white: #ffffff;
+  --card: #f0f4f9;
+  --surface-2: #e9eef6;
+  --rail-bg: #ffffff;
+  --ink: #1f1f1f;
+  --body-2: #444746;
+  --muted: #5e5e5e;
+  --ink-soft: #5f6368;
+  --border: #c4c7c5;
+  --border-strong: #747775;
 
-  /* ---- the accent: terracotta, deepened in light mode for AA text ---- */
-  --brand: #a9502e;
-  --brand-hover: #94452a;
-  --brand-deep: #7e3b24;
-  --on-brand: #ffffff;
-  --indigo: #a9502e;
-  --indigo-soft: #efe6df;
-  --indigo-tint: #f5ece6;
-  --indigo-text: #a1462a;
+  /* ---- the accent: a light-blue pill, blue text for links ---- */
+  --brand: #9dd2ff;
+  --brand-hover: #b5ddff;
+  --brand-deep: #7cc2ff;
+  --on-brand: #001d35;
+  --indigo: #0b57d0;
+  --indigo-soft: #d3e3fd;
+  --indigo-tint: #e8f0fe;
+  --indigo-text: #0b57d0;
   --on-indigo-text: #ffffff;
 
-  /* ---- verdict roles: text colour, and a pale fill for the same state ---- */
-  --ok: #2b6646;
-  --warn: #8a5300;
-  --err: #a3302a;
-  --safe: #dce9df;
-  --yellow: #f2e2be;
-  --coral: #f3d2c9;
-  --coral-tint: #f8e6e1;
-  --yellow-tint: #f8eeda;
-  --on-fill: #1f1e1c;
+  /* ---- the three-colour gradient of the greeting and the thinking ring ---- */
+  --grad-1: #4285f4;
+  --grad-2: #9b72cb;
+  --grad-3: #d96570;
+  --grad: linear-gradient(90deg, var(--grad-1), var(--grad-2) 50%, var(--grad-3));
+  --glow-a: rgba(157, 210, 255, 0.55);
+  --glow-b: rgba(211, 227, 253, 0.6);
 
-  /* A dark panel kept dark in both themes (rare: the logo tile, ink buttons). */
-  --panel-dark: #262624;
-  --on-panel-dark: #f4f3ee;
+  /* ---- verdict roles: text colour, and a pale fill for the same state ---- */
+  --ok: #146c2e;
+  --warn: #7a5900;
+  --err: #b3261e;
+  --safe: #c4eed0;
+  --yellow: #ffeeb3;
+  --coral: #f9dedc;
+  --coral-tint: #fcebea;
+  --yellow-tint: #fff8de;
+  --on-fill: #1f1f1f;
+
+  --panel-dark: #1f1f1f;
+  --on-panel-dark: #e3e3e3;
   --on-ink: var(--paper);
 
   /* ---- semantic aliases ---- */
@@ -59,50 +66,49 @@
   --text: var(--ink);
   --text-2: var(--body-2);
   --text-3: var(--muted);
-  --accent: var(--brand);
+  --accent: var(--indigo-text);
   --accent-2: var(--indigo-text);
-  --selected-bg: var(--indigo-tint);
-  --hover-overlay: #eceae3;
-  --active-overlay: #e4e1d8;
+  --selected-bg: var(--indigo-soft);
+  --hover-overlay: #eef1f5;
+  --active-overlay: #e2e7ee;
   --hero-glow: transparent;
   --field-bg: #ffffff;
-  --focus: #a9502e;
+  --focus: #0b57d0;
 
-  /* ---- glass: the material ---- */
-  --glass-bg: rgba(255, 255, 255, 0.62);
-  --glass-bg-strong: rgba(255, 255, 255, 0.8);
-  --glass-border: rgba(255, 255, 255, 0.85);
-  --glass-edge: rgba(31, 30, 28, 0.1);
-  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.9);
-  --glass-shadow: 0 1px 2px rgba(31, 30, 28, 0.06), 0 22px 44px -26px rgba(31, 30, 28, 0.32);
-  --glass-blur: 20px;
-  --frost-heavy: 30px;
-  /* The light the glass sits in: three soft fields, terracotta, slate, sand. */
-  --field-a: rgba(201, 100, 66, 0.24);
-  --field-b: rgba(96, 125, 139, 0.2);
-  --field-c: rgba(196, 160, 98, 0.16);
-  --grain-opacity: 0.035;
+  /* ---- legacy glass roles: plain surfaces in this style ---- */
+  --glass-bg: var(--card);
+  --glass-bg-strong: var(--white);
+  --glass-border: var(--border);
+  --glass-edge: var(--border);
+  --glass-highlight: 0 0 0 0 transparent;
+  --glass-shadow: 0 1px 2px rgba(31, 31, 31, 0.08);
+  --glass-blur: 0px;
+  --frost-heavy: 0px;
+  --field-a: transparent;
+  --field-b: transparent;
+  --field-c: transparent;
+  --grain-opacity: 0;
 
-  /* ---- type ---- */
-  --font-sans: 'Atkinson Hyperlegible', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-display: 'Bricolage Grotesque Variable', 'Helvetica Neue', Arial, sans-serif;
-  --font-mono: var(--font-display);
+  /* ---- type: Google Sans Flex ---- */
+  --font-sans: 'Google Sans Flex', 'Google Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-display: var(--font-sans);
+  --font-mono: ui-monospace, 'Cascadia Mono', Consolas, monospace;
 
   --text-xs: 0.8125rem;   /* 13px */
   --text-sm: 0.9375rem;   /* 15px */
-  --text-base: 1.125rem;  /* 18px */
-  --text-lg: 1.25rem;     /* 20px */
-  --text-xl: 1.5rem;      /* 24px */
-  --text-2xl: clamp(1.6rem, 1.25rem + 1.2vw, 2.6rem);
-  --text-3xl: clamp(1.9rem, 1.45rem + 1.5vw, 3.2rem);
+  --text-base: 1.0625rem; /* 17px: the prompt's size, roomy for older readers */
+  --text-lg: 1.1875rem;   /* 19px */
+  --text-xl: 1.375rem;    /* 22px */
+  --text-2xl: clamp(1.5rem, 1.25rem + 1vw, 2rem);
+  --text-3xl: clamp(1.75rem, 1.4rem + 1.4vw, 2.4rem);
   /* Every clamp keeps a rem term so browser zoom still scales the type. */
-  --text-display: clamp(2.4rem, 1.8rem + 2.7vw, 4.75rem);
-  --text-page: clamp(2rem, 1.6rem + 1.7vw, 3.35rem);
+  --text-display: clamp(1.75rem, 1.35rem + 1.6vw, 2.75rem);
+  --text-page: clamp(1.75rem, 1.4rem + 1.4vw, 2.4rem);
 
-  --leading-display: 1.04;
-  --leading-tight: 1.12;
-  --leading-normal: 1.55;
-  --measure: 36em;
+  --leading-display: 1.22;
+  --leading-tight: 1.25;
+  --leading-normal: 1.6;
+  --measure: 38em;
 
   /* ---- space ---- */
   --space-1: 0.25rem;
@@ -114,23 +120,28 @@
   --space-7: 3rem;
   --space-8: 4rem;
   --space-9: 6rem;
-  --gutter: clamp(20px, 3.4vw, 64px);
-  --maxw: 1280px;
-  --section-pad: clamp(3rem, 6vw, 6rem);
+  --gutter: clamp(16px, 3vw, 32px);
+  --maxw: 760px;
+  --maxw-wide: 1080px;
+  --rail-w: 272px;
+  --rail-w-collapsed: 72px;
+  --section-pad: clamp(2.5rem, 6vw, 4.5rem);
 
-  /* ---- edges ---- */
+  /* ---- edges: round, as Gemini draws them ---- */
   --border-width: 1px;
   --border-width-strong: 1px;
-  --radius-sm: 10px;
-  --radius-md: 14px;
-  --radius-lg: 22px;
+  --radius-sm: 12px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
   --radius-xl: 28px;
+  --radius-prompt: 32px;
   --radius-pill: 999px;
 
-  /* ---- depth: soft, lit from above; legacy names map onto three steps ---- */
-  --shadow-1: 0 1px 2px rgba(31, 30, 28, 0.06);
-  --shadow-2: 0 1px 2px rgba(31, 30, 28, 0.06), 0 10px 24px -14px rgba(31, 30, 28, 0.22);
-  --shadow-3: var(--glass-shadow);
+  /* ---- depth ---- */
+  --shadow-1: 0 1px 2px rgba(31, 31, 31, 0.08);
+  --shadow-2: 0 2px 8px -2px rgba(31, 31, 31, 0.16), 0 10px 28px -14px rgba(31, 31, 31, 0.22);
+  --shadow-3: 0 18px 48px -18px rgba(31, 31, 31, 0.3);
+  --shadow-prompt: 0 2px 8px -2px rgba(31, 31, 31, 0.16), 0 0 0 1px rgba(31, 31, 31, 0.06);
   --shadow-hard-xs: var(--shadow-1);
   --shadow-hard-sm: var(--shadow-1);
   --shadow-hard: var(--shadow-2);
@@ -139,18 +150,19 @@
   --shadow-indigo: var(--shadow-2);
   --shadow-lift: var(--shadow-2);
 
-  /* ---- motion: one easing family, four durations ---- */
-  --dur-fast: 140ms;
-  --dur-base: 220ms;
-  --dur-slow: 520ms;
-  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
-  --ease-in: cubic-bezier(0.64, 0, 0.78, 0);
-  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
-  --stagger: 60ms;
+  /* ---- motion: Material's emphasised curves ---- */
+  --dur-fast: 150ms;
+  --dur-base: 250ms;
+  --dur-slow: 450ms;
+  --ease-out: cubic-bezier(0.05, 0.7, 0.1, 1);
+  --ease-in: cubic-bezier(0.3, 0, 0.8, 0.15);
+  --ease-in-out: cubic-bezier(0.2, 0, 0, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --stagger: 70ms;
 
   /* ---- focus ---- */
-  --focus-ring: 3px solid var(--focus);
-  --focus-offset: 3px;
+  --focus-ring: 2px solid var(--focus);
+  --focus-offset: 2px;
 
   --disabled-opacity: 0.45;
 }
@@ -166,55 +178,53 @@
 
 html[data-theme='dark'] {
   color-scheme: dark;
-  --paper: #1e1d1b;
-  --white: #2a2926;
-  --surface-2: #252421;
-  --ink: #f2f0e9;
-  --body-2: #cfccc2;
-  --muted: #aaa79d;
-  --ink-soft: #9c998f;
-  --border: #3a3935;
-  --border-strong: #77746b;
+  --paper: #0f0f0f;
+  --white: #1e1f20;
+  --card: #1e1f20;
+  --surface-2: #282a2c;
+  --rail-bg: #1f1f1f;
+  --ink: #e3e3e3;
+  --body-2: #c4c7c5;
+  --muted: #9aa0a6;
+  --ink-soft: #8e918f;
+  --border: #444746;
+  --border-strong: #8e918f;
 
-  --brand: #d97757;
-  --brand-hover: #e38a6c;
-  --brand-deep: #c4623f;
-  --on-brand: #1e1d1b;
-  --indigo: #d97757;
-  --indigo-soft: #3a2a23;
-  --indigo-tint: #33261f;
-  --indigo-text: #e8957a;
-  --on-indigo-text: #1e1d1b;
+  --brand: #c2e7ff;
+  --brand-hover: #d6efff;
+  --brand-deep: #a8dcff;
+  --on-brand: #001d35;
+  --indigo: #a8c7fa;
+  --indigo-soft: #1f3760;
+  --indigo-tint: #172a46;
+  --indigo-text: #a8c7fa;
+  --on-indigo-text: #062e6f;
 
-  --ok: #8cc8a1;
-  --warn: #e2b455;
-  --err: #f08a79;
-  --safe: #22342a;
-  --yellow: #3a2f1b;
-  --coral: #3e2420;
-  --coral-tint: #3a2420;
-  --yellow-tint: #352b1a;
-  --on-fill: #f2f0e9;
+  --glow-a: rgba(31, 59, 155, 0.5);
+  --glow-b: rgba(20, 40, 110, 0.4);
 
-  --panel-dark: #141413;
-  --on-panel-dark: #f2f0e9;
+  --ok: #6dd58c;
+  --warn: #fdd663;
+  --err: #f2b8b5;
+  --safe: #0f3a1f;
+  --yellow: #3d3200;
+  --coral: #601410;
+  --coral-tint: #3b0d0b;
+  --yellow-tint: #2e2500;
+  --on-fill: #e3e3e3;
 
-  --hover-overlay: #302f2b;
-  --active-overlay: #3a3934;
-  --field-bg: #1a1917;
-  --focus: #e8957a;
+  --panel-dark: #1e1f20;
+  --on-panel-dark: #e3e3e3;
 
-  --glass-bg: rgba(44, 43, 40, 0.56);
-  --glass-bg-strong: rgba(38, 37, 35, 0.8);
-  --glass-border: rgba(255, 255, 255, 0.1);
-  --glass-edge: rgba(0, 0, 0, 0.35);
-  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.07);
-  --glass-shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 26px 52px -26px rgba(0, 0, 0, 0.72);
-  --field-a: rgba(217, 119, 87, 0.19);
-  --field-b: rgba(100, 130, 150, 0.15);
-  --field-c: rgba(180, 140, 90, 0.1);
-  --grain-opacity: 0.05;
+  --hover-overlay: #2a2b2d;
+  --active-overlay: #333537;
+  --field-bg: #1e1f20;
+  --focus: #a8c7fa;
 
-  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.35);
-  --shadow-2: 0 1px 2px rgba(0, 0, 0, 0.35), 0 12px 28px -14px rgba(0, 0, 0, 0.6);
+  --glass-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-2: 0 2px 8px -2px rgba(0, 0, 0, 0.16), 0 12px 30px -14px rgba(0, 0, 0, 0.7);
+  --shadow-3: 0 20px 50px -20px rgba(0, 0, 0, 0.8);
+  --shadow-prompt: 0 2px 8px -2px rgba(0, 0, 0, 0.16);
 }

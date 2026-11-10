@@ -1,30 +1,29 @@
 <script lang="ts">
   import { t } from '$lib/i18n/index.svelte';
   import { onMount } from 'svelte';
+  import Icon from './Icon.svelte';
 
   /**
-   * Theme: the device decides unless the visitor picks one (Sir, 10 Nov 2026).
-   * 'system' follows prefers-color-scheme live; the pre-paint script in
-   * app.html applies the same rule before the first paint.
+   * Theme: dark by default, light on request (Sir, 10 Nov 2026). One toggle,
+   * as Gemini puts it in its menu. The pre-paint script in app.html applies
+   * the stored choice before the first paint.
    */
-  type Pref = 'system' | 'light' | 'dark';
-  const KEY = 'amba-theme';
-  let pref = $state<Pref>('system');
-  let media: MediaQueryList | undefined;
-
-  function apply(next: Pref) {
-    const dark = next === 'dark' || (next === 'system' && !!media?.matches);
-    const root = document.documentElement;
-    root.dataset.theme = dark ? 'dark' : 'light';
-    root.dataset.themePref = next;
-    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#1e1d1b' : '#f4f3ee');
+  interface Props {
+    /** Show the text label (the side rail); icon only otherwise. */
+    withLabel?: boolean;
   }
+  let { withLabel = false }: Props = $props();
 
-  function choose(next: Pref) {
-    pref = next;
-    apply(next);
+  type Theme = 'dark' | 'light';
+  const KEY = 'amba-theme';
+  let theme = $state<Theme>('dark');
+
+  function choose(next: Theme) {
+    theme = next;
+    document.documentElement.dataset.theme = next;
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', next === 'dark' ? '#0f0f0f' : '#faf9f9');
     try {
-      if (next === 'system') localStorage.removeItem(KEY);
+      if (next === 'dark') localStorage.removeItem(KEY);
       else localStorage.setItem(KEY, next);
     } catch {
       // Session-only when storage is blocked.
@@ -32,34 +31,32 @@
   }
 
   onMount(() => {
-    media = window.matchMedia('(prefers-color-scheme: dark)');
-    let stored: string | null;
-    try {
-      stored = localStorage.getItem(KEY);
-    } catch {
-      stored = null;
-    }
-    pref = stored === 'light' || stored === 'dark' ? stored : 'system';
-    apply(pref);
-    const follow = () => {
-      if (pref === 'system') apply('system');
-    };
-    media.addEventListener('change', follow);
-    return () => media?.removeEventListener('change', follow);
+    theme = document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
   });
 
-  const OPTIONS: Array<{ value: Pref; label: 'theme.system' | 'theme.light' | 'theme.dark' }> = [
-    { value: 'system', label: 'theme.system' },
-    { value: 'light', label: 'theme.light' },
-    { value: 'dark', label: 'theme.dark' }
-  ];
+  const label = $derived(theme === 'dark' ? t('theme.toLight') : t('theme.toDark'));
 </script>
 
-<fieldset class="theme-switch">
-  <legend class="sr-only">{t('theme.legend')}</legend>
-  {#each OPTIONS as option (option.value)}
-    <button type="button" aria-pressed={pref === option.value} onclick={() => choose(option.value)}>
-      {t(option.label)}
-    </button>
-  {/each}
-</fieldset>
+<button
+  type="button"
+  class={withLabel ? 'nav-link theme-toggle' : 'icon-btn theme-toggle'}
+  aria-label={withLabel ? undefined : label}
+  title={label}
+  onclick={() => choose(theme === 'dark' ? 'light' : 'dark')}
+>
+  <Icon name={theme === 'dark' ? 'sun' : 'moon'} size={20} />
+  {#if withLabel}<span class="lbl">{label}</span>{/if}
+</button>
+
+<style>
+  .theme-toggle.nav-link {
+    width: 100%;
+    border: 0;
+    background: transparent;
+    font: inherit;
+    font-size: var(--text-sm);
+    font-weight: 500;
+    cursor: pointer;
+    text-align: left;
+  }
+</style>

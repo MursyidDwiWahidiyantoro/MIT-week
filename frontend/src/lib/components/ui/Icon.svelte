@@ -28,7 +28,15 @@
     | 'volume-off'
     | 'chevron'
     | 'video'
-    | 'search';
+    | 'search'
+    | 'arrow-up-right'
+    | 'menu'
+    | 'plus'
+    | 'arrow-up'
+    | 'sun'
+    | 'stop'
+    | 'info'
+    | 'panel';
 
   interface Props {
     name: IconName;
@@ -74,6 +82,25 @@
     <path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A15 15 0 0 1 3 6a2 2 0 0 1 2-2z" />
   {:else if name === 'arrow-right'}
     <path d="M5 12h14M13 6l6 6-6 6" />
+  {:else if name === 'menu'}
+    <path d="M4 7h16M4 12h16M4 17h16" />
+  {:else if name === 'plus'}
+    <path d="M12 5v14M5 12h14" />
+  {:else if name === 'arrow-up'}
+    <path d="M12 19V5M6 11l6-6 6 6" />
+  {:else if name === 'sun'}
+    <circle cx="12" cy="12" r="4" />
+    <path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4" />
+  {:else if name === 'stop'}
+    <rect x="7" y="7" width="10" height="10" rx="2" />
+  {:else if name === 'info'}
+    <circle cx="12" cy="12" r="8.5" />
+    <path d="M12 11v5M12 8v.5" />
+  {:else if name === 'panel'}
+    <rect x="3.5" y="4.5" width="17" height="15" rx="3" />
+    <path d="M9.5 4.5v15" />
+  {:else if name === 'arrow-up-right'}
+    <path d="M7 17L17 7M9 7h8v8" />
   {:else if name === 'check'}
     <path d="M5 12l5 5 9-10" />
   {:else if name === 'book'}

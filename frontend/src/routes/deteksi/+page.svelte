@@ -5,40 +5,38 @@
   import { page } from '$app/state';
   import { AuditSession } from '$lib/audit.svelte';
   import { isMockMode } from '$lib/api/config';
-  import { result } from '$lib/result.svelte';
   import { readSharedItem } from '$lib/share-target';
   import { readLink, type LinkProblem } from '$lib/link-input';
-  import UrlField from '$lib/components/ui/UrlField.svelte';
-  import Button from '$lib/components/ui/Button.svelte';
-  import ModeSelectorTabs, { type InputKind } from '$lib/components/deteksi/ModeSelectorTabs.svelte';
-  import DropzoneUploader from '$lib/components/deteksi/DropzoneUploader.svelte';
+  import { takeHandedFile } from '$lib/handoff';
+  import { EXAMPLES, openExample } from '$lib/demos';
+  import { t } from '$lib/i18n/index.svelte';
+  import PromptBar from '$lib/components/ui/PromptBar.svelte';
   import ScanningRadar from '$lib/components/deteksi/ScanningRadar.svelte';
-  import demoData from '$lib/data/demo-cases.json';
   import Icon from '$lib/components/ui/Icon.svelte';
-  import { t, type MessageKey } from '$lib/i18n/index.svelte';
 
   const session = new AuditSession();
 
-  let kind = $state<InputKind>('url');
   let url = $state('');
-  let file = $state<File | null>(null);
   let problem = $state<LinkProblem | null>(null);
-  let fileError = $state<string | null>(null);
   let sharedNotice = $state<string | null>(null);
+  let notice = $state<string | null>(null);
+  // What the person sent: shown as their bubble, and kept to retry.
+  type Sent = { kind: 'url'; url: string } | { kind: 'file'; file: File; preview: string };
+  let sent = $state<Sent | null>(null);
 
-  // The home page hands a pasted link over as ?q= and the check starts at
-  // once, because submitting that form was the explicit action. The "upload a
-  // screenshot" call to action on a blocked link opens the image tab with
-  // ?tab=file.
+  // The home page hands a link over as ?q= and an image in memory
+  // (?from=prompt); either way the check starts at once, because sending it
+  // was the explicit action. ?tab=file is kept for older links: it opens the
+  // empty page, where the + button picks an image.
   onMount(() => {
-    const tab = page.url.searchParams.get('tab');
-    if (tab === 'file' || tab === 'url') kind = tab;
-    const q = page.url.searchParams.get('q')?.trim();
-    if (q && !page.url.searchParams.get('share')) {
-      kind = 'url';
-      url = q;
-      void tick().then(() => submit());
+    if (page.url.searchParams.get('share')) return;
+    const handed = page.url.searchParams.get('from') === 'prompt' ? takeHandedFile() : null;
+    if (handed) {
+      void runFile(handed);
+      return;
     }
+    const q = page.url.searchParams.get('q')?.trim();
+    if (q) void tick().then(() => runLink(q));
   });
 
   // A share-target redirect carries a one-time cache id. Read and delete it,
@@ -57,81 +55,52 @@
     else setTimeout(warm, 300);
   });
 
+  // The image preview lives as long as the bubble that shows it.
+  $effect(() => {
+    const current = sent;
+    return () => {
+      if (current?.kind === 'file') URL.revokeObjectURL(current.preview);
+    };
+  });
+
   async function openShared(id: string): Promise<void> {
     sharedNotice = t('det.sharedOpening');
     const item = await readSharedItem(id);
+    sharedNotice = null;
     const link = item ? readLink(item.url ?? item.text ?? '').url : null;
     if (!item || (!item.file && !link)) {
-      sharedNotice = null;
-      problem = item ? 'notUrl' : null;
-      fileError = item ? null : t('det.sharedMissing');
+      notice = item ? t('link.err.notUrl') : t('det.sharedMissing');
       return;
     }
-    if (item.file) {
-      kind = 'file';
-      file = item.file;
-    } else {
-      kind = 'url';
-      url = link ?? '';
-    }
-    sharedNotice = null;
-    await tick();
-    await submit();
+    if (item.file) await runFile(item.file);
+    else if (link) await runLink(link);
   }
 
-  // Three bundled example results. They make zero API calls, and they are
-  // filtered here from the generated demo file, which stays untouched.
-  const EXAMPLES: Array<{ id: string; label: MessageKey }> = [
-    { id: 'demo-tiktok', label: 'ex.tiktok' },
-    { id: 'demo-gambar-ai', label: 'ex.ai' },
-    { id: 'demo-berita-ig', label: 'ex.edit' }
-  ];
-  type DemoCase = { id: string; image?: string; dossier: unknown };
-  const demos = demoData.cases as DemoCase[];
-
-  async function openExample(id: string): Promise<void> {
-    const demo = demos.find((d) => d.id === id);
-    if (!demo) return;
-    let image: File | null = null;
-    if (demo.image) {
-      try {
-        const res = await fetch(demo.image);
-        if (res.ok) image = new File([await res.blob()], 'contoh-simulasi.jpg', { type: 'image/jpeg' });
-      } catch {
-        // The result still opens; only the image viewer is skipped.
-      }
-    }
-    try {
-      const { parseDossier } = await import('$lib/api/schemas');
-      result.set(parseDossier(demo.dossier), image);
-      void goto(resolve('/hasil'));
-    } catch {
-      // A bundled example that fails the contract is a build-time bug, not a
-      // user-facing failure. Keep the form usable.
-    }
-  }
-
-  async function submit(event?: SubmitEvent): Promise<void> {
-    event?.preventDefault();
+  async function runLink(raw: string): Promise<void> {
     if (session.running) return;
-    fileError = null;
-    let link: string | null = null;
-    if (kind === 'url') {
-      const reading = readLink(url);
-      problem = reading.problem;
-      if (!reading.url) return;
-      link = reading.url;
-      url = link;
-    } else if (!file) {
-      fileError = t('det.errFile');
-      return;
-    }
-    await session.start(kind, { url: link ?? undefined, file: file ?? undefined });
-    if (session.verdict) {
-      // goto() keeps the in-memory result store; a location.href reload would
-      // wipe it and land on "Hasil tidak tersimpan".
-      await goto(resolve('/hasil'));
-    }
+    const reading = readLink(raw);
+    problem = reading.problem;
+    if (!reading.url) return;
+    notice = null;
+    url = '';
+    sent = { kind: 'url', url: reading.url };
+    await session.start('url', { url: reading.url });
+    // goto() keeps the in-memory result store; a full reload would wipe it.
+    if (session.verdict) await goto(resolve('/hasil'));
+  }
+
+  async function runFile(file: File): Promise<void> {
+    if (session.running) return;
+    notice = null;
+    sent = { kind: 'file', file, preview: URL.createObjectURL(file) };
+    await session.start('file', { file });
+    if (session.verdict) await goto(resolve('/hasil'));
+  }
+
+  function retry(): void {
+    if (!sent) return;
+    if (sent.kind === 'url') void runLink(sent.url);
+    else void runFile(sent.file);
   }
 </script>
 
@@ -140,127 +109,183 @@
   <meta name="description" content={t('det.description')} />
 </svelte:head>
 
-<section class="head">
-  <h1 class="h1">{t('det.h1')}</h1>
-  <p class="lede">{t('det.lede')}</p>
-</section>
-
-{#if isMockMode}
-  <p class="notice" role="note">
-    <strong>{t('det.previewTitle')}</strong> {t('det.previewBody')}
-  </p>
-{/if}
-
-<form class="console card" aria-label={t('det.form')} onsubmit={submit} novalidate>
-  <ModeSelectorTabs selected={kind} onselect={(k) => { kind = k; problem = null; fileError = null; }} />
-
-  {#if sharedNotice}
-    <p class="shared" aria-live="polite">{sharedNotice}</p>
-  {/if}
-
-  <div class="input-area">
-    {#if kind === 'url'}
-      <UrlField id="url" bind:value={url} bind:problem disabled={session.running} />
-    {:else}
-      <DropzoneUploader onselect={(f) => { file = f; fileError = null; }} />
-      {#if fileError}
-        <p class="file-error" role="alert"><Icon name="alert" size={16} /> {fileError}</p>
+<div class="chat">
+  {#if !sent}
+    <section class="intro">
+      <h1 class="h1">{t('det.h1')}</h1>
+      <p class="lede">{t('det.lede')}</p>
+      {#if isMockMode}
+        <p class="notice" role="note"><strong>{t('det.previewTitle')}</strong> {t('det.previewBody')}</p>
       {/if}
-    {/if}
-  </div>
-
-  <div class="actions">
-    <Button type="submit" size="lg" loading={session.running}>
-      {session.running ? t('det.running') : t('det.start')}
-    </Button>
-    {#if session.running}
-      <Button variant="quiet" onclick={() => session.abort()}>{t('det.cancel')}</Button>
-    {/if}
-  </div>
-
-  <p class="live" aria-live="polite">{session.announcement}</p>
-
-  {#if !session.running}
-    <div class="examples">
-      <span class="examples-label">{t('det.demos')}</span>
-      <ul>
+      {#if sharedNotice}<p class="info" aria-live="polite">{sharedNotice}</p>{/if}
+      {#if notice}<p class="info info--error" role="alert"><Icon name="alert" size={16} /> {notice}</p>{/if}
+      <div class="chips" role="group" aria-label={t('det.demos')}>
+        <span class="chips-label">{t('det.demos')}</span>
         {#each EXAMPLES as ex (ex.id)}
-          <li><button class="example" type="button" onclick={() => openExample(ex.id)}>{t(ex.label)}</button></li>
+          <button class="chip-btn" type="button" onclick={() => openExample(ex.id)}>
+            <Icon name={ex.icon} size={18} />
+            <span>{t(ex.label)}</span>
+          </button>
         {/each}
-      </ul>
+      </div>
+    </section>
+  {:else}
+    <h1 class="sr-only">{t('det.h1')}</h1>
+    <div class="turn turn--user">
+      <p class="sr-only">{t('chat.you')}</p>
+      {#if sent.kind === 'url'}
+        <p class="bubble"><Icon name="link" size={18} /><span class="link-text">{sent.url}</span></p>
+      {:else}
+        <img class="bubble-img" src={sent.preview} alt={t('chat.imageAlt')} />
+      {/if}
+    </div>
+
+    <div class="turn turn--amba">
+      <span class="avatar" class:thinking={session.running} aria-hidden="true">
+        <Icon name="shield-check" size={18} />
+      </span>
+      <div class="answer">
+        {#if session.running}
+          <p class="status-line"><span class="shimmer">{t('chat.thinking')}</span></p>
+        {/if}
+        {#if session.error}
+          <div class="error-panel" role="alert">
+            <p class="error-title"><Icon name="alert" size={18} /> {t('det.errTitle')}</p>
+            <p>{session.error.message}</p>
+            {#if session.error.retryAfter}
+              <p class="hint">{t('det.wait', { n: session.error.retryAfter })}</p>
+            {/if}
+            <button class="btn btn--tonal btn--sm" type="button" onclick={retry}>
+              <Icon name="refresh" size={16} />{t('res.checkAgain')}
+            </button>
+          </div>
+        {/if}
+        <details class="steps" open>
+          <summary>{t('chat.steps')}</summary>
+          <ScanningRadar stages={session.stages} partials={session.partials} running={session.running} />
+        </details>
+        <p class="sr-only" aria-live="polite">{session.announcement}</p>
+      </div>
     </div>
   {/if}
-</form>
 
-{#if session.running || session.done}
-  <ScanningRadar stages={session.stages} partials={session.partials} running={session.running} />
-{/if}
-
-{#if session.error}
-  <div class="error-panel" role="alert">
-    <p class="error-title"><Icon name="alert" size={20} /> {t('det.errTitle')}</p>
-    <p>{session.error.message}</p>
-    {#if session.error.retryAfter}
-      <p class="hint">{t('det.wait', { n: session.error.retryAfter })}</p>
-    {/if}
+  <div class="dock">
+    <PromptBar
+      id="url"
+      bind:value={url}
+      bind:problem
+      busy={session.running}
+      autofocus={!sent}
+      onlink={(link) => void runLink(link)}
+      onfile={(file) => void runFile(file)}
+      onstop={() => session.abort()}
+    />
   </div>
-{/if}
+</div>
 
 <style>
-  .head { max-width: 40rem; margin-bottom: var(--space-5); }
-  h1 { margin-bottom: var(--space-3); }
-  .notice {
-    margin: 0 0 var(--space-5);
-    padding: var(--space-3) var(--space-4);
-    background: var(--yellow);
-    color: var(--on-fill);
-    border-radius: var(--radius-md);
-    font-size: var(--text-sm);
-    max-width: 46rem;
-  }
-  .console { max-width: 46rem; padding: clamp(1.25rem, 3vw, 2rem); display: grid; gap: var(--space-5); }
-  .input-area { display: grid; gap: var(--space-3); }
-  .shared { margin: 0; color: var(--body-2); font-size: var(--text-sm); }
-  .file-error { display: flex; gap: var(--space-2); align-items: flex-start; margin: 0; color: var(--err); font-weight: 700; font-size: var(--text-sm); }
-  .actions { display: flex; gap: var(--space-3); flex-wrap: wrap; }
-  .live { min-height: 1.4em; margin: calc(var(--space-3) * -1) 0 0; color: var(--body-2); font-size: var(--text-sm); }
-  .examples {
+  .chat {
     display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--space-2) var(--space-3);
-    padding-top: var(--space-4);
-    border-top: 1px solid var(--border);
+    flex-direction: column;
+    gap: var(--space-5);
+    min-height: calc(100dvh - 9rem);
   }
-  .examples-label { font-size: var(--text-sm); color: var(--muted); font-weight: 700; }
-  .examples ul { display: flex; flex-wrap: wrap; gap: var(--space-2); list-style: none; margin: 0; padding: 0; }
-  .example {
-    min-height: 44px;
-    padding: 0 var(--space-4);
-    background: transparent;
-    color: var(--ink);
-    border: 1px solid var(--border-strong);
-    border-radius: var(--radius-pill);
-    font: inherit;
+  .intro { display: grid; gap: var(--space-3); padding-top: clamp(0.5rem, 4vh, 2.5rem); }
+  .notice { margin: var(--space-2) 0 0; padding: var(--space-3) var(--space-4); font-size: var(--text-sm); }
+  .info { display: flex; gap: var(--space-2); align-items: flex-start; margin: 0; color: var(--body-2); font-size: var(--text-sm); }
+  .info--error { color: var(--err); font-weight: 500; }
+  .chips { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-top: var(--space-3); }
+  .chips-label { width: 100%; color: var(--muted); font-size: var(--text-sm); }
+  .chips :global(svg) { color: var(--indigo-text); }
+
+  /* ---- the conversation ---- */
+  .turn--user { display: flex; justify-content: flex-end; }
+  .bubble {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    max-width: min(85%, 34rem);
+    margin: 0;
+    padding: 12px 18px;
+    background: var(--card);
+    border-radius: 24px 24px 6px 24px;
     font-size: var(--text-sm);
-    font-weight: 700;
+  }
+  .bubble :global(svg) { flex: none; color: var(--indigo-text); }
+  .link-text { min-width: 0; overflow-wrap: anywhere; }
+  .bubble-img {
+    display: block;
+    max-width: min(60%, 16rem);
+    max-height: 18rem;
+    object-fit: cover;
+    border-radius: 20px 20px 6px 20px;
+  }
+
+  .turn--amba { display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: var(--space-3); align-items: start; }
+  /* AMBA's mark; while it works, a gradient ring turns around it. */
+  .avatar {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--grad);
+    color: #ffffff;
+  }
+  .avatar.thinking::before {
+    content: '';
+    position: absolute;
+    inset: -4px;
+    border-radius: 50%;
+    background: conic-gradient(from 0deg, var(--grad-1), var(--grad-2), var(--grad-3), transparent 70%, var(--grad-1));
+    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2px));
+    mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2px));
+    animation: turn 1.1s linear infinite;
+  }
+  @keyframes turn { to { transform: rotate(360deg); } }
+  .answer { display: grid; gap: var(--space-3); min-width: 0; padding-top: 4px; }
+  .status-line { margin: 0; font-size: var(--text-lg); }
+
+  .steps {
+    padding: var(--space-3) var(--space-4) var(--space-4);
+    background: var(--card);
+    border-radius: var(--radius-lg);
+  }
+  .steps summary {
+    min-height: 40px;
+    display: flex;
+    align-items: center;
+    color: var(--body-2);
+    font-size: var(--text-sm);
+    font-weight: 500;
     cursor: pointer;
   }
-  .example:hover { background: var(--hover-overlay); }
+  .steps[open] summary { margin-bottom: var(--space-2); }
 
   .error-panel {
-    max-width: 46rem;
-    border: 1px solid var(--err);
-    border-radius: var(--radius-lg);
+    display: grid;
+    gap: var(--space-2);
+    justify-items: start;
+    padding: var(--space-4) var(--space-5);
     background: var(--coral-tint);
-    padding: var(--space-5);
-    margin-top: var(--space-5);
+    border-radius: var(--radius-lg);
   }
   .error-panel p { margin: 0; }
-  .error-title { display: flex; align-items: center; gap: var(--space-2); font-family: var(--font-display); font-weight: 800; font-size: 1.15em; margin-bottom: var(--space-2) !important; color: var(--err); }
-  .hint { color: var(--body-2); font-size: var(--text-sm); margin-top: var(--space-2) !important; }
+  .error-title { display: flex; align-items: center; gap: var(--space-2); font-weight: 500; color: var(--err); }
+  .hint { color: var(--body-2); font-size: var(--text-sm); }
 
-  @media (max-width: 44rem) {
-    .actions :global(.btn) { width: 100%; }
+  /* The prompt stays at the bottom, with the page fading out behind it. */
+  .dock {
+    position: sticky;
+    bottom: 0;
+    z-index: 5;
+    margin-top: auto;
+    padding: var(--space-3) 0 calc(var(--space-2) + env(safe-area-inset-bottom));
+    background: linear-gradient(to top, var(--paper) 72%, transparent);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .avatar.thinking::before { animation: none; }
   }
 </style>

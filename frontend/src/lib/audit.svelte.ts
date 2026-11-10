@@ -4,7 +4,7 @@ import type { DossierParsed } from './api/schemas';
 import { API_BASE, isMockMode } from './api/config';
 import type { MockKind, MockPayload } from './api/mock';
 import { result } from './result.svelte';
-import { t, locale } from './i18n/index.svelte';
+import { t } from './i18n/index.svelte';
 
 /**
  * Zod (about 25 KB gz) and the mock stream load on demand: neither is needed
@@ -186,7 +186,7 @@ export class AuditSession {
     try {
       const body = (await response.json()) as { error?: { message?: string } };
       // Server messages are Indonesian; in English keep the local copy.
-      if (body.error?.message && locale.value === 'id') message = body.error.message;
+      if (body.error?.message) message = body.error.message;
     } catch {
       // Keep the generic message; never surface raw server text.
     }
@@ -204,7 +204,7 @@ export class AuditSession {
       return new ApiFailure({ kind: 'timeout', message: t('err.timeout') });
     }
     if (response.status === 415 || response.status === 413) {
-      return new ApiFailure({ kind: 'unsupported', message: locale.value === 'id' ? message : t('err.unsupported') });
+      return new ApiFailure({ kind: 'unsupported', message });
     }
     return new ApiFailure({ kind: 'network', message });
   }

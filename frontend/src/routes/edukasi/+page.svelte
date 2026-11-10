@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { t, locale } from '$lib/i18n/index.svelte';
+  import { t } from '$lib/i18n/index.svelte';
   import Icon from '$lib/components/ui/Icon.svelte';
   import Quiz from '$lib/components/belajar/Quiz.svelte';
   import forensicQuiz from '$lib/data/forensic-quiz.json';
@@ -14,7 +14,7 @@
     type Text
   } from '$lib/data/belajar';
 
-  const tx = (text: Text): string => text[locale.value];
+  const tx = (text: Text): string => text.id;
 
   const NAV = [
     { id: 'video-ai', label: UI.nav.ai },

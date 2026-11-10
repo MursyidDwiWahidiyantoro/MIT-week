@@ -1,12 +1,12 @@
 /*
- * Theme layer. Components own their layout; this file gives the shared roles
- * one answer in the glass system where a component's scoped rule would
+ * Theme layer in the Gemini style. Components own their layout; this file
+ * gives the shared roles one answer where a component's scoped rule would
  * otherwise decide on its own. Prefixed with html:root body for specificity
  * over Svelte's scoped selectors. Every value is a token.
  */
 
-/* ---- segmented controls and tabs: one glass track, a raised neutral segment.
- * The accent stays on the primary action; a selected tab is light, not orange. */
+/* ---- segmented controls and tabs: a tonal pill track; the chosen segment
+ * is the blue tonal fill, as Gemini marks a selected item. */
 html:root body .theme-switch,
 html:root body .seg,
 html:root body .tabs {
@@ -14,25 +14,25 @@ html:root body .tabs {
   align-items: center;
   gap: 2px;
   margin: 0;
-  padding: 3px;
-  border: 1px solid var(--glass-edge);
-  border-radius: var(--radius-md);
-  background: var(--glass-bg);
-  box-shadow: var(--glass-highlight);
+  padding: 4px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--card);
+  box-shadow: none;
 }
 .theme-switch { flex: none; min-inline-size: 0; }
 html:root body .theme-switch button,
 html:root body .seg button,
 html:root body .tabs button {
   min-height: 40px;
-  padding: 0 12px;
+  padding: 0 16px;
   border: 0;
-  border-radius: calc(var(--radius-md) - 4px);
+  border-radius: var(--radius-pill);
   background: transparent;
   color: var(--body-2);
   font: inherit;
   font-size: var(--text-sm);
-  font-weight: 700;
+  font-weight: 500;
   cursor: pointer;
   transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
@@ -44,9 +44,9 @@ html:root body .seg button[aria-pressed='true'],
 html:root body .tabs button.is-active,
 html:root body .tabs button.selected,
 html:root body .tabs button[aria-selected='true'] {
-  background: var(--white);
+  background: var(--indigo-soft);
   color: var(--ink);
-  box-shadow: 0 0 0 1px var(--glass-edge), var(--shadow-1);
+  box-shadow: none;
 }
 
 /* ---- verdict roles: a pale fill of the state, its own text colour ---- */
@@ -54,18 +54,18 @@ html:root body .panel--safe, html:root body .tone--safe, html:root body .num--sa
 html:root body .tag--send, html:root body .verified, html:root body .bullet--ok {
   background: var(--safe);
   color: var(--on-fill);
-  border-color: color-mix(in srgb, var(--ok) 30%, transparent);
+  border-color: transparent;
 }
 html:root body .panel--yellow, html:root body .tone--warn, html:root body .num--yellow,
 html:root body .tag--none {
   background: var(--yellow);
   color: var(--on-fill);
-  border-color: color-mix(in srgb, var(--warn) 30%, transparent);
+  border-color: transparent;
 }
 html:root body .panel--coral, html:root body .tone--danger, html:root body .tag--no {
   background: var(--coral);
   color: var(--on-fill);
-  border-color: color-mix(in srgb, var(--err) 30%, transparent);
+  border-color: transparent;
 }
 html:root body .panel--indigo { background: var(--indigo-soft); color: var(--ink); }
 html:root body .panel--ink { background: var(--panel-dark); color: var(--on-panel-dark); }
@@ -78,45 +78,45 @@ html:root body .chip {
   color: var(--err);
 }
 
-/* The risk meter: a quiet track; the fill takes the verdict's own colour from
- * the component (--meter-color), the accent otherwise. */
+/* The risk meter: a rounded tonal track; the fill takes the verdict's own
+ * colour from the component (--meter-color). */
 html:root body .meter {
   height: 8px;
   border: 0;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--ink) 10%, transparent);
+  background: var(--surface-2);
   overflow: hidden;
 }
 html:root body .meter-fill {
   border: 0;
   border-radius: 999px;
-  background: var(--meter-color, var(--brand));
+  background: var(--meter-color, var(--indigo));
 }
 
-/* Notices and limits are light glass with a hairline, never a coloured stripe. */
+/* Notices and limits: a tonal panel, never a coloured stripe. */
 html:root body .notice,
 html:root body .limits {
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-edge);
+  background: var(--card);
+  border: 0;
+  border-radius: var(--radius-md);
   color: var(--ink);
-  box-shadow: var(--glass-highlight);
+  box-shadow: none;
 }
 html:root body .notice--demo {
   background: var(--yellow-tint);
   color: var(--ink);
-  border-color: color-mix(in srgb, var(--warn) 35%, transparent);
 }
 
-/* Quiz: options are quiet panes; the right answer is the ok state. */
+/* Quiz: options are tonal panes; the right answer is the ok state. */
 html:root body .option {
-  background: var(--glass-bg);
-  border-color: var(--glass-edge);
+  background: var(--card);
+  border-color: transparent;
   color: var(--text);
 }
-html:root body .option.correct { background: var(--safe); color: var(--on-fill); border-color: color-mix(in srgb, var(--ok) 35%, transparent); }
+html:root body .option.correct { background: var(--safe); color: var(--on-fill); border-color: transparent; }
 
 html:root body .tick,
-html:root body .q-num { background: var(--ink); color: var(--on-ink); }
+html:root body .q-num { background: var(--indigo-soft); color: var(--ink); }
 
 /* A highlighted word in a checked text: the warn tint, readable in both themes. */
 html:root body .mark { background: var(--yellow); color: var(--on-fill); border-radius: 4px; }
@@ -125,15 +125,14 @@ html:root body .preview-badge { background: var(--yellow); color: var(--on-fill)
 
 html:root body .level { color: var(--ink); }
 
-/* Evidence chips mark that a check finished, not whether it was good news:
- * a neutral chip, so "skor 100" on edited text never reads as a green light. */
+/* Evidence chips mark that a check finished, not whether it was good news. */
 html:root body .state.done {
   background: var(--surface-2);
   color: var(--ink);
-  border: 1px solid var(--border);
+  border: 0;
 }
 html:root body .state.pending {
   background: var(--yellow-tint);
   color: var(--ink);
-  border: 1px solid color-mix(in srgb, var(--warn) 30%, transparent);
+  border: 0;
 }

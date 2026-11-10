@@ -1,50 +1,15 @@
 /**
-
- *
- * The Indonesian dictionary holds the original copy verbatim, so the default
- * experience is unchanged. English covers the whole interface; content that
- * comes from the user or the model (a claim, OCR text, a caption) stays in
- * its own language.
+ * Interface copy. AMBA speaks Indonesian only (Sir, 10 Nov 2026): the English
+ * interface was removed, so there is one dictionary and no language switch.
+ * `t()` stays the single entry point so copy lives in one file.
  */
 import { id, type MessageKey } from './id';
-import { en } from './en';
-
-export type Locale = 'id' | 'en';
-const STORAGE_KEY = 'amba.lang';
-const DICTS: Record<Locale, Record<MessageKey, string>> = { id, en };
-
-function initial(): Locale {
-  if (typeof document !== 'undefined' && document.documentElement.lang === 'en') return 'en';
-  try {
-    return localStorage.getItem(STORAGE_KEY) === 'en' ? 'en' : 'id';
-  } catch {
-    return 'id';
-  }
-}
-
-let current = $state<Locale>(typeof window === 'undefined' ? 'id' : initial());
-
-export const locale = {
-  get value(): Locale {
-    return current;
-  },
-  set(next: Locale): void {
-    current = next;
-    if (typeof document !== 'undefined') document.documentElement.lang = next;
-    try {
-      localStorage.setItem(STORAGE_KEY, next);
-    } catch {
-      // Session-only when storage is blocked.
-    }
-  }
-};
 
 /**
- * Translates a key. `{name}` placeholders are filled from params. Reading
- * `current` here makes every call site reactive to a language switch.
+ * Looks a key up. `{name}` placeholders are filled from params.
  */
 export function t(key: MessageKey, params?: Record<string, string | number>): string {
-  let text = DICTS[current][key] ?? id[key] ?? key;
+  let text: string = id[key] ?? key;
   if (params) {
     for (const [name, value] of Object.entries(params)) {
       text = text.replaceAll(`{${name}}`, String(value));
@@ -55,7 +20,7 @@ export function t(key: MessageKey, params?: Record<string, string | number>): st
 
 /** BCP 47 tag for Intl formatting and speech synthesis. */
 export function bcp47(): string {
-  return current === 'en' ? 'en-US' : 'id-ID';
+  return 'id-ID';
 }
 
 export type { MessageKey };
