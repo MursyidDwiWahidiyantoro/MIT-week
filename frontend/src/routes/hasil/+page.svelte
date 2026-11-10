@@ -11,8 +11,8 @@
   import LinkPreview from '$lib/components/hasil/LinkPreview.svelte';
   import VideoAnalysis from '$lib/components/hasil/VideoAnalysis.svelte';
   import { autoRead, speak, speechAvailable } from '$lib/a11y.svelte';
-  import { t, locale, type MessageKey } from '$lib/i18n/index.svelte';
-  import { simpleSentence, explanation } from '$lib/i18n/verdict';
+  import { t, locale } from '$lib/i18n/index.svelte';
+  import { simpleSentence, explanation, basisList } from '$lib/i18n/verdict';
   import { keyReasons } from '$lib/reasons';
   import tacticLabelsId from '$lib/data/tactics.json';
   import tacticLabelsEn from '$lib/data/tactics.en.json';
@@ -29,7 +29,6 @@
     if (dossier && verdictHeading) verdictHeading.focus({ preventScroll: true });
   });
 
-  const basisLabel = (b: string): string => t(`basis.${b}` as MessageKey);
   const elaAnomalies = $derived(
     dossier && dossier.pillars.ela.available ? dossier.pillars.ela.anomalies : []
   );
@@ -52,6 +51,9 @@
 
   const sentence = $derived(dossier ? simpleSentence(dossier) : '');
   const explained = $derived(dossier ? explanation(dossier) : '');
+  const basis = $derived(dossier ? basisList(dossier) : '');
+  // Only a neutral (old) INSUFFICIENT payload needs the server's own words.
+  const showExplained = $derived(dossier?.verdict.status === 'INSUFFICIENT' && explained !== '');
   const reasons = $derived(dossier ? keyReasons(dossier) : []);
   const tone = $derived(
     dossier
@@ -84,8 +86,9 @@
     <a class="btn btn--primary" href={resolve('/deteksi')}>{t('res.checkAgain')}</a>
   </section>
 {:else}
+  <div class="column">
   <section class="result-head">
-    <h1 class="h1">{t('res.h1')}</h1>
+    <h1 class="title">{t('res.h1')}</h1>
   </section>
 
   {#if dossier.is_demo}
@@ -99,14 +102,18 @@
     <h2 id="verdict-title" class="verdict-heading" tabindex="-1" bind:this={verdictHeading} data-testid="verdict-badge">
       <StatusBadge status={dossier.verdict.status} score={dossier.verdict.score} />
     </h2>
-    <p class="sentence" data-testid="verdict-sentence">{sentence}</p>
-    {#if dossier.verdict.score !== null}
-      <div class="score">
-        <div class="meter" role="img" aria-label={formatScore(dossier.verdict.score)}>
-          <span class="meter-fill" style:width="{dossier.verdict.score}%"></span>
+    <div class="conclusion">
+      <p class="sentence" data-testid="verdict-sentence">{sentence}</p>
+      {#if dossier.verdict.score !== null}
+        <div class="score">
+          <p class="score-num" aria-hidden="true"><span>{dossier.verdict.score}</span><small>/100</small></p>
+          <div class="meter" role="img" aria-label={formatScore(dossier.verdict.score)}>
+            <span class="meter-fill" style:width="{dossier.verdict.score}%"></span>
+          </div>
+          <p class="score-cap" aria-hidden="true">{t('res.scoreCap')}</p>
         </div>
-      </div>
-    {/if}
+      {/if}
+    </div>
     <div class="read-aloud">
       <ReadAloud text={`${sentence} ${explained}`} />
       {#if speechAvailable()}
@@ -169,20 +176,20 @@
   </Panel>
 
   <Panel title={t('res.panelLimits')} tone="soft">
-    <p class="explained">{explained}</p>
-    <dl>
-      <dt>{t('res.basis')}</dt>
-      <dd>{dossier.verdict.basis.map(basisLabel).join(', ') || '—'}</dd>
-      <dt>{t('res.notChecked')}</dt>
-      <dd>{dossier.verdict.not_checked.map(basisLabel).join(', ') || t('res.allRan')}</dd>
-    </dl>
+    {#if showExplained}<p class="explained">{explained}</p>{/if}
+    {#if basis}
+      <p class="basis"><strong>{t('res.basis')}:</strong> {basis}.</p>
+    {/if}
     <p class="note">{t('res.limitsNote')}</p>
   </Panel>
 
   <p class="again"><a class="btn btn--primary" href={resolve('/deteksi')}>{t('res.checkAgain')}</a></p>
+  </div>
 {/if}
 
 <style>
+  .column { max-width: 60rem; }
+  .title { font-size: var(--text-2xl); line-height: 1.1; margin: 0; }
   .state { max-width: 46rem; padding-block: var(--space-6); }
   .state .lede { margin-bottom: var(--space-5); }
 
@@ -200,8 +207,6 @@
   .notice--demo { background: var(--coral); }
 
   /* One column on the reading measure: hero, reasons, evidence, limits. */
-  .verdict,
-  .why { max-width: 46rem; }
 
   .verdict {
     padding: clamp(1.25rem, 3vw, 2rem);
@@ -219,17 +224,23 @@
   .verdict-heading { margin: 0; font-size: inherit; line-height: inherit; }
   .verdict-heading:focus { outline: none; }
   .verdict-heading:focus-visible { outline: var(--focus-ring); outline-offset: 6px; border-radius: 99px; }
+  .conclusion { display: grid; gap: var(--space-5); align-items: center; margin: var(--space-5) 0 var(--space-4); }
+  @media (min-width: 48rem) { .conclusion { grid-template-columns: minmax(0, 1fr) 14rem; gap: var(--space-7); } }
   .sentence {
     font-family: var(--font-display);
     font-weight: 800;
-    font-size: clamp(1.5rem, 1.1rem + 1.8vw, 2.1rem);
-    line-height: 1.2;
+    font-size: clamp(1.6rem, 1.2rem + 1.9vw, 2.4rem);
+    line-height: 1.18;
     letter-spacing: -0.02em;
-    margin: var(--space-5) 0 var(--space-4);
-    max-width: 30ch;
+    margin: 0;
+    max-width: 24ch;
   }
-  .score { display: grid; gap: var(--space-2); max-width: 24rem; margin-bottom: var(--space-4); }
-  .meter { height: 10px; border-radius: var(--radius-pill); background: var(--border); overflow: hidden; }
+  .score { display: grid; gap: var(--space-2); }
+  .score-num { margin: 0; font-family: var(--font-display); font-weight: 800; line-height: 1; display: flex; align-items: baseline; gap: 4px; }
+  .score-num span { font-size: clamp(2.8rem, 2rem + 3vw, 4rem); letter-spacing: -0.03em; }
+  .score-num small { font-size: var(--text-lg); color: var(--body-2); font-weight: 700; }
+  .score-cap { margin: 0; font-size: var(--text-sm); color: var(--body-2); }
+  .meter { height: 12px; border-radius: var(--radius-pill); background: var(--border); overflow: hidden; }
   .meter-fill { display: block; height: 100%; background: var(--tone, var(--brand)); border-radius: inherit; }
   .read-aloud { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3) var(--space-5); }
   .auto-read { display: inline-flex; align-items: center; gap: var(--space-2); min-height: 44px; font-size: var(--text-sm); color: var(--body-2); cursor: pointer; }
@@ -264,13 +275,9 @@
 
   .explained { margin: 0 0 var(--space-4); max-width: var(--measure); color: var(--body-2); }
   .note { margin: var(--space-4) 0 0; color: var(--body-2); font-size: var(--text-sm); max-width: var(--measure); }
-  dl { display: grid; grid-template-columns: max-content 1fr; gap: var(--space-2) var(--space-5); margin: 0; }
-  dt { font-weight: 700; font-size: var(--text-sm); }
-  dd { margin: 0; }
+  .basis { margin: 0; color: var(--ink); }
   .again { margin: var(--space-6) 0 0; }
   @media (max-width: 40rem) {
-    dl { grid-template-columns: 1fr; gap: var(--space-1); }
-    dd { margin-bottom: var(--space-3); }
     .again .btn { width: 100%; }
   }
 </style>

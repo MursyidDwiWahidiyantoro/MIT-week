@@ -19,7 +19,7 @@ describe('statusLabel', () => {
   });
 
   it('maps INSUFFICIENT honestly', () => {
-    expect(statusLabel('INSUFFICIENT')).toBe('Belum cukup data');
+    expect(statusLabel('INSUFFICIENT')).toBe('Tidak ditemukan tanda bahaya');
   });
 });
 

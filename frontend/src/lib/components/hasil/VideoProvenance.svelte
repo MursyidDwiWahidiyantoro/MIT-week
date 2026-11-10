@@ -45,6 +45,6 @@
   .creator[data-level='weak'], .sub { color: var(--muted); }
   .web { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--space-2); }
   .web li { display: grid; gap: 2px; }
-  .web a { font-weight: 600; overflow-wrap: anywhere; }
+  .web a { display: inline-flex; align-items: center; min-height: 44px; font-weight: 600; overflow-wrap: anywhere; }
   .meta { font-size: var(--text-sm); color: var(--muted); }
 </style>

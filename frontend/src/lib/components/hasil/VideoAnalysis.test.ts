@@ -93,14 +93,15 @@ describe('VideoAnalysis', () => {
     expect(screen.getByText(/^Indikatif, bukan bukti pasti/)).toBeTruthy();
   });
 
-  it('says when the audio was not analysed and when the AI check did not run', () => {
+  it('says when the audio was not analysed and leaves out an AI check that did not run', () => {
     const { container } = render(VideoAnalysis, {
       video: video({ audio_analyzed: false }),
       ai: { ...ai, available: false }
     });
 
     expect(screen.getByText('Suara video tidak ikut dianalisis.')).toBeTruthy();
-    expect(row(container, 'ai')).toContain('Tidak dapat diperiksa');
+    expect(container.querySelector('[data-signal="ai"]')).toBeNull();
+    expect(container.textContent).not.toContain('Tidak dapat diperiksa');
     expect(container.querySelectorAll('.meter')).toHaveLength(2);
   });
 

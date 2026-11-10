@@ -68,7 +68,8 @@
       <p class="family-lede">{t('home.familyLede')}</p>
       <div class="cta-row">
         <a class="btn btn--primary" href={resolve('/deteksi')}>{t('home.familyCheck')}</a>
-        <a class="btn btn--quiet" href={resolve('/panduan-keluarga')}>{t('home.familyGuide')}</a>
+        <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- resolve() plus a same-page anchor -->
+        <a class="btn btn--quiet" href={`${resolve('/edukasi')}#keluarga`}>{t('home.familyGuide')}</a>
       </div>
     </div>
   </div>

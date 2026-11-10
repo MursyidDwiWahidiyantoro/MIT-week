@@ -82,3 +82,23 @@ describe('explanation for a link whose preview is blocked', () => {
     expect(explanation(blocked(true))).not.toContain('does not allow automated reading');
   });
 });
+
+describe('INSUFFICIENT and the not-checked sentence', () => {
+  beforeEach(() => locale.set('id'));
+
+  it('shows an old INSUFFICIENT payload as a neutral conclusion, not as missing data', () => {
+    const d = dossier([], false);
+    d.verdict.status = 'INSUFFICIENT';
+    d.verdict.score = null;
+    const sentence = simpleSentence(d);
+    expect(sentence).toBe('Tidak ada tanda bahaya yang ditemukan, tetapi datanya terbatas.');
+    expect(sentence.toLowerCase()).not.toContain('belum cukup');
+  });
+
+  it('drops the server sentence that lists what could not be checked', () => {
+    const d = dossier([], false);
+    d.verdict.explanation =
+      'Diperiksa: jejak AI, keamanan tautan. Tidak dapat diperiksa: teks ditimpa (ELA), cek fakta. Hasil ini indikatif, bukan bukti pasti.';
+    expect(explanation(d)).toBe('Diperiksa: jejak AI, keamanan tautan. Hasil ini indikatif, bukan bukti pasti.');
+  });
+});

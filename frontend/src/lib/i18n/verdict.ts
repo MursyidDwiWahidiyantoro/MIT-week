@@ -12,6 +12,9 @@ const has = (key: string): key is MessageKey => t(key as MessageKey) !== key;
 
 /** TECH_SPEC §8.2 deterministic lead sentence (scoring.ExplanationSimple). */
 export function simpleSentence(d: DossierParsed): string {
+  // Old payloads can still carry INSUFFICIENT. It is shown as a neutral
+  // conclusion, never as "not enough data", so the server's sentence is not used.
+  if (d.verdict.status === 'INSUFFICIENT') return t('simple.INSUFFICIENT');
   if (locale.value === 'id') return d.verdict.explanation_simple;
   const floors = d.verdict.floors_applied;
   for (const floor of [
@@ -34,8 +37,17 @@ export function simpleSentence(d: DossierParsed): string {
 }
 
 /** Mirrors the server's explanation(): honest limits in plain words. */
+/** The server's sentence that lists what could not be checked is dropped: the page shows what the result is based on instead. */
+export function withoutNotChecked(text: string): string {
+  return text
+    .split(/(?<=[.!?])\s+/)
+    .filter((sentence) => !/tidak dapat diperiksa/i.test(sentence))
+    .join(' ')
+    .trim();
+}
+
 export function explanation(d: DossierParsed): string {
-  if (locale.value === 'id') return d.verdict.explanation;
+  if (locale.value === 'id') return withoutNotChecked(d.verdict.explanation);
   const parts: string[] = [];
   const md = d.source_metadata;
   // A blocked preview matters only when the video was not analysed either.
@@ -43,9 +55,6 @@ export function explanation(d: DossierParsed): string {
   if (md?.status === 'UNAVAILABLE') parts.push(t('expl.unavailable'));
   const basis = d.verdict.basis.filter((b) => b !== 'llm_untrusted');
   if (basis.length) parts.push(t('expl.checked', { list: basis.map((b) => t(`expl.pillar.${b}` as MessageKey)).join(', ') }));
-  if (d.verdict.not_checked.length) {
-    parts.push(t('expl.notChecked', { list: d.verdict.not_checked.map((b) => t(`expl.pillar.${b}` as MessageKey)).join(', ') }));
-  }
   parts.push(t('expl.indicative'));
   return parts.join(' ');
 }
@@ -103,4 +112,12 @@ export function aiLines(ai: AIPillar, inputType: DossierParsed['input_type'], fr
     lines.push(t('ai.detector', { name, n: ai.detector.score }));
   }
   return lines;
+}
+
+/** "Berdasarkan: jejak AI, keamanan tautan." Only what ran. */
+export function basisList(d: DossierParsed): string {
+  return d.verdict.basis
+    .filter((b) => b !== 'llm_untrusted')
+    .map((b) => t(`basis.${b}` as MessageKey))
+    .join(', ');
 }
