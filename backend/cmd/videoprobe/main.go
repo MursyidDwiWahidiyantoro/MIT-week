@@ -34,8 +34,6 @@ func main() {
 		os.Exit(3)
 	}
 
-	// Output format per requirement:
-	// platform, id, duration, frames, subtitle chars, audio bytes, AILabel, elapsed ms (no URL, no title)
 	fmt.Printf("platform: %s\n", clip.Platform)
 	fmt.Printf("id: %s\n", clip.ID)
 	fmt.Printf("duration_sec: %.2f\n", clip.DurationSec)

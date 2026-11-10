@@ -66,7 +66,6 @@ func TestHelperProcess(t *testing.T) {
 		}
 		dir := filepath.Dir(outTmpl)
 
-		// Check strict flags per requirement
 		joined := strings.Join(args, " ")
 		if !strings.Contains(joined, "--ignore-config") {
 			fmt.Fprintln(os.Stderr, "missing --ignore-config")
