@@ -24,9 +24,11 @@ func NewRouterWith(cfg *config.Config, deps Deps, extra func(chi.Router)) http.H
 	r.Use(security.APISecurityHeaders)
 	r.Use(recoverer)
 
+	// Per client IP. Judges in one room often share a campus NAT, so the
+	// per-IP budget is generous; MaxInFlight still caps the model load.
 	limiter := security.NewRateLimiter(security.RateLimitConfig{
-		PerMinute:      15,
-		Burst:          5,
+		PerMinute:      30,
+		Burst:          10,
 		MaxInFlight:    32,
 		IdleTTL:        10 * time.Minute,
 		SweepInterval:  5 * time.Minute,

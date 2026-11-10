@@ -181,7 +181,7 @@ limit API bisa menolak audit terakhir pada putaran yang sangat cepat, jadi
   loopback, privat, link-local (termasuk alamat metadata cloud), dan rentang
   khusus lain, diperiksa saat menyambung dan di setiap pengalihan. `yt-dlp`
   dijalankan tanpa shell, dengan `--ignore-config` dan `--` sebelum URL.
-- **Rate limit:** 15 permintaan per menit per klien (burst 5) dan 32 audit
+- **Rate limit:** 30 permintaan per menit per klien (burst 10) dan 32 audit
   bersamaan. Kunci klien di-hash dengan garam yang berganti saat boot.
 - **Header dan CSP** (`frontend/nginx.conf`): `X-Content-Type-Options: nosniff`,
   `Referrer-Policy: no-referrer`, `Permissions-Policy` (kamera, mikrofon, lokasi

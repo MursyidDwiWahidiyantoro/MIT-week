@@ -157,7 +157,7 @@ versi dan checksum di berkas itu lalu build ulang.
 - **Metrik** anonim (opsional): `METRICS_ADDR=127.0.0.1:9091` membuka teks
   Prometheus di listener internal. Isinya kode aturan, tidak pernah teks atau
   tautan.
-- **Rate limit:** 15 permintaan per menit per klien (burst 5) dan 32 audit
+- **Rate limit:** 30 permintaan per menit per klien (burst 10) dan 32 audit
   bersamaan. nginx mengisi `X-Real-IP` dari alamat penyambung; di belakang
   tunnel itu alamat `cloudflared`, bukan pengguna. Kalau `TRUSTED_PROXY_CIDRS`
   dan `CLIENT_IP_HEADER` tidak diisi, semua pengguna berbagi satu ember.
