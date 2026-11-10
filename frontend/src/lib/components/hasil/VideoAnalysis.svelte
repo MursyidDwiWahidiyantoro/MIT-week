@@ -35,7 +35,7 @@
     indicators: string[];
   }
 
-  const signals = $derived<Signal[]>([
+  const allSignals = $derived<Signal[]>([
     {
       key: 'ai',
       name: t('pillar.ai'),
@@ -58,6 +58,9 @@
       indicators: video.context.indicators
     }
   ]);
+
+  // A signal that did not run is left out instead of shown as a blank row.
+  const signals = $derived(allSignals.filter((s) => s.score !== null));
 
   // Every signal uses the AI card's bands: 0-39 low, 40-69 medium, 70-100 high.
   // The context score measures a MISmatch, so its level says so.
@@ -145,9 +148,7 @@
             <li class="signal" data-signal={signal.key}>
               <div class="signal-head">
                 <h4>{signal.name}</h4>
-                {#if signal.score === null}
-                  <span class="lvl lvl--none">{t('ev.notRun')}</span>
-                {:else}
+                {#if signal.score !== null}
                   <span class="lvl lvl--{aiLevel(signal.score)}">{levelText(signal.key, signal.score)}</span>
                   <span class="score">{t('video.score', { n: signal.score })}</span>
                 {/if}
@@ -282,7 +283,6 @@
   .lvl--low { background: var(--safe); }
   .lvl--medium { background: var(--yellow); }
   .lvl--high { background: var(--coral); }
-  .lvl--none { background: var(--indigo-soft); color: var(--ink); }
   .score { font-size: var(--text-sm); font-weight: 700; color: var(--muted); }
   .hint { margin: 0; font-size: var(--text-sm); color: var(--body-2); max-width: var(--measure); }
   .meter { height: 20px; border-radius: var(--radius-pill); overflow: hidden; }

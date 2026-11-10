@@ -11,8 +11,8 @@
   import LinkPreview from '$lib/components/hasil/LinkPreview.svelte';
   import VideoAnalysis from '$lib/components/hasil/VideoAnalysis.svelte';
   import { autoRead, speak, speechAvailable } from '$lib/a11y.svelte';
-  import { t, locale, type MessageKey } from '$lib/i18n/index.svelte';
-  import { simpleSentence, explanation } from '$lib/i18n/verdict';
+  import { t, locale } from '$lib/i18n/index.svelte';
+  import { simpleSentence, explanation, basisList } from '$lib/i18n/verdict';
   import { keyReasons } from '$lib/reasons';
   import tacticLabelsId from '$lib/data/tactics.json';
   import tacticLabelsEn from '$lib/data/tactics.en.json';
@@ -29,7 +29,6 @@
     if (dossier && verdictHeading) verdictHeading.focus({ preventScroll: true });
   });
 
-  const basisLabel = (b: string): string => t(`basis.${b}` as MessageKey);
   const elaAnomalies = $derived(
     dossier && dossier.pillars.ela.available ? dossier.pillars.ela.anomalies : []
   );
@@ -52,6 +51,9 @@
 
   const sentence = $derived(dossier ? simpleSentence(dossier) : '');
   const explained = $derived(dossier ? explanation(dossier) : '');
+  const basis = $derived(dossier ? basisList(dossier) : '');
+  // Only a neutral (old) INSUFFICIENT payload needs the server's own words.
+  const showExplained = $derived(dossier?.verdict.status === 'INSUFFICIENT' && explained !== '');
   const reasons = $derived(dossier ? keyReasons(dossier) : []);
   const tone = $derived(
     dossier
@@ -169,13 +171,10 @@
   </Panel>
 
   <Panel title={t('res.panelLimits')} tone="soft">
-    <p class="explained">{explained}</p>
-    <dl>
-      <dt>{t('res.basis')}</dt>
-      <dd>{dossier.verdict.basis.map(basisLabel).join(', ') || '—'}</dd>
-      <dt>{t('res.notChecked')}</dt>
-      <dd>{dossier.verdict.not_checked.map(basisLabel).join(', ') || t('res.allRan')}</dd>
-    </dl>
+    {#if showExplained}<p class="explained">{explained}</p>{/if}
+    {#if basis}
+      <p class="basis"><strong>{t('res.basis')}:</strong> {basis}.</p>
+    {/if}
     <p class="note">{t('res.limitsNote')}</p>
   </Panel>
 
@@ -264,13 +263,9 @@
 
   .explained { margin: 0 0 var(--space-4); max-width: var(--measure); color: var(--body-2); }
   .note { margin: var(--space-4) 0 0; color: var(--body-2); font-size: var(--text-sm); max-width: var(--measure); }
-  dl { display: grid; grid-template-columns: max-content 1fr; gap: var(--space-2) var(--space-5); margin: 0; }
-  dt { font-weight: 700; font-size: var(--text-sm); }
-  dd { margin: 0; }
+  .basis { margin: 0; color: var(--ink); }
   .again { margin: var(--space-6) 0 0; }
   @media (max-width: 40rem) {
-    dl { grid-template-columns: 1fr; gap: var(--space-1); }
-    dd { margin-bottom: var(--space-3); }
     .again .btn { width: 100%; }
   }
 </style>

@@ -24,7 +24,7 @@
   } as const;
 
   type Key = keyof typeof LABELS;
-  const order: Key[] = ['ela', 'ai', 'fact', 'link'];
+  const ORDER: Key[] = ['ela', 'ai', 'fact', 'link'];
 
   const FACT_LABELS = {
     CONTRADICTS: 'ev.fact.CONTRADICTS',
@@ -33,6 +33,16 @@
   } as const;
 
   const available = (k: Key) => pillars[k].available;
+  // A check that did not run is not shown at all: an empty card helps nobody.
+  // While results stream in (pending) every card stays, as a loading skeleton.
+  const order = $derived(pending ? ORDER : ORDER.filter((k) => available(k)));
+
+  /** Fact-check list: what the server sent, at most five, each one a real link. */
+  const MAX_SOURCES = 5;
+  const isWebUrl = (u: string): boolean => /^https?:\/\//i.test(u);
+  const factSources = $derived(
+    (pillars.fact.sources ?? []).filter((s) => isWebUrl(s.url)).slice(0, MAX_SOURCES)
+  );
 
   // Marked text whose compression differs from the image's other text
   // (forensics TextEvidence >= scoring.ELAEvidenceMin).
@@ -64,8 +74,6 @@
         <span class="name">{t(LABELS[key])}</span>
         {#if pending}
           <span class="state pending">{t('ev.checking')}</span>
-        {:else if !available(key)}
-          <span class="state skipped">{t('ev.notRun')}</span>
         {:else if key === 'fact'}
           <span class="state done">{t(FACT_LABELS[pillars.fact.status])}</span>
         {:else}
@@ -77,8 +85,6 @@
       <div class="body">
         {#if pending}
           <Skeleton lines={2} />
-        {:else if !available(key)}
-          <p class="note">{t('ev.notRunNote')}</p>
         {:else if key === 'ela'}
           <p>
             {t('ev.reliability', { n: Math.round(pillars.ela.reliability * 100) })}
@@ -103,17 +109,13 @@
           <div data-testid="sources">
             {#if pillars.fact.claim}<p>{t('ev.claim', { claim: pillars.fact.claim })}</p>{/if}
             <p>{t('ev.status', { status: t(FACT_LABELS[pillars.fact.status]) })}</p>
-            {#if (pillars.fact.sources ?? []).length}
-              <ul>
-                {#each pillars.fact.sources ?? [] as s (s.url)}
+            {#if factSources.length}
+              <ul class="sources">
+                {#each factSources as s (s.url)}
                   <li>
-                    {#if s.match !== 'UNVERIFIED'}
-                      <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external publisher URL, not an app route -->
-                      <a href={s.url} rel="noopener noreferrer nofollow" target="_blank">{s.title || s.publisher}</a>
-                    {:else}
-                      <span>{s.title || s.publisher}</span>
-                    {/if}
-                    <span class="muted"> — {s.publisher}</span>
+                    <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external publisher URL, not an app route -->
+                    <a href={s.url} rel="noopener noreferrer nofollow" target="_blank">{s.title || s.publisher}</a>
+                    <span class="muted">{s.publisher}</span>
                   </li>
                 {/each}
               </ul>
@@ -170,7 +172,7 @@
     font-weight: 700;
   }
   .state.done { background: var(--safe); color: var(--on-fill); }
-  .state.skipped { background: var(--indigo-soft); color: var(--ink); }
+  
   .state.pending { background: var(--yellow); color: var(--on-fill); }
   .chev {
     display: inline-flex;

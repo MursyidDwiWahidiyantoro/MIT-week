@@ -5,7 +5,7 @@
  * 1. PWA share target: accept the OS share POST, hold the item for a few
  *    seconds in Cache Storage, and redirect into /deteksi (TECH_SPEC §8.1).
  * 2. Offline app shell: precache this build's own static files so the demo
- *    cases, Cek Cepat and Edukasi work without a connection (PRD F8, F15).
+ *    cases, Edukasi work without a connection (PRD F8, F15).
  *    Only the app's own files are cached; API responses and user content
  *    never are.
  */
