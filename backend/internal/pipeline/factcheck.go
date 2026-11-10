@@ -25,6 +25,9 @@ type factContext struct {
 	// Official is true when the video's uploader is the official account of
 	// a newsroom (officialOutlet).
 	Official bool
+	// Judged is what the web provenance classification already said about a URL
+	// (HOAX, REAL, ...): the same page is not sent to the model twice.
+	Judged map[string]string
 }
 
 func (c factContext) llm() llm.ClaimContext {
@@ -167,31 +170,56 @@ func (p *Pipeline) checkClaim(ctx context.Context, claim, query string, fc factC
 		query = claim
 	}
 	results, searchFailed := p.searchFacts(ctx, claim, query, fc)
-	if len(results) == 0 {
+
+	// Only pages on the content's own subject can speak for or against it: the
+	// classifier's answer was discarded for any other page anyway (SameTopic
+	// below), so the others are neither judged nor shown (10 Nov: a reel was
+	// listed with eight fact-checks about GMO food and diabetes).
+	topic := fc.topic(claim)
+	relevant := make([]grounding.Result, 0, len(results))
+	for _, r := range results {
+		if grounding.SameTopic(topic, r.Title+" "+r.Snippet) {
+			relevant = append(relevant, r)
+		}
+	}
+	if len(relevant) == 0 {
 		return fact, searchFailed
 	}
 
-	evidence := make([]llm.Evidence, len(results))
-	for i, r := range results {
-		evidence[i] = llm.Evidence{Title: r.Title, Publisher: r.Publisher, Snippet: r.Snippet, Rating: r.Rating}
+	// A page the web classification already judged keeps that judgement; only
+	// the rest goes to the model, and when nothing is left there is no call.
+	judged := make([]string, len(relevant))
+	var evidence []llm.Evidence
+	var pending []int
+	for i, r := range relevant {
+		if m, ok := fromWebSays(fc.Judged[r.URL]); ok {
+			judged[i] = m
+			continue
+		}
+		pending = append(pending, i)
+		evidence = append(evidence, llm.Evidence{Title: r.Title, Publisher: r.Publisher, Snippet: r.Snippet, Rating: r.Rating})
 	}
-	cctx, cancel := withBudget(ctx, p.ClassifyDeadline)
-	matches, err := p.LLM.Classify(cctx, claim, fc.llm(), evidence)
-	cancel()
+	var classifyErr error
+	if len(pending) > 0 {
+		cctx, cancel := withBudget(ctx, p.ClassifyDeadline)
+		matches, err := p.LLM.Classify(cctx, claim, fc.llm(), evidence)
+		cancel()
+		classifyErr = err
+		for j, i := range pending {
+			if j < len(matches) {
+				judged[i] = matches[j]
+			}
+		}
+	}
 
 	toolURLs := grounding.URLSet(results)
-	topic := fc.topic(claim)
-	for i, r := range results {
+	for i, r := range relevant {
 		match := models.FactUnverified
-		if i < len(matches) && p.Grounder.Verified(r.URL, toolURLs) {
-			match = models.FactStatus(matches[i])
+		if judged[i] != "" && p.Grounder.Verified(r.URL, toolURLs) {
+			match = models.FactStatus(judged[i])
 		}
-		// The classifier's answer only stands for a source on the content's own
-		// subject, and only a fact-check article may contradict (9 Nov: news and
-		// unrelated fact-checks "contradicted" real Kompas videos).
-		if match != models.FactUnverified && !grounding.SameTopic(topic, r.Title+" "+r.Snippet) {
-			match = models.FactUnverified
-		}
+		// Only a fact-check article may contradict (9 Nov: news and unrelated
+		// fact-checks "contradicted" real Kompas videos).
 		if match == models.FactContradicts && !grounding.IsFactCheck(r.Title, r.URL) {
 			match = models.FactUnverified
 		}
@@ -200,7 +228,42 @@ func (p *Pipeline) checkClaim(ctx context.Context, claim, query string, fc factC
 		})
 	}
 	fact.Status = factStatus(fact.Sources, fc)
-	return fact, searchFailed || err != nil
+	fact.Sources = topSources(fact.Sources, maxShownSources)
+	return fact, searchFailed || classifyErr != nil
+}
+
+// maxShownSources is how many sources the dossier lists.
+const maxShownSources = 5
+
+// topSources keeps at most n sources, those that contradict first, then those
+// that support, then the rest, each group in search order.
+func topSources(s []models.Source, n int) []models.Source {
+	if len(s) <= n {
+		return s
+	}
+	out := make([]models.Source, 0, n)
+	for _, m := range []models.FactStatus{models.FactContradicts, models.FactSupports, models.FactUnverified} {
+		for _, x := range s {
+			if x.Match == m && len(out) < n {
+				out = append(out, x)
+			}
+		}
+	}
+	return out
+}
+
+// fromWebSays maps a web classification onto a claim match: a page that calls
+// the video a hoax contradicts it, one that reports it as real supports it.
+func fromWebSays(says string) (string, bool) {
+	switch says {
+	case llm.WebHoax:
+		return "CONTRADICTS", true
+	case llm.WebReal:
+		return "SUPPORTS", true
+	case llm.WebAI, llm.WebUnrelated:
+		return "UNVERIFIED", true
+	}
+	return "", false
 }
 
 // isFactCheckSource reports whether a source is a fact-check article.

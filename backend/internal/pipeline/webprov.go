@@ -31,6 +31,9 @@ const (
 type webOutcome struct {
 	Evidence []models.WebEvidence
 	Phrase   string
+	// Judged is the classification of every page that reached the model, by URL,
+	// so the claim check does not send the same page again.
+	Judged map[string]string
 }
 
 // says returns the evidence with the given verdict.
@@ -143,6 +146,12 @@ func (p *Pipeline) webProvenance(ctx context.Context, c *video.Clip, phrase stri
 	if err != nil {
 		return out
 	}
+	out.Judged = map[string]string{}
+	for i, r := range onTopic {
+		if i < len(says) {
+			out.Judged[r.URL] = says[i]
+		}
+	}
 	for i, r := range onTopic {
 		if len(out.Evidence) >= webMaxEvidence {
 			break
@@ -220,4 +229,21 @@ func truncateRunes(s string, n int) string {
 		return s
 	}
 	return string(r[:n])
+}
+
+// onSubject keeps the evidence that is about this video once the model has
+// read it: a page calling it a hoax always stays, any other page must share
+// the video's subject (claim, title, summary) in its own title. At most
+// webMaxEvidence.
+func onSubject(ev []models.WebEvidence, topic string) []models.WebEvidence {
+	out := make([]models.WebEvidence, 0, len(ev))
+	for _, e := range ev {
+		if len(out) >= webMaxEvidence {
+			break
+		}
+		if e.Says == llm.WebHoax || grounding.SameTopic(topic, e.Title) {
+			out = append(out, e)
+		}
+	}
+	return out
 }

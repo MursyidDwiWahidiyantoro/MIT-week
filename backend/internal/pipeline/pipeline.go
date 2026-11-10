@@ -327,7 +327,12 @@ func (p *Pipeline) RunStream(ctx context.Context, req Request, emit func(Event))
 				}
 				contentTitle = truncateRunes(strings.TrimSpace(c.Title+"\n"+c.Description), 300)
 				disclosure = video.DetectDisclosure(c.Title, c.Description, c.Tags, c.Uploader)
-				webCh = p.startWebProvenance(gctx, c)
+				// A platform label or a strong creator disclosure already decides the AI
+				// provenance: the web search could only repeat it, so it does not run (one
+				// search and one model call saved).
+				if !c.AILabel && disclosure.Level != video.DisclosureStrong {
+					webCh = p.startWebProvenance(gctx, c)
+				}
 				mu.Lock()
 				res.Video.CreatorDisclosure = models.CreatorDisclosure{Level: disclosure.Level, Phrase: disclosure.Phrase}
 				mu.Unlock()
@@ -406,6 +411,7 @@ func (p *Pipeline) RunStream(ctx context.Context, req Request, emit func(Event))
 
 		if clip != nil || metaClip != nil {
 			web = awaitWeb(gctx, webCh)
+			web.Evidence = onSubject(web.Evidence, f.Claim+" . "+contentTitle+" . "+summary)
 			mu.Lock()
 			if len(web.Evidence) > 0 {
 				res.Video.WebEvidence = web.Evidence
@@ -453,7 +459,7 @@ func (p *Pipeline) RunStream(ctx context.Context, req Request, emit func(Event))
 			// claim too: check it, and let the web search speak.
 			if vclip != nil {
 				if claim := corePhrase(vclip.Title, vclip.Description); claim != "" {
-					fact, failed := p.checkClaim(gctx, claim, "", factContext{Title: contentTitle, Video: true, Official: officialOutlet(vclip.Uploader, vclip.UploaderID)})
+					fact, failed := p.checkClaim(gctx, claim, "", factContext{Title: contentTitle, Video: true, Official: officialOutlet(vclip.Uploader, vclip.UploaderID), Judged: web.Judged})
 					fact = addWebHoax(fact, web, claim)
 					mu.Lock()
 					res.Pillars.Fact = fact
@@ -534,7 +540,7 @@ func (p *Pipeline) RunStream(ctx context.Context, req Request, emit func(Event))
 			tracker.skip(PillarFact)
 			return nil
 		}
-		fc := factContext{Title: contentTitle, Summary: summary, Transcript: truncateRunes(transcript, 600), Video: vclip != nil}
+		fc := factContext{Title: contentTitle, Summary: summary, Transcript: truncateRunes(transcript, 600), Video: vclip != nil, Judged: web.Judged}
 		if vclip != nil {
 			fc.Official = officialOutlet(vclip.Uploader, vclip.UploaderID)
 		}

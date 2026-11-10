@@ -63,10 +63,11 @@ func TestFactCheckUsesOnlySearchedSources(t *testing.T) {
 
 	res := p.Run(context.Background(), req)
 	fact := res.Pillars.Fact
-	if !fact.Available || fact.Status != models.FactContradicts || len(fact.Sources) != 2 {
+	if !fact.Available || fact.Status != models.FactContradicts || len(fact.Sources) != 1 {
 		t.Fatalf("fact pillar = %+v", fact)
 	}
-	if fact.Sources[0].Match != models.FactContradicts || fact.Sources[1].Match != models.FactUnverified {
+	// "Lain" is about another subject: it is searched but not listed.
+	if fact.Sources[0].Match != models.FactContradicts {
 		t.Fatalf("matches = %+v", fact.Sources)
 	}
 	if len(s.queries) != 1 || s.queries[0] == "" {
