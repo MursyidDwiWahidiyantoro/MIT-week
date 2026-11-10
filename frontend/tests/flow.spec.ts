@@ -38,8 +38,8 @@ async function mockSpeech(page: Page) {
 
 test('read-aloud speaks the lead sentence first, in Indonesian', async ({ page }) => {
   await mockSpeech(page);
-  await openDemo(page, /Bantuan Rp 500\.000/);
-  const sentence = await page.locator('[data-info-key="verdict.sentence"]').innerText();
+  await openDemo(page, 'Video TikTok');
+  const sentence = await page.locator('[data-testid="verdict-sentence"]').innerText();
 
   await page.getByRole('button', { name: 'Bacakan hasil' }).click();
   const spoken = await page.evaluate(() => (window as unknown as { __spoken: string[] }).__spoken);
@@ -49,11 +49,11 @@ test('read-aloud speaks the lead sentence first, in Indonesian', async ({ page }
 
 test('auto-read is off by default and speaks the next result once enabled', async ({ page }) => {
   await mockSpeech(page);
-  await openDemo(page, /Bantuan Rp 500\.000/);
+  await openDemo(page, 'Video TikTok');
   expect(await page.evaluate(() => (window as unknown as { __spoken: string[] }).__spoken)).toEqual([]);
 
   await page.getByLabel('Bacakan otomatis hasil berikutnya').check();
-  await openDemo(page, /situs resmi/);
+  await openDemo(page, 'Gambar buatan AI');
   await expect
     .poll(() => page.evaluate(() => (window as unknown as { __spoken: string[] }).__spoken.length))
     .toBe(1);
@@ -61,7 +61,7 @@ test('auto-read is off by default and speaks the next result once enabled', asyn
 
 test('a link check takes at most 3 taps', async ({ page }) => {
   await page.goto('/');
-  await page.getByLabel('Tempel tautan yang ingin diperiksa').fill('https://bri-verifikasi.example/login');
+  await page.getByLabel('Tautan video atau postingan').fill('https://bri-verifikasi.example/login');
   let taps = 0;
   await page.getByRole('button', { name: 'Periksa', exact: true }).click();
   taps++;

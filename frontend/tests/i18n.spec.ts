@@ -23,13 +23,13 @@ test('the language switch translates the interface and is remembered', async ({ 
 test('a result in English rebuilds the verdict copy from its codes', async ({ page }) => {
   await page.goto('/deteksi');
   await page.getByRole('button', { name: 'English' }).click();
-  await page.getByRole('button', { name: /Rp 500,000 aid/ }).click();
+  await page.getByRole('button', { name: 'TikTok video' }).click();
   await expect(page).toHaveURL(/\/hasil$/, { timeout: 10_000 });
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Check result');
-  await expect(page.locator('[data-info-key="verdict.sentence"]')).toHaveText(
+  await expect(page.locator('[data-testid="verdict-sentence"]')).toHaveText(
     'Trusted sources contradict this. Do not share it.'
   );
-  await expect(page.locator('[data-info-key="verdict.score"]')).toContainText('Likely hoax or manipulated');
+  await expect(page.locator('[data-testid="verdict-badge"]')).toContainText('Likely hoax or manipulated');
   // PRD §10: the footer keeps the legal disclaimer verbatim, in Indonesian.
   const legal = page.locator('footer [lang="id"]');
   await expect(legal).toContainText('Berita Acara Pemeriksaan (BAP)');

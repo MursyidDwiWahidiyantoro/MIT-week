@@ -33,11 +33,6 @@ html:root body .mode-switch,html:root body .seg,html:root body .theme-switch {bo
 html:root body .mode-switch button,html:root body .seg button,html:root body .theme-switch button {border-radius:999px;background:transparent;color:var(--ink)}
 html:root body .mode-switch button.selected,html:root body .seg button[aria-pressed=true],html:root body .theme-switch button[aria-pressed=true] {background:var(--ink);color:var(--paper)}
 html:root body .tools {flex-wrap:wrap}
-html:root body .hero {background:radial-gradient(ellipse at 100% 0%,var(--hero-glow),transparent 58%),var(--paper)}
-html:root body .hero-backdrop .blob {background:var(--brand);filter:blur(90px);opacity:.22}
-html:root body .mark {background:var(--safe);color:var(--on-fill);border:1px solid var(--border);box-shadow:none;transform:rotate(-1.5deg);padding:0 12px}
-html:root body .scan-shell {background:var(--surface);padding:0;border-color:var(--border);box-shadow:0 18px 55px #00000020}
-html:root body .scan-core {background:transparent;border:0}
 html:root body .tabs {background:var(--surface-2);border:1px solid var(--border);border-radius:999px;padding:4px;gap:3px}
 html:root body .tabs button {border:0;border-radius:999px;background:transparent;color:var(--text)}
 html:root body .tabs button.is-active,
@@ -50,7 +45,6 @@ html:root body .meter {height:10px;border:0;background:var(--border)}
 html:root body .meter-fill {border:0;background:var(--coral)}
 html:root body .verdict {border-color:var(--border);background:var(--coral-tint)}
 html:root body .verdict--warn {background:var(--yellow-tint)}
-html:root body .sticker {border:1px solid var(--border);box-shadow:none;color:var(--on-brand);animation:none}
 html:root body .pill--safe {background:var(--indigo-tint);color:var(--indigo-text)}
 html:root body .lift:hover {transform:translateY(-2px)}
 html:root body .lift:active {transform:none}
@@ -65,91 +59,15 @@ html:root body .input,html:root body .textarea,html:root body .select {border-st
 
 html:root body .preview {background:var(--yellow);color:var(--on-fill)}
 
-html:root body main.is-home .hero-backdrop { opacity: 1; }
-html:root body main.is-home .marquee__group { background: transparent; }
-html:root body main.is-home .marquee__item { color: var(--ink); }
 
-/* Family callout: readable copy with diffuse light instead of solid dots. */
-html:root body #family .family-panel {
-  background:
-    radial-gradient(ellipse at 100% 0%, var(--hero-glow), transparent 65%),
-    radial-gradient(ellipse at 80% 100%, var(--hero-glow), transparent 65%),
-    var(--surface);
-  color: var(--ink);
-}
-html:root body #family .family-panel > .blob { opacity: 0; }
-html:root body #family .family-lede { color: var(--body-2); }
-html:root body #family .btn--quiet { background: var(--surface); color: var(--ink); border-color: var(--border-strong); }
-html:root body #family .btn[aria-disabled='true'] { opacity: 1; }
-
-/* QA refinement: varied ambient light. The semantic trio keeps three distinct
- * hues; mapping them onto one orange ramp made SAFE/SUSPICIOUS/DANGER read as
- * the same state. */
-html:root body #family .family-panel {
-  background:radial-gradient(ellipse at 100% 35%,var(--hero-glow),transparent 65%),radial-gradient(ellipse at 50% 100%,var(--hero-glow),transparent 70%),var(--surface);
-}
 html:root body .num--indigo {background:var(--brand);color:var(--on-brand)}
 html:root body .num--safe {background:var(--safe);color:var(--on-fill)}
 html:root body .num--yellow {background:var(--yellow);color:var(--on-fill)}
-/* Each quoted phrase keeps the hue of its numbered explanation. */
-html:root body #learn .hl--yellow,html:root body #learn .dot--yellow {background:var(--yellow);color:var(--on-fill)}
-html:root body #learn .hl--coral,html:root body #learn .dot--coral {background:var(--coral);color:var(--on-fill)}
-html:root body #learn .hl--safe,html:root body #learn .dot--safe {background:var(--safe);color:var(--on-fill)}
-html:root body #learn .hl,html:root body #learn .dot {border-color:transparent;box-shadow:none}
-html:root body #learn .badge,html:root body #learn .badge:hover,html:root body #learn .badge:active {border:0;box-shadow:none;transform:none;color:var(--on-fill)}
-/* The brand-filled badge needs white text in light mode. The rule above uses
- * an ID selector, so it would otherwise win over .badge--indigo. */
-html:root body #learn .badge--indigo {color:var(--on-brand)}
-html:root body #learn .badge--indigo {background:var(--brand)}
-html:root body #learn .badge--yellow {background:var(--yellow)}
-html:root body #learn .badge--safe {background:var(--safe)}
-html:root body #learn .badge--coral {background:var(--coral)}
 html:root body .tools .seg button[aria-pressed=true],html:root body .tools .mode-switch button.selected,html:root body .tools .theme-switch button[aria-pressed=true] {background:var(--brand);color:var(--on-brand);box-shadow:none;border:0}
 html:root body .tools .seg,html:root body .tools .mode-switch,html:root body .tools .theme-switch {border-color:var(--border);box-shadow:none}
 html:root body .tools button:hover {box-shadow:none}
 
-/* Focused homepage QA: two inputs and a clear forward action. */
-html:root body .scan-core .tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-html:root body .scan-bar-circle { background: transparent; border: 0; color: inherit; }
-html:root body .scan-bar:hover .scan-bar-circle { transform: translateX(2px); }
 
-
-/* One continuous canvas across the complete page, including section boundaries. */
-html:root body:has(main.is-home) {
-  background-color: var(--paper);
-  background-image:
-    radial-gradient(ellipse 75% 19% at 108% 5%, var(--hero-glow), transparent 82%),
-    radial-gradient(ellipse 80% 22% at -12% 23%, var(--hero-glow), transparent 80%),
-    radial-gradient(ellipse 90% 25% at 95% 46%, var(--hero-glow), transparent 82%),
-    radial-gradient(ellipse 85% 23% at -10% 70%, var(--hero-glow), transparent 82%),
-    radial-gradient(ellipse 85% 23% at 100% 96%, var(--hero-glow), transparent 85%);
-  background-repeat: no-repeat;
-  background-size: 100% 100%;
-}
-html:root body main.is-home,
-html:root body main.is-home > section {
-  background: transparent !important;
-  border-top: 0 !important;
-  border-bottom: 0 !important;
-  box-shadow: none;
-}
-html:root body main.is-home .marquee__group { background: transparent; }
-html:root body:has(main.is-home) .site-header {
-  border-bottom: 0;
-  box-shadow: none;
-}
-html:root body:has(main.is-home) .site-footer {
-  background: transparent;
-  border-top: 0;
-  box-shadow: none;
-}
-
-
-html:root body main.is-home > section.marquee {
-  background: var(--surface-2) !important;
-  border-top: var(--border-width) solid var(--border) !important;
-  border-bottom: var(--border-width) solid var(--border) !important;
-}
 
 /* ---- semantic text roles ------------------------------------------------
  * A fill can stay pastel in both themes while the ground flips, so "ink on
@@ -163,7 +81,6 @@ html:root body .card--safe, html:root body .card--yellow, html:root body .card--
 html:root body .panel--safe, html:root body .panel--yellow, html:root body .panel--coral,
 html:root body .tile--yellow, html:root body .tile--safe,
 html:root body .chip--danger, html:root body .chip--warn,
-html:root body .sticker--coral, html:root body .sticker--yellow,
 html:root body .mode--yellow, html:root body .mode--safe,
 html:root body .tag--send, html:root body .tag--no, html:root body .tag--none,
 html:root body .level[data-level='high'], html:root body .level[data-level='wary'],
@@ -180,14 +97,10 @@ html:root body ::selection {
 
 /* Dark accent panels: a fixed dark ground in both themes. */
 html:root body .card--ink, html:root body .panel--ink, html:root body .tile--ink,
-html:root body .btn--ink, html:root body .nav-link[aria-current='page'],
-html:root body .marquee, html:root body .marquee__group {
+html:root body .btn--ink, html:root body .nav-link[aria-current='page'] {
   background: var(--panel-dark);
   color: var(--on-panel-dark);
 }
-/* An item inherits the band's ground. Giving each item its own dark fill
- * painted a black box behind every word on the light home band. */
-html:root body .marquee__item { color: inherit; }
 html:root body .btn--ink:hover { color: var(--on-panel-dark); }
 html:root body .tile--ink p { color: var(--on-panel-dark); }
 

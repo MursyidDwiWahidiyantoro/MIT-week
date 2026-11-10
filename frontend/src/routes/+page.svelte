@@ -1,18 +1,27 @@
 <script lang="ts">
-  import { t } from '$lib/i18n/index.svelte';
+  import { goto } from '$app/navigation';
   import { resolve } from '$app/paths';
+  import { t } from '$lib/i18n/index.svelte';
+  import { readLink, type LinkProblem } from '$lib/link-input';
   import Icon from '$lib/components/ui/Icon.svelte';
-  import ScannerCard from '$lib/components/home/ScannerCard.svelte';
+  import UrlField from '$lib/components/ui/UrlField.svelte';
   import HowItWorks from '$lib/components/home/HowItWorks.svelte';
-  import ScamSchool from '$lib/components/home/ScamSchool.svelte';
-  import MadeForEveryone from '$lib/components/home/MadeForEveryone.svelte';
-  import Deferred from '$lib/components/ui/Deferred.svelte';
 
   const TRUST = ['home.trust1', 'home.trust2', 'home.trust3'] as const;
-  const MARQUEE = [
-    'home.marquee1', 'home.marquee2', 'home.marquee3', 'home.marquee4',
-    'home.marquee5', 'home.marquee6', 'home.marquee7', 'home.marquee8'
-  ] as const;
+
+  let url = $state('');
+  let problem = $state<LinkProblem | null>(null);
+
+  // The check starts on /deteksi, which reads ?q= and runs it at once. The
+  // link is cleaned here first, so a pasted share text never reaches the URL.
+  function submit(event: SubmitEvent): void {
+    event.preventDefault();
+    const reading = readLink(url);
+    problem = reading.problem;
+    if (!reading.url) return;
+    // eslint-disable-next-line svelte/no-navigation-without-resolve -- resolve() is applied to the route; the query string is appended
+    void goto(`${resolve('/deteksi')}?q=${encodeURIComponent(reading.url)}`);
+  }
 </script>
 
 <svelte:head>
@@ -21,334 +30,100 @@
 </svelte:head>
 
 <section class="hero" id="top">
-  <!-- Atmospheric decorative background spanning full viewport width -->
-  <div class="hero-backdrop" aria-hidden="true">
-    <span class="blob blob--safe"></span>
-    <span class="blob blob--soft"></span>
-    <span class="blob blob--yellow"></span>
-  </div>
-
   <div class="wrap hero-wrap">
-    <div class="hero-grid">
-      <div class="hero-copy">
+    <h1 class="hero-title">
+      {t('home.h1.a')} <span class="accent">{t('home.h1.mark')}</span> {t('home.h1.b')}
+    </h1>
+    <p class="hero-lede">{t('home.lede')}</p>
 
-        <h1 class="hero-title">
-          {t('home.h1.a')} <span class="mark">{t('home.h1.mark')}</span> {t('home.h1.b')}
-        </h1>
+    <form class="hero-form card" onsubmit={submit} novalidate aria-label={t('det.form')}>
+      <UrlField id="hero-url" bind:value={url} bind:problem />
+      <button class="btn btn--primary" type="submit">
+        {t('det.start')}
+        <Icon name="arrow-right" size={18} />
+      </button>
+    </form>
+    <p class="hero-hint">
+      {t('home.hint')} <!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- resolve() plus a query string -->
+      <a href={`${resolve('/deteksi')}?tab=file`}>{t('home.hintLink')}</a>.
+    </p>
 
-        <p class="hero-lede">
-          {t('home.lede')}
-        </p>
-
-        <form class="hero-form" action={resolve('/deteksi')} method="GET">
-          <label class="sr-only" for="hero-url">{t('home.urlLabel')}</label>
-          <input
-            id="hero-url"
-            class="input"
-            type="url"
-            name="q"
-            inputmode="url"
-            autocomplete="off"
-            placeholder={t('home.urlPlaceholder')}
-          />
-          <button class="btn btn--primary" type="submit">{t('home.urlSubmit')}</button>
-        </form>
-        <p class="hero-hint">
-          {t('home.hint')} <a href={resolve('/deteksi')}>{t('home.hintLink')}</a>.
-        </p>
-
-        <div class="cta-row">
-          <a class="btn btn--primary btn--hero group" href={resolve('/deteksi')}>
-            <span>{t('home.ctaCheck')}</span>
-            <span class="btn-icon-circle" aria-hidden="true">
-              <Icon name="arrow-right" size={18} />
-            </span>
-          </a>
-          <a class="btn btn--quiet" href="#learn">{t('home.ctaLearn')}</a>
-        </div>
-
-        <ul class="trust">
-          {#each TRUST as item (item)}
-            <li>
-              <span class="tick" aria-hidden="true"><Icon name="check" size={16} /></span>
-              <span>{t(item)}</span>
-            </li>
-          {/each}
-        </ul>
-      </div>
-
-      <div class="hero-scan">
-        <ScannerCard />
-      </div>
-    </div>
+    <ul class="trust">
+      {#each TRUST as item (item)}
+        <li>
+          <span class="tick" aria-hidden="true"><Icon name="check" size={16} /></span>
+          <span>{t(item)}</span>
+        </li>
+      {/each}
+    </ul>
   </div>
 </section>
 
-<Deferred order={0}>
-<section class="marquee" aria-label={t('home.marqueeLabel')}>
-  <div class="marquee__track">
-    {#each [0, 1] as copy (copy)}
-      <div class="marquee__group" aria-hidden={copy === 1 ? 'true' : undefined}>
-        {#each MARQUEE as item (item)}
-          <span class="marquee__item">{t(item)}<Icon name="sparkle" size={20} /></span>
-        {/each}
-      </div>
-    {/each}
-  </div>
-</section>
+<HowItWorks />
 
-</Deferred>
-
-<Deferred order={1}><HowItWorks /></Deferred>
-<Deferred order={2}><ScamSchool /></Deferred>
-<Deferred order={3}><MadeForEveryone /></Deferred>
-
-<section class="family-section section" id="family">
+<section class="family section" id="family" aria-labelledby="family-title">
   <div class="wrap">
-    <div class="family-panel card--indigo lift">
-      <span class="blob blob--safe" aria-hidden="true"></span>
-      <span class="blob blob--yellow" aria-hidden="true"></span>
-      <div class="family-body">
-        <h2 class="h2">{t('home.familyTitle')}</h2>
-        <p class="family-lede">
-          {t('home.familyLede')}
-        </p>
-        <div class="cta-row">
-          <a class="btn btn--safe" href={resolve('/deteksi')}>{t('home.familyCheck')}</a>
-          <a class="btn btn--quiet" href={resolve('/panduan-keluarga')}>{t('home.familyGuide')}</a>
-        </div>
+    <div class="family-panel card">
+      <h2 class="h2" id="family-title">{t('home.familyTitle')}</h2>
+      <p class="family-lede">{t('home.familyLede')}</p>
+      <div class="cta-row">
+        <a class="btn btn--primary" href={resolve('/deteksi')}>{t('home.familyCheck')}</a>
+        <a class="btn btn--quiet" href={resolve('/panduan-keluarga')}>{t('home.familyGuide')}</a>
       </div>
     </div>
   </div>
 </section>
 
 <style>
-  /* Full screen, expansive desktop hero */
   .hero {
-    position: relative;
-    width: 100%;
-    min-height: calc(100dvh - 5.5rem);
-    display: flex;
-    align-items: center;
-    padding-block: clamp(2.5rem, 5vw, 4.5rem);
-    overflow: hidden;
-    background: var(--paper);
+    padding-block: clamp(2.5rem, 7vw, 5.5rem) clamp(2rem, 5vw, 3.5rem);
   }
-
-  .hero-backdrop {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    overflow: hidden;
-    z-index: 0;
-  }
-  .blob {
-    position: absolute;
-    border-radius: 50%;
-    filter: blur(0px);
-  }
-  .blob--safe {
-    width: clamp(340px, 35vw, 540px);
-    height: clamp(340px, 35vw, 540px);
-    background: var(--safe);
-    right: -8vw;
-    top: -12vw;
-  }
-  .blob--soft {
-    width: clamp(260px, 26vw, 400px);
-    height: clamp(260px, 26vw, 400px);
-    background: var(--indigo-soft);
-    left: -6vw;
-    bottom: -8vw;
-  }
-  .blob--yellow {
-    width: clamp(160px, 16vw, 240px);
-    height: clamp(160px, 16vw, 240px);
-    background: var(--yellow);
-    right: 30%;
-    bottom: -60px;
-    opacity: 0.7;
-  }
-
-  /* Inherits .wrap: one container for the whole page, so the hero spreads as
-   * wide as every section below it instead of sitting in its own box. */
-  .hero-wrap {
-    position: relative;
-    z-index: 1;
-  }
-
-  .hero-grid {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: clamp(2.5rem, 4vw, 4rem);
-    align-items: center;
-  }
-  @media (min-width: 64rem) {
-    .hero-grid {
-      grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
-      gap: clamp(3rem, 4.5vw, 6.5rem);
-    }
-  }
-  @media (min-width: 100rem) {
-    .hero-grid {
-      grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.7fr);
-    }
-  }
-
-  .hero-copy {
-    min-width: 0;
-  }
-  .hero-scan {
-    min-width: 0;
-    display: flex;
-    justify-content: center;
-  }
-
+  .hero-wrap { max-width: 56rem; }
   .hero-title {
-    margin: var(--space-3) 0 var(--space-4);
-    font-size: var(--text-display);
-    line-height: var(--leading-display);
-    max-width: 16ch;
+    margin: 0 0 var(--space-4);
+    font-size: clamp(2.4rem, 1.7rem + 3.6vw, 4.6rem);
+    line-height: 1.04;
+    max-width: 14ch;
   }
-  .mark {
-    display: inline-block;
-    padding: 0 12px;
-    background: var(--safe);
-    border: var(--border-width) solid var(--border);
-    border-radius: 14px;
-    transform: rotate(-1.5deg);
-  }
+  .accent { color: var(--indigo-text); }
   .hero-lede {
-    font-size: clamp(var(--text-base), 1.15vw, 1.35rem);
+    font-size: var(--text-lg);
     line-height: var(--leading-normal);
     color: var(--body-2);
-    max-width: 38ch;
+    max-width: 40ch;
     margin: 0;
   }
 
   .hero-form {
-    display: flex;
-    gap: var(--space-2);
-    margin-top: var(--space-5);
-    max-width: 42rem;
-  }
-  .hero-form .input {
-    flex: 1 1 auto;
-    min-width: 0;
-    background: var(--white);
-    border-style: solid;
-  }
-  .hero-form .btn { flex: none; }
-  .hero-hint {
-    margin: var(--space-2) 0 0;
-    color: var(--body-2);
-    font-size: var(--text-sm);
-  }
-  @media (max-width: 40rem) {
-    .hero-form { flex-direction: column; }
-    .hero-form .btn { width: 100%; }
-  }
-
-  .cta-row {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--space-3) var(--space-4);
-    margin-top: var(--space-6);
-  }
-
-  /* Button-in-button trailing icon circle */
-  .btn--hero {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-3);
-    padding-right: 12px;
-  }
-  .btn-icon-circle {
     display: grid;
-    place-items: center;
-    width: 32px;
-    height: 32px;
-    /* Sits inside the orange primary button, so it uses the paper role. */
-    background: var(--paper);
-    color: var(--ink);
-    border-radius: 50%;
-    border: 2px solid var(--border);
-    transition: transform var(--dur-fast) var(--ease-out);
+    gap: var(--space-4);
+    margin-top: var(--space-6);
+    padding: clamp(1.1rem, 3vw, 1.75rem);
+    max-width: 44rem;
   }
-  .btn--hero:hover .btn-icon-circle {
-    transform: translateX(3px) scale(1.08);
-  }
+  .hero-form .btn { justify-self: start; }
+  .hero-hint { margin: var(--space-3) 0 0; color: var(--body-2); font-size: var(--text-sm); }
+  .hero-hint a { display: inline-block; padding-block: 12px; }
 
   .trust {
     display: flex;
     flex-wrap: wrap;
-    align-items: center;
     gap: var(--space-3) var(--space-5);
-    margin: var(--space-6) 0 0;
+    margin: var(--space-5) 0 0;
     padding: 0;
     list-style: none;
     font-weight: 700;
-    font-size: 0.95em;
+    font-size: var(--text-sm);
   }
   .trust li { display: inline-flex; align-items: center; gap: var(--space-2); }
-  .tick {
-    display: grid;
-    place-items: center;
-    width: 26px;
-    height: 26px;
-    background: var(--ink);
-    color: var(--on-ink);
-    border-radius: 50%;
-    flex: none;
-  }
+  .tick { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--indigo-soft); color: var(--indigo-text); }
 
-  /* Family callout section */
-  .family-section {
-    width: 100%;
-    background: var(--paper);
-    padding-block: clamp(3.5rem, 7vw, 6rem);
-  }
-  .family-panel {
-    position: relative;
-    overflow: hidden;
-    padding: clamp(2rem, 5vw, 3.5rem);
-    border: var(--border-width) solid var(--border);
-    border-radius: var(--radius-xl);
-    box-shadow: var(--shadow-hard-xl);
-  }
-  .family-panel .blob--safe { width: 240px; height: 240px; right: -70px; top: -70px; }
-  .family-panel .blob--yellow { width: 120px; height: 120px; right: 120px; bottom: -60px; }
-  .family-body { position: relative; z-index: 1; max-width: 44rem; }
-  .family-lede {
-    margin: var(--space-4) 0 0;
-    color: var(--on-indigo-text);
-    font-size: 1.2em;
-    max-width: 34em;
-  }
-  .family-panel :global(.btn--quiet) { color: var(--ink); }
+  .family-panel { padding: clamp(1.5rem, 4vw, 2.75rem); max-width: 56rem; }
+  .family-lede { margin: var(--space-3) 0 0; color: var(--body-2); max-width: 36em; }
+  .cta-row { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-5); }
 
-  @media (max-width: 48rem) {
-    .hero {
-      min-height: auto;
-      padding-block: var(--space-5) var(--space-8);
-    }
-    .hero-title {
-      font-size: clamp(2.3rem, 9vw, 3.4rem);
-    }
-    .cta-row {
-      flex-direction: column;
-      align-items: stretch;
-      gap: var(--space-3);
-    }
-    .cta-row :global(.btn) {
-      width: 100%;
-      justify-content: center;
-    }
-    .trust {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: var(--space-2);
-    }
+  @media (max-width: 40rem) {
+    .hero-form .btn,
+    .cta-row .btn { width: 100%; }
   }
 </style>

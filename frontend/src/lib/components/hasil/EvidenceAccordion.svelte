@@ -59,7 +59,7 @@
 
 <div class="accordion">
   {#each order as key (key)}
-    <details class="item" data-info-key={`pillar.${key}`} open={available(key)}>
+    <details class="item" data-testid={`pillar-${key}`} open={available(key)}>
       <summary>
         <span class="name">{t(LABELS[key])}</span>
         {#if pending}
@@ -100,7 +100,7 @@
             </ul>
           {/if}
         {:else if key === 'fact'}
-          <div data-info-key="sources">
+          <div data-testid="sources">
             {#if pillars.fact.claim}<p>{t('ev.claim', { claim: pillars.fact.claim })}</p>{/if}
             <p>{t('ev.status', { status: t(FACT_LABELS[pillars.fact.status]) })}</p>
             {#if (pillars.fact.sources ?? []).length}

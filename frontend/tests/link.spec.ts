@@ -10,16 +10,16 @@ test('an unreadable link explains itself and offers a screenshot upload', async 
   await page.goto('/deteksi');
   await page.getByRole('tab', { name: 'Tautan' }).click();
   await page.getByLabel(/tautan/i).first().fill('https://bri-verifikasi.example/login');
-  await page.getByRole('button', { name: 'Mulai periksa' }).click();
+  await page.getByRole('button', { name: 'Periksa', exact: true }).click();
 
   await expect(page).toHaveURL(/\/hasil$/, { timeout: 20_000 });
-  const preview = page.locator('[data-info-key="source.metadata"]');
+  const preview = page.locator('[data-testid="source-metadata"]');
   await expect(preview).toContainText('Isi halaman tautan tidak dapat dibaca');
 
   // The link pillar still ran and found the lookalike; the verdict is never
   // "belum cukup data" for a link this risky.
   await expect(page.getByText('Domain meniru nama layanan populer').first()).toBeAttached();
-  await expect(page.locator('[data-info-key="verdict.score"]')).not.toContainText('Belum cukup data');
+  await expect(page.locator('[data-testid="verdict-badge"]')).not.toContainText('Belum cukup data');
 
   await preview.getByRole('button', { name: 'Unggah tangkapan layar' }).click();
   await expect(page).toHaveURL(/\/deteksi\?tab=file/);
@@ -33,7 +33,7 @@ test('the screenshot demo opens the ELA viewer and OCR tactics', async ({ page }
   });
 
   await page.goto('/deteksi');
-  await page.getByRole('button', { name: /Tangkapan layar berita/ }).click();
+  await page.getByRole('button', { name: 'Tangkapan layar diedit' }).click();
   await expect(page).toHaveURL(/\/hasil$/, { timeout: 10_000 });
 
   await expect(page.getByLabel('Geser untuk membandingkan gambar asli dan hasil ELA')).toBeVisible({ timeout: 15_000 });

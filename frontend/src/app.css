@@ -333,86 +333,10 @@
   .muted { color: var(--muted); }
   .small { font-size: var(--text-sm); }
 
-  /* ---- marquee ---- */
-  .marquee {
-    width: 100%;
-    overflow: hidden;
-    background: var(--panel-dark);
-    border-block: var(--border-width) solid var(--border);
-    padding-block: 18px;
-  }
-
-  .marquee__track {
-    display: flex;
-    width: max-content;
-    animation: marquee-slide 34s linear infinite;
-  }
-
-  .marquee__group {
-    display: flex;
-    align-items: center;
-    gap: 22px;
-    padding-right: 22px;
-    /* The track is transformed every frame. Restating the band colour here
-     * keeps the computed backdrop ink for anything inside it (audited at
-     * 16.9:1), instead of falling back to whatever sits behind the band. */
-    background: var(--panel-dark);
-  }
-
-  .marquee__item {
-    display: inline-flex;
-    align-items: center;
-    gap: 22px;
-    white-space: nowrap;
-    font-family: var(--font-display);
-    font-weight: 700;
-    font-size: 1.5em;
-    color: var(--on-panel-dark);
-  }
-
-  @keyframes marquee-slide {
-    from { transform: translateX(0); }
-    to { transform: translateX(-50%); }
-  }
-
-  /* ---- floating sticker ---- */
-  .sticker {
-    position: absolute;
-    z-index: 2;
-    display: inline-flex;
-    align-items: center;
-    padding: 8px 16px;
-    border: var(--border-width) solid var(--border);
-    border-radius: 14px;
-    box-shadow: var(--shadow-hard-xs);
-    font-family: var(--font-display);
-    font-weight: 800;
-    font-size: 0.95em;
-    color: var(--ink);
-    transform: rotate(var(--r, 0deg));
-    animation: sticker-bob 3.6s ease-in-out infinite;
-    pointer-events: none;
-  }
-
-  @keyframes sticker-bob {
-    0% { transform: translateY(0) rotate(var(--r, 0deg)); }
-    50% { transform: translateY(-9px) rotate(var(--r, 0deg)); }
-    100% { transform: translateY(0) rotate(var(--r, 0deg)); }
-  }
-
-  /* ---- decorative flat circle: the only ornament in the system ---- */
-  .blob {
-    position: absolute;
-    border-radius: 50%;
-    z-index: 0;
-    pointer-events: none;
-  }
 }
 
 /* ---- calm motion: the reduced-motion preference ---- */
 @media (prefers-reduced-motion: reduce) {
-  .marquee__track,
-  .sticker { animation: none; }
   .lift:hover,
   .lift:active,
   .btn:hover,

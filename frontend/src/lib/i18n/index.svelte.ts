@@ -1,11 +1,10 @@
 /**
- * Interface language: Indonesian (default) or English (PRD P1 EN/ID toggle).
+
  *
  * The Indonesian dictionary holds the original copy verbatim, so the default
  * experience is unchanged. English covers the whole interface; content that
  * comes from the user or the model (a claim, OCR text, a caption) stays in
- * its own language, and Balas Sopan replies stay Indonesian because they are
- * written for Indonesian family chats.
+ * its own language.
  */
 import { id, type MessageKey } from './id';
 import { en } from './en';

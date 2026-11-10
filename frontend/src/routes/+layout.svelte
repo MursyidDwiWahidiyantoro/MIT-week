@@ -309,7 +309,6 @@
       padding-top: 4px;
     }
     .tools.open { display: flex; }
-    .tools :global(.text-size .label) { display: none; }
     nav {
       grid-column: 1 / -1;
       grid-row: 2;

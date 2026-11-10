@@ -67,7 +67,7 @@
 </script>
 
 <Panel title={t('video.title')}>
-  <div class="video" data-info-key="video">
+  <div class="video" data-testid="video">
     <div class="head">
       <p class="meta">
         {#if platform}<span class="platform">{platform}</span>{/if}

@@ -10,10 +10,6 @@ import { t, locale, type MessageKey } from './index.svelte';
 
 const has = (key: string): key is MessageKey => t(key as MessageKey) !== key;
 
-export function shortTitle(d: DossierParsed): string {
-  return locale.value === 'id' ? d.verdict.short_title : t(`status.${d.verdict.status}`);
-}
-
 /** TECH_SPEC §8.2 deterministic lead sentence (scoring.ExplanationSimple). */
 export function simpleSentence(d: DossierParsed): string {
   if (locale.value === 'id') return d.verdict.explanation_simple;
