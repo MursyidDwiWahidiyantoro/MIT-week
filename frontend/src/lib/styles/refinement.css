@@ -1,138 +1,139 @@
-/* Cosmetic layer: existing grids and content order remain component-owned. */
-html:root body .btn,html:root body .scan-bar {border-radius:999px;border:1px solid var(--border);font-weight:700;box-shadow:none;transition:background .18s,box-shadow .18s,transform .18s}
-html:root body .btn:hover,html:root body .scan-bar:hover {transform:translateY(-2px);box-shadow:0 6px 20px #fc3b0020}
-html:root body .btn:active,html:root body .scan-bar:active {transform:translateY(0);box-shadow:none}
-html:root body .btn--primary,html:root body .scan-bar {background:var(--brand);color:var(--on-brand);border-color:transparent;box-shadow:inset 0 1px 0 #ffffff20}
-html:root body .btn--safe {background:var(--safe);color:var(--on-fill);border-color:var(--border);box-shadow:none}
-html:root body .btn--safe:hover {background:var(--safe);color:var(--on-fill)}
-html:root body .btn--primary:hover,html:root body .scan-bar:hover {background:var(--brand-hover);color:var(--on-brand)}
-html:root body .btn--primary:active,html:root body .scan-bar:active {background:var(--brand-deep)}
-html:root body .btn:disabled,html:root body .btn[aria-disabled=true] {transform:none;box-shadow:none}
-html:root body .btn--quiet {background:var(--surface);color:var(--ink)}
-html:root body .btn-icon-circle,html:root body .scan-bar-circle {background:transparent;border:0;color:inherit}
-html:root body .card--safe,html:root body .card--yellow,html:root body .card--coral {color:var(--on-fill)}
-/* Ivory is close in value to the cream page (1.32:1). The default border is
- * invisible on it (1.08:1), so a cream surface needs the stronger edge to read
- * as a distinct card. Amber and vermilion already separate on their own. */
-html:root body .card--safe,html:root body .tile--safe,html:root body .panel--safe,
-html:root body .btn--safe,html:root body .num--safe,
-html:root body .badge--safe,html:root body .hl--safe,
-html:root body .tone--safe,html:root body .mode--safe,
-html:root body .level[data-level='low'],html:root body .state.done,
-html:root body .option.correct,html:root body .bullet--ok,
-html:root body .quiz-eyebrow,html:root body .verified,
-html:root body .mark {border-color:var(--border-strong)}
-html:root body .card--indigo {background:var(--indigo-soft);color:var(--text)}
-html:root body .logo {background:var(--brand);color:var(--on-brand);border:0;box-shadow:none}
-html:root body .nav-link {border-radius:999px}
-html:root body .nav-link:hover {background:var(--hover-overlay);color:var(--ink);transform:none}
-html:root body .nav-link[aria-current=page] {background:var(--panel-dark);color:var(--on-panel-dark);border-color:transparent}
-html:root body .mode-switch,html:root body .seg,html:root body .theme-switch {border:1px solid var(--border);border-radius:999px;background:var(--surface);padding:4px;gap:3px}
-.theme-switch {display:inline-flex;margin:0;align-items:center;flex:none}
-.theme-switch button {font:inherit;font-size:var(--text-sm);font-weight:700;min-height:44px;padding:0 12px;border:0;cursor:pointer}
-html:root body .mode-switch button,html:root body .seg button,html:root body .theme-switch button {border-radius:999px;background:transparent;color:var(--ink)}
-html:root body .mode-switch button.selected,html:root body .seg button[aria-pressed=true],html:root body .theme-switch button[aria-pressed=true] {background:var(--ink);color:var(--paper)}
-html:root body .tools {flex-wrap:wrap}
-html:root body .tabs {background:var(--surface-2);border:1px solid var(--border);border-radius:999px;padding:4px;gap:3px}
-html:root body .tabs button {border:0;border-radius:999px;background:transparent;color:var(--text)}
-html:root body .tabs button.is-active,
-html:root body .tabs button.selected,
-html:root body .tabs button[aria-selected='true'] {background:var(--brand);color:var(--on-brand)}
-html:root body .sample {border-style:solid;background:var(--surface-2)}
-html:root body .chip:not(.chip--danger):not(.chip--warn) {background:transparent;border:0;padding-inline:0;color:var(--err)}
-html:root body .chip--warn {color:var(--warn)}
-html:root body .meter {height:10px;border:0;background:var(--border)}
-html:root body .meter-fill {border:0;background:var(--coral)}
-html:root body .verdict {border-color:var(--border);background:var(--coral-tint)}
-html:root body .verdict--warn {background:var(--yellow-tint)}
-html:root body .pill--safe {background:var(--indigo-tint);color:var(--indigo-text)}
-html:root body .lift:hover {transform:translateY(-2px)}
-html:root body .lift:active {transform:none}
-html:root body :focus-visible {outline:3px solid var(--ink);outline-offset:4px}
-@media(prefers-reduced-motion:reduce){html:root body .btn:hover,html:root body .scan-bar:hover,html:root body .lift:hover{transform:none;transition:none}}
-html:root body .tile--yellow,html:root body .num--safe,html:root body .num--yellow,html:root body .badge--yellow,html:root body .badge--safe,html:root body .badge--coral,html:root body .pill--coral,html:root body .hl--yellow,html:root body .hl--coral,html:root body .hl--safe {color:var(--on-fill)}
-html:root body .num--indigo,html:root body .badge--indigo {color:var(--on-brand)}
-html:root body .tile--yellow p,html:root body .tile--safe p {color:var(--on-fill)}
-html:root body .tick {background:transparent;color:var(--indigo-text)}
-html:root body .panel--indigo {background:var(--indigo-soft);color:var(--ink)}
-html:root body .input,html:root body .textarea,html:root body .select {border-style:solid}
-
-html:root body .preview-badge {background:var(--yellow);color:var(--on-fill)}
-
-
-html:root body .num--indigo {background:var(--brand);color:var(--on-brand)}
-html:root body .num--safe {background:var(--safe);color:var(--on-fill)}
-html:root body .num--yellow {background:var(--yellow);color:var(--on-fill)}
-html:root body .tools .seg button[aria-pressed=true],html:root body .tools .mode-switch button.selected,html:root body .tools .theme-switch button[aria-pressed=true] {background:var(--brand);color:var(--on-brand);box-shadow:none;border:0}
-html:root body .tools .seg,html:root body .tools .mode-switch,html:root body .tools .theme-switch {border-color:var(--border);box-shadow:none}
-html:root body .tools button:hover {box-shadow:none}
-
-
-
-/* ---- semantic text roles ------------------------------------------------
- * A fill can stay pastel in both themes while the ground flips, so "ink on
- * cream" is not a safe rule: in dark mode --ink is near-white. Each surface
- * below maps to exactly one readable text role. Prefixed for specificity over
- * Svelte's scoped component rules.
+/*
+ * Theme layer. Components own their layout; this file gives the shared roles
+ * one answer in the glass system where a component's scoped rule would
+ * otherwise decide on its own. Prefixed with html:root body for specificity
+ * over Svelte's scoped selectors. Every value is a token.
  */
 
-/* Pastel sticker fills: light in both themes, so the text stays dark. */
-html:root body .card--safe, html:root body .card--yellow, html:root body .card--coral,
-html:root body .panel--safe, html:root body .panel--yellow, html:root body .panel--coral,
-html:root body .tile--yellow, html:root body .tile--safe,
-html:root body .chip--danger, html:root body .chip--warn,
-html:root body .mode--yellow, html:root body .mode--safe,
-html:root body .tag--send, html:root body .tag--no, html:root body .tag--none,
-html:root body .level[data-level='high'], html:root body .level[data-level='wary'],
-html:root body .level[data-level='low'],
-html:root body .tone--safe, html:root body .tone--warn, html:root body .tone--danger,
-html:root body .state.done, html:root body .state.pending,
-html:root body .verified, html:root body .notice, html:root body .notice--demo,
-html:root body .skip-link, html:root body .pill--coral,
-html:root body .option.correct, html:root body .quiz-eyebrow,
-html:root body .limits,
-html:root body ::selection {
+/* ---- segmented controls and tabs: one glass track, a raised neutral segment.
+ * The accent stays on the primary action; a selected tab is light, not orange. */
+html:root body .theme-switch,
+html:root body .seg,
+html:root body .tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin: 0;
+  padding: 3px;
+  border: 1px solid var(--glass-edge);
+  border-radius: var(--radius-md);
+  background: var(--glass-bg);
+  box-shadow: var(--glass-highlight);
+}
+.theme-switch { flex: none; min-inline-size: 0; }
+html:root body .theme-switch button,
+html:root body .seg button,
+html:root body .tabs button {
+  min-height: 40px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: calc(var(--radius-md) - 4px);
+  background: transparent;
+  color: var(--body-2);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+html:root body .theme-switch button:hover,
+html:root body .seg button:hover,
+html:root body .tabs button:hover { background: var(--hover-overlay); color: var(--ink); }
+html:root body .theme-switch button[aria-pressed='true'],
+html:root body .seg button[aria-pressed='true'],
+html:root body .tabs button.is-active,
+html:root body .tabs button.selected,
+html:root body .tabs button[aria-selected='true'] {
+  background: var(--white);
+  color: var(--ink);
+  box-shadow: 0 0 0 1px var(--glass-edge), var(--shadow-1);
+}
+
+/* ---- verdict roles: a pale fill of the state, its own text colour ---- */
+html:root body .panel--safe, html:root body .tone--safe, html:root body .num--safe,
+html:root body .tag--send, html:root body .verified, html:root body .bullet--ok {
+  background: var(--safe);
   color: var(--on-fill);
+  border-color: color-mix(in srgb, var(--ok) 30%, transparent);
+}
+html:root body .panel--yellow, html:root body .tone--warn, html:root body .num--yellow,
+html:root body .tag--none {
+  background: var(--yellow);
+  color: var(--on-fill);
+  border-color: color-mix(in srgb, var(--warn) 30%, transparent);
+}
+html:root body .panel--coral, html:root body .tone--danger, html:root body .tag--no {
+  background: var(--coral);
+  color: var(--on-fill);
+  border-color: color-mix(in srgb, var(--err) 30%, transparent);
+}
+html:root body .panel--indigo { background: var(--indigo-soft); color: var(--ink); }
+html:root body .panel--ink { background: var(--panel-dark); color: var(--on-panel-dark); }
+html:root body .num--indigo { background: var(--brand); color: var(--on-brand); }
+
+html:root body .chip {
+  background: transparent;
+  border: 0;
+  padding-inline: 0;
+  color: var(--err);
 }
 
-/* Dark accent panels: a fixed dark ground in both themes. */
-html:root body .card--ink, html:root body .panel--ink, html:root body .tile--ink,
-html:root body .btn--ink, html:root body .nav-link[aria-current='page'] {
-  background: var(--panel-dark);
-  color: var(--on-panel-dark);
+/* The risk meter: a quiet track; the fill takes the verdict's own colour from
+ * the component (--meter-color), the accent otherwise. */
+html:root body .meter {
+  height: 8px;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ink) 10%, transparent);
+  overflow: hidden;
 }
-html:root body .btn--ink:hover { color: var(--on-panel-dark); }
-html:root body .tile--ink p { color: var(--on-panel-dark); }
-
-/* Brand-filled controls: dark text on the warm orange in dark mode, white in
- * light mode where --brand is darkened. */
-html:root body .btn--primary, html:root body .logo,
-html:root body .choice.selected, html:root body .scan-bar,
-html:root body .num--indigo,
-html:root body .badge--indigo,
-html:root body .tabs button.is-active, html:root body .tabs button.selected,
-html:root body .tabs button[aria-selected='true'],
-html:root body .tools .seg button[aria-pressed='true'],
-html:root body .tools .mode-switch button.selected,
-html:root body .tools .theme-switch button[aria-pressed='true'] {
-  color: var(--on-brand);
-}
-html:root body .btn--primary:hover,
-html:root body .scan-bar:hover { color: var(--on-brand); }
-
-/* A light --ink fill: its paired text is the opposite ground. */
-html:root body .tick, html:root body .q-num { color: var(--on-ink); }
-
-/* Tinted dark surfaces keep the normal text role. */
-html:root body .state.skipped, html:root body .option { color: var(--text); }
-
-/* A pastel sticker is a light surface in both themes; a note placed on it is
- * a paper note, so it must stay light too. */
-html:root body .quiz-bubble {
-  background: #fff8f4;
-  color: #170e09;
-  border-color: #796154;
+html:root body .meter-fill {
+  border: 0;
+  border-radius: 999px;
+  background: var(--meter-color, var(--brand));
 }
 
-/* The highlight word is a cream sticker with dark text in both themes. */
-html:root body .mark { color: var(--on-fill); }
+/* Notices and limits are light glass with a hairline, never a coloured stripe. */
+html:root body .notice,
+html:root body .limits {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-edge);
+  color: var(--ink);
+  box-shadow: var(--glass-highlight);
+}
+html:root body .notice--demo {
+  background: var(--yellow-tint);
+  color: var(--ink);
+  border-color: color-mix(in srgb, var(--warn) 35%, transparent);
+}
+
+/* Quiz: options are quiet panes; the right answer is the ok state. */
+html:root body .option {
+  background: var(--glass-bg);
+  border-color: var(--glass-edge);
+  color: var(--text);
+}
+html:root body .option.correct { background: var(--safe); color: var(--on-fill); border-color: color-mix(in srgb, var(--ok) 35%, transparent); }
+
+html:root body .tick,
+html:root body .q-num { background: var(--ink); color: var(--on-ink); }
+
+/* A highlighted word in a checked text: the warn tint, readable in both themes. */
+html:root body .mark { background: var(--yellow); color: var(--on-fill); border-radius: 4px; }
+
+html:root body .preview-badge { background: var(--yellow); color: var(--on-fill); }
+
+html:root body .level { color: var(--ink); }
+
+/* Evidence chips mark that a check finished, not whether it was good news:
+ * a neutral chip, so "skor 100" on edited text never reads as a green light. */
+html:root body .state.done {
+  background: var(--surface-2);
+  color: var(--ink);
+  border: 1px solid var(--border);
+}
+html:root body .state.pending {
+  background: var(--yellow-tint);
+  color: var(--ink);
+  border: 1px solid color-mix(in srgb, var(--warn) 30%, transparent);
+}

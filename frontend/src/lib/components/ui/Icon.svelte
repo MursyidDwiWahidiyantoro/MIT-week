@@ -26,7 +26,9 @@
     | 'refresh'
     | 'whatsapp'
     | 'volume-off'
-    | 'chevron';
+    | 'chevron'
+    | 'video'
+    | 'search';
 
   interface Props {
     name: IconName;
@@ -37,7 +39,7 @@
   let { name, size = 24, label }: Props = $props();
 
   const filled = $derived(name === 'sparkle');
-  const strokeWidth = $derived(name === 'shield-check' ? 2.4 : 2.2);
+  const strokeWidth = $derived(name === 'shield-check' ? 2.2 : 1.9);
 </script>
 
 <svg
@@ -57,6 +59,12 @@
   {#if name === 'shield-check'}
     <path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3z" />
     <path d="M9 12l2 2 4-4" />
+  {:else if name === 'video'}
+    <rect x="3" y="5" width="18" height="14" rx="3" />
+    <path d="M10 9.5v5l4.5-2.5L10 9.5z" />
+  {:else if name === 'search'}
+    <circle cx="11" cy="11" r="6.5" />
+    <path d="M16 16l4.5 4.5" />
   {:else if name === 'chat'}
     <path d="M4 5h16v11H9l-5 4V5z" />
   {:else if name === 'link'}

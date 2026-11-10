@@ -270,7 +270,7 @@
   .score { font-size: var(--text-sm); font-weight: 700; color: var(--muted); }
   .hint { margin: 0; font-size: var(--text-sm); color: var(--body-2); max-width: var(--measure); }
   .meter { height: 20px; border-radius: var(--radius-pill); overflow: hidden; }
-  .meter-fill { display: block; height: 100%; transition: width var(--dur-slow) var(--ease-out); }
+  .meter-fill { display: block; height: 100%; }
   .indicators { display: grid; gap: var(--space-1); margin: 0; padding-left: var(--space-5); list-style: disc; color: var(--body-2); }
   .note { margin: 0; font-size: var(--text-sm); color: var(--muted); max-width: var(--measure); }
 

@@ -172,7 +172,6 @@
   <div class="actions">
     <Button type="submit" size="lg" loading={session.running}>
       {session.running ? t('det.running') : t('det.start')}
-      {#if !session.running}<Icon name="arrow-right" size={18} />{/if}
     </Button>
     {#if session.running}
       <Button variant="quiet" onclick={() => session.abort()}>{t('det.cancel')}</Button>

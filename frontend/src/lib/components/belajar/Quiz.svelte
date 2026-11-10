@@ -69,7 +69,7 @@
   {#if !done}
     <p class="progress">
       <span>{tx(UI.quiz.progress, { n: index + 1, total })}</span>
-      <span class="bar" aria-hidden="true"><span style:width="{((index + (submitted ? 1 : 0)) / total) * 100}%"></span></span>
+      <span class="bar" aria-hidden="true"><span style:transform="scaleX({(index + (submitted ? 1 : 0)) / total})"></span></span>
     </p>
 
     <fieldset class="q" disabled={submitted}>
@@ -128,7 +128,7 @@
   .quiz { padding: clamp(1.25rem, 3vw, 2rem); max-width: 46rem; }
   .progress { display: grid; gap: var(--space-2); margin: 0 0 var(--space-4); font-weight: 700; font-size: var(--text-sm); color: var(--body-2); }
   .bar { display: block; height: 6px; border-radius: var(--radius-pill); background: var(--border); overflow: hidden; }
-  .bar span { display: block; height: 100%; background: var(--brand); border-radius: inherit; transition: width var(--dur-base) var(--ease-out); }
+  .bar span { display: block; height: 100%; background: var(--brand); border-radius: inherit; transform-origin: left; transition: transform var(--dur-base) var(--ease-out); }
 
   .q { border: 0; margin: 0; padding: 0; min-width: 0; }
   legend {
@@ -177,7 +177,7 @@
 
   .missing { min-height: 1.6rem; margin: var(--space-2) 0 0; display: flex; align-items: center; gap: var(--space-2); color: var(--err); font-weight: 700; font-size: var(--text-sm); }
   .feedback { margin: 0 0 var(--space-4); }
-  .feedback.filled { padding: var(--space-3) var(--space-4); background: var(--paper); border-left: 4px solid var(--brand); border-radius: var(--radius-sm); }
+  .feedback.filled { padding: var(--space-3) var(--space-4); background: var(--glass-bg-strong); border: 1px solid var(--glass-edge); border-radius: var(--radius-md); box-shadow: var(--glass-highlight); }
   .feedback p { margin: 0; }
   .fb-head { margin-bottom: var(--space-1) !important; }
   .explain { color: var(--body-2); }

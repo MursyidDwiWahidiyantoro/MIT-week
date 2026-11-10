@@ -67,6 +67,30 @@
       !(dossier.source_metadata.status === 'BLOCKED' && dossier.video?.status === 'OK')
   );
 
+  // The verdict lens sits over the user's own content: the uploaded image or
+  // the video's first frame. Nothing external is loaded (CSP: self, data, blob).
+  let imageUrl = $state<string | null>(null);
+  $effect(() => {
+    if (!imageFile) return;
+    const objectUrl = URL.createObjectURL(imageFile);
+    imageUrl = objectUrl;
+    return () => URL.revokeObjectURL(objectUrl);
+  });
+  const backdrop = $derived.by(() => {
+    if (imageUrl && dossier?.input_type === 'FILE') return imageUrl;
+    const frame = dossier?.video?.frames?.[0]?.thumb ?? '';
+    return /^(data:image\/|blob:|\/)/.test(frame) ? frame : null;
+  });
+
+  // The one authored moment: the frost over the content clears as the verdict
+  // lands. Reduced motion collapses the transition to an instant change.
+  let cleared = $state(false);
+  $effect(() => {
+    if (!dossier) return;
+    const id = requestAnimationFrame(() => requestAnimationFrame(() => (cleared = true)));
+    return () => cancelAnimationFrame(id);
+  });
+
   // Optional auto-read: off by default, speaks once per result.
   let autoReadDone = false;
   $effect(() => {
@@ -98,34 +122,37 @@
     <p class="notice" role="note">{t('res.degraded')}</p>
   {/if}
 
-  <section class="verdict tone-{tone}" aria-labelledby="verdict-title">
-    <h2 id="verdict-title" class="verdict-heading" tabindex="-1" bind:this={verdictHeading} data-testid="verdict-badge">
-      <StatusBadge status={dossier.verdict.status} score={dossier.verdict.score} />
-    </h2>
-    <div class="conclusion">
-      <p class="sentence" data-testid="verdict-sentence">{sentence}</p>
-      {#if dossier.verdict.score !== null}
-        <div class="score">
-          <p class="score-num" aria-hidden="true"><span>{dossier.verdict.score}</span><small>/100</small></p>
-          <div class="meter" role="img" aria-label={formatScore(dossier.verdict.score)}>
-            <span class="meter-fill" style:width="{dossier.verdict.score}%"></span>
+  <section class="verdict tone-{tone}" class:has-media={!!backdrop} class:cleared aria-labelledby="verdict-title">
+    {#if backdrop}<img class="verdict-media" src={backdrop} alt="" aria-hidden="true" />{/if}
+    <div class="verdict-pane">
+      <h2 id="verdict-title" class="verdict-heading" tabindex="-1" bind:this={verdictHeading} data-testid="verdict-badge">
+        <StatusBadge status={dossier.verdict.status} score={dossier.verdict.score} />
+      </h2>
+      <div class="conclusion">
+        <p class="sentence" data-testid="verdict-sentence">{sentence}</p>
+        {#if dossier.verdict.score !== null}
+          <div class="score">
+            <p class="score-num tabular" aria-hidden="true"><span>{dossier.verdict.score}</span><small>/100</small></p>
+            <div class="meter" role="img" aria-label={formatScore(dossier.verdict.score)}>
+              <span class="meter-fill" style:width="{dossier.verdict.score}%"></span>
+            </div>
+            <p class="score-cap" aria-hidden="true">{t('res.scoreCap')}</p>
           </div>
-          <p class="score-cap" aria-hidden="true">{t('res.scoreCap')}</p>
-        </div>
-      {/if}
-    </div>
-    <div class="read-aloud">
-      <ReadAloud text={`${sentence} ${explained}`} />
-      {#if speechAvailable()}
-        <label class="auto-read">
-          <input
-            type="checkbox"
-            checked={autoRead.value}
-            onchange={(e) => autoRead.set((e.currentTarget as HTMLInputElement).checked)}
-          />
-          {t('res.autoRead')}
-        </label>
-      {/if}
+        {/if}
+      </div>
+      <div class="read-aloud">
+        <ReadAloud text={`${sentence} ${explained}`} />
+        {#if speechAvailable()}
+          <label class="auto-read">
+            <input
+              type="checkbox"
+              checked={autoRead.value}
+              onchange={(e) => autoRead.set((e.currentTarget as HTMLInputElement).checked)}
+            />
+            {t('res.autoRead')}
+          </label>
+        {/if}
+      </div>
     </div>
   </section>
 
@@ -209,18 +236,59 @@
 
   /* One column on the reading measure: hero, reasons, evidence, limits. */
 
+  /* The verdict lens: frosted glass over the user's own image or video frame,
+   * or over a field of the verdict's colour when there is no picture. */
   .verdict {
-    padding: clamp(1.25rem, 3vw, 2rem);
-    margin-bottom: var(--space-5);
-    border: 1px solid var(--border);
-    border-left: 6px solid var(--tone, var(--border-strong));
-    border-radius: var(--radius-lg);
-    background: var(--tone-bg, var(--white));
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    margin-bottom: var(--space-6);
+    padding: clamp(0.6rem, 2vw, 1rem);
+    border-radius: var(--radius-xl);
+    background:
+      radial-gradient(40rem 22rem at 100% 0%, var(--tone-field), transparent 70%),
+      radial-gradient(30rem 20rem at 0% 100%, var(--field-b), transparent 70%);
+    box-shadow: 0 0 0 1px var(--glass-edge), var(--shadow-2);
   }
-  .tone-safe { --tone: var(--ok); --tone-bg: var(--white); }
-  .tone-warn { --tone: var(--yellow); --tone-bg: var(--yellow-tint); }
-  .tone-danger { --tone: var(--coral); --tone-bg: var(--coral-tint); }
-  .tone-neutral { --tone: var(--border-strong); --tone-bg: var(--white); }
+  .tone-safe { --tone: var(--ok); --tone-field: color-mix(in srgb, var(--ok) 30%, transparent); }
+  .tone-warn { --tone: var(--warn); --tone-field: color-mix(in srgb, var(--warn) 30%, transparent); }
+  .tone-danger { --tone: var(--err); --tone-field: color-mix(in srgb, var(--err) 30%, transparent); }
+  .tone-neutral { --tone: var(--border-strong); --tone-field: var(--field-a); }
+
+  .verdict-media {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    /* Soft at the frame too: the content shows through, its text does not compete. */
+    filter: blur(3px) saturate(1.1);
+    transform: scale(1.08);
+    transition: transform var(--dur-slow) var(--ease-out);
+  }
+  .cleared .verdict-media { transform: scale(1); }
+
+  .verdict-pane {
+    padding: clamp(1.1rem, 3vw, 1.75rem);
+    border-radius: calc(var(--radius-xl) - 6px);
+    background: var(--glass-bg-strong);
+    -webkit-backdrop-filter: blur(var(--frost-heavy)) saturate(1.3);
+    backdrop-filter: blur(var(--frost-heavy)) saturate(1.3);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-highlight), 0 0 0 1px var(--glass-edge);
+    transition:
+      backdrop-filter var(--dur-slow) var(--ease-out),
+      -webkit-backdrop-filter var(--dur-slow) var(--ease-out),
+      background-color var(--dur-slow) var(--ease-out);
+  }
+  .cleared .verdict-pane {
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.3);
+    backdrop-filter: blur(var(--glass-blur)) saturate(1.3);
+  }
+  /* Over a picture the pane needs more body so the verdict stays readable. */
+  .has-media .verdict-pane { background: var(--glass-bg-strong); }
+  .has-media { padding: clamp(1.25rem, 5vw, 3rem) clamp(0.6rem, 3vw, 2rem); }
 
   .verdict-heading { margin: 0; font-size: inherit; line-height: inherit; }
   .verdict-heading:focus { outline: none; }
@@ -229,20 +297,20 @@
   @media (min-width: 48rem) { .conclusion { grid-template-columns: minmax(0, 1fr) 14rem; gap: var(--space-7); } }
   .sentence {
     font-family: var(--font-display);
-    font-weight: 800;
-    font-size: clamp(1.6rem, 1.2rem + 1.9vw, 2.4rem);
-    line-height: 1.18;
-    letter-spacing: -0.02em;
+    font-weight: 650;
+    font-size: clamp(1.6rem, 1.2rem + 1.8vw, 2.35rem);
+    line-height: 1.16;
+    letter-spacing: -0.022em;
     margin: 0;
     max-width: 24ch;
   }
   .score { display: grid; gap: var(--space-2); }
-  .score-num { margin: 0; font-family: var(--font-display); font-weight: 800; line-height: 1; display: flex; align-items: baseline; gap: 4px; }
-  .score-num span { font-size: clamp(2.8rem, 2rem + 3vw, 4rem); letter-spacing: -0.03em; }
-  .score-num small { font-size: var(--text-lg); color: var(--body-2); font-weight: 700; }
+  .score-num { margin: 0; font-family: var(--font-display); font-weight: 650; line-height: 1; display: flex; align-items: baseline; gap: 4px; }
+  .score-num span { font-size: clamp(2.8rem, 2rem + 3vw, 4rem); letter-spacing: -0.035em; color: var(--tone); }
+  .score-num small { font-size: var(--text-lg); color: var(--body-2); font-weight: 600; }
   .score-cap { margin: 0; font-size: var(--text-sm); color: var(--body-2); }
-  .meter { height: 12px; border-radius: var(--radius-pill); background: var(--border); overflow: hidden; }
-  .meter-fill { display: block; height: 100%; background: var(--tone, var(--brand)); border-radius: inherit; }
+  .meter { --meter-color: var(--tone); height: 8px; border-radius: var(--radius-pill); overflow: hidden; }
+  .meter-fill { display: block; height: 100%; border-radius: inherit; }
   .read-aloud { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3) var(--space-5); }
   .auto-read { display: inline-flex; align-items: center; gap: var(--space-2); min-height: 44px; font-size: var(--text-sm); color: var(--body-2); cursor: pointer; }
   .auto-read input { width: 20px; height: 20px; accent-color: var(--brand); }
@@ -267,11 +335,10 @@
   .block { display: grid; gap: var(--space-2); }
   .label {
     margin: 0;
-    font-family: var(--font-display);
-    font-weight: 800;
+    font-family: var(--font-sans);
+    font-weight: 700;
     font-size: var(--text-sm);
-    letter-spacing: 0.04em;
-    color: var(--indigo-text);
+    color: var(--body-2);
   }
 
   .explained { margin: 0 0 var(--space-4); max-width: var(--measure); color: var(--body-2); }

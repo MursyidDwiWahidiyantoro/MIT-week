@@ -50,26 +50,28 @@
 
 <header class="site-header">
   <div class="wrap header-inner">
-    <a class="brand" href={resolve('/')} aria-label={t('layout.home')}>
-      <span class="logo" aria-hidden="true"><Icon name="shield-check" size={24} /></span>
-      <span class="wordmark">AMBA</span>
-    </a>
+    <div class="lead">
+      <a class="brand" href={resolve('/')} aria-label={t('layout.home')}>
+        <span class="logo" aria-hidden="true"><Icon name="shield-check" size={22} /></span>
+        <span class="wordmark">AMBA</span>
+      </a>
 
-    <nav aria-label={t('layout.nav')}>
-      <ul>
-        {#each LINKS as link (link.href)}
-          <li>
-            <a
-              class="nav-link"
-              href={resolve(link.href as '/' | '/deteksi' | '/edukasi' | '/tentang')}
-              aria-current={link.match.includes(page.url.pathname) ? 'page' : undefined}
-            >
-              {t(link.label)}
-            </a>
-          </li>
-        {/each}
-      </ul>
-    </nav>
+      <nav aria-label={t('layout.nav')}>
+        <ul>
+          {#each LINKS as link (link.href)}
+            <li>
+              <a
+                class="nav-link"
+                href={resolve(link.href as '/' | '/deteksi' | '/edukasi' | '/tentang')}
+                aria-current={link.match.includes(page.url.pathname) ? 'page' : undefined}
+              >
+                {t(link.label)}
+              </a>
+            </li>
+          {/each}
+        </ul>
+      </nav>
+    </div>
 
     <button
       class="tools-toggle"
@@ -121,65 +123,68 @@
 </footer>
 
 <style>
+  /* The one glass surface every page shares: content scrolls under it. */
   .site-header {
-    background: var(--paper);
-    border-bottom: var(--border-width) solid var(--border);
     position: sticky;
     top: 0;
     z-index: 40;
+    background: var(--glass-bg);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.35);
+    backdrop-filter: blur(var(--glass-blur)) saturate(1.35);
+    border-bottom: 1px solid var(--glass-edge);
+    box-shadow: var(--glass-highlight);
   }
   .header-inner {
     display: flex;
-    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
     gap: var(--space-3) var(--space-5);
-    padding-block: 14px;
+    padding-block: 10px;
+  }
+  .lead {
+    display: flex;
+    align-items: center;
+    gap: var(--space-5);
+    min-width: 0;
   }
   .brand {
     display: inline-flex;
     align-items: center;
-    gap: var(--space-3);
+    gap: 10px;
+    min-height: 44px;
     text-decoration: none;
     color: var(--ink);
     flex: none;
-    transition: transform var(--dur-fast) var(--ease-out);
   }
-  .brand:hover { transform: translate(-2px, -2px); }
-  .brand:hover .logo { box-shadow: var(--shadow-hard-sm); }
-  .brand:active { transform: translate(1px, 1px); }
+  .brand:hover { color: var(--ink); }
   .logo {
     display: grid;
     place-items: center;
-    width: 44px;
-    height: 44px;
-    background: var(--indigo);
+    width: 38px;
+    height: 38px;
+    background: var(--brand);
     color: var(--on-brand);
-    border: var(--border-width) solid var(--border);
-    border-radius: 14px;
-    box-shadow: var(--shadow-hard-xs);
-    transition: box-shadow var(--dur-fast) var(--ease-out);
+    border-radius: 11px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), var(--shadow-1);
   }
   .wordmark {
     font-family: var(--font-display);
-    font-weight: 800;
-    font-size: 1.55em;
+    font-weight: 650;
+    font-size: 1.4rem;
     letter-spacing: -0.03em;
   }
   nav ul {
     display: flex;
-    flex-wrap: wrap;
     align-items: center;
-    gap: var(--space-2) var(--space-3);
+    gap: 2px;
     margin: 0;
     padding: 0;
     list-style: none;
   }
-  nav { font-size: var(--text-base); }
   .tools {
     display: flex;
     align-items: center;
-    gap: var(--space-3);
+    gap: var(--space-2);
     flex: none;
   }
   .tools-toggle {
@@ -188,16 +193,16 @@
     gap: var(--space-2);
     min-height: 44px;
     padding: 0 14px;
-    background: var(--white);
+    background: var(--glass-bg-strong);
     color: var(--ink);
-    border: var(--border-width) solid var(--border);
-    border-radius: var(--radius-md);
+    border: 1px solid var(--glass-edge);
+    border-radius: var(--radius-sm);
     font: inherit;
+    font-size: var(--text-sm);
     font-weight: 700;
     cursor: pointer;
   }
-  .tools-toggle[aria-expanded='true'] { background: var(--brand); color: var(--on-brand); }
-  .tools-toggle:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
+  .tools-toggle[aria-expanded='true'] { background: var(--white); box-shadow: var(--shadow-1); }
 
   main {
     padding-block: 0;
@@ -205,12 +210,12 @@
   }
   main:focus { outline: none; }
   .page-wrap {
-    padding-block: clamp(1.5rem, 4vw, 2.5rem) clamp(2.5rem, 6vw, 4rem);
+    padding-block: clamp(1.75rem, 4vw, 3rem) clamp(3rem, 6vw, 4.5rem);
   }
 
   .site-footer {
-    background: var(--white);
-    border-top: var(--border-width) solid var(--border);
+    border-top: 1px solid var(--glass-edge);
+    background: color-mix(in srgb, var(--paper) 55%, transparent);
     padding-block: clamp(2rem, 5vw, 3rem);
   }
   .footer-inner {
@@ -218,13 +223,13 @@
     flex-wrap: wrap;
     align-items: baseline;
     justify-content: space-between;
-    gap: var(--space-3) var(--space-5);
+    gap: var(--space-3) var(--space-6);
   }
   .footer-brand {
     margin: 0;
     font-family: var(--font-display);
-    font-weight: 800;
-    font-size: 1.3em;
+    font-weight: 650;
+    font-size: 1.2rem;
     letter-spacing: -0.03em;
   }
   .footer-note {
@@ -232,12 +237,12 @@
     flex: 1 1 24rem;
     color: var(--body-2);
     font-size: var(--text-sm);
-    max-width: 46ch;
+    max-width: 52ch;
   }
   .footer-links {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--space-2) var(--space-4);
+    gap: var(--space-1) var(--space-4);
     margin: 0;
     padding: 0;
     list-style: none;
@@ -249,50 +254,38 @@
     font-weight: 700;
     font-size: var(--text-sm);
     text-decoration: none;
-    color: var(--ink);
-    transition: color var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
+    color: var(--body-2);
   }
-  .footer-links a:hover { color: var(--indigo-text); text-decoration: underline; transform: translateY(-2px); }
+  .footer-links a:hover { color: var(--ink); text-decoration: underline; }
   .footer-legal {
     margin-top: var(--space-5);
     padding-top: var(--space-4);
-    border-top: 1px solid var(--border);
+    border-top: 1px solid var(--glass-edge);
   }
   .footer-legal-note,
   .footer-legal-text {
     margin: 0;
     max-width: 96ch;
-    color: var(--body-2);
+    color: var(--muted);
     font-size: var(--text-xs);
-    line-height: 1.55;
+    line-height: 1.6;
   }
   .footer-legal-note { margin-bottom: var(--space-1); font-weight: 700; }
 
-  /* Mobile: 2 deliberate rows (Row 1: brand + tools; Row 2: 3 equal nav links)
-   * Keeps mobile header compact (~80px instead of 180px) and clean. */
+  /* Phones: row 1 brand + display toggle, row 2 the three destinations,
+   * row 3 (opened on demand) the language and theme controls. */
   @media (max-width: 48rem) {
     .header-inner {
       display: grid;
       grid-template-columns: 1fr auto;
       align-items: center;
-      gap: 10px 12px;
-      padding-block: 10px;
+      gap: 8px 12px;
+      padding-block: 8px;
     }
-    .brand {
-      grid-column: 1;
-      grid-row: 1;
-    }
-    .brand { min-height: 44px; }
-    .logo {
-      width: 38px;
-      height: 38px;
-      border-radius: 11px;
-    }
-    .wordmark {
-      font-size: 1.35em;
-    }
-    /* Four segmented controls never fit beside the wordmark on a phone.
-     * They sit in a panel under the navigation, opened by one toggle. */
+    .lead { display: contents; }
+    .brand { grid-column: 1; grid-row: 1; }
+    .logo { width: 36px; height: 36px; border-radius: 10px; }
+    .wordmark { font-size: 1.3rem; }
     .tools-toggle {
       display: inline-flex;
       grid-column: 2;
@@ -305,7 +298,7 @@
       flex-wrap: wrap;
       gap: 8px;
       justify-content: flex-start;
-      padding-top: 4px;
+      padding-bottom: 4px;
     }
     .tools.open { display: flex; }
     nav {
@@ -323,8 +316,6 @@
       width: 100%;
       justify-content: center;
       padding: 0 4px;
-      font-size: 0.88rem;
-      min-height: 44px;
       text-align: center;
       white-space: nowrap;
     }

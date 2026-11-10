@@ -5,7 +5,7 @@
  * Reads the real token file — no duplicated colour values.
  *
  * Both themes are checked. A token may be redefined under
- * `html[data-theme='light']`, so the parser reads each theme's own block and
+ * `html[data-theme='dark']` (:root is the light theme), so the parser reads each theme's own block and
  * falls back to :root for anything it does not override.
  */
 import fs from 'node:fs';
@@ -31,7 +31,7 @@ function blockFor(selector) {
 }
 
 const root = declarations(blockFor(':root'));
-const light = declarations(blockFor("html[data-theme='light']"));
+const dark = declarations(blockFor("html[data-theme='dark']"));
 
 /** Resolves a token for one theme, following var(--other) aliases. */
 function token(name, theme, seen = new Set()) {
@@ -87,8 +87,8 @@ const textPairs = [
 
 let failures = 0;
 const themes = [
-  ['dark', new Map()],
-  ['light', light]
+  ['light', new Map()],
+  ['dark', dark]
 ];
 
 for (const [name, theme] of themes) {

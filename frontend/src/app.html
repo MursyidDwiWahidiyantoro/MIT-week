@@ -1,18 +1,19 @@
 <!doctype html>
-<html lang="id" data-theme="dark">
+<html lang="id" data-theme="light">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="dark light" />
-    <meta name="theme-color" content="#070302" />
+    <meta name="theme-color" content="#f4f3ee" />
     <link rel="icon" href="%sveltekit.assets%/favicon.svg" />
     <link rel="manifest" href="%sveltekit.assets%/manifest.webmanifest" />
     <link rel="apple-touch-icon" href="%sveltekit.assets%/icons/apple-touch-icon.png" />
-    <!-- Applies stored display preferences before the first paint, so a
+    <!-- Applies the theme (the device setting unless the visitor chose one) and the
+         language before the first paint, so a
          returning visitor never sees the page restyle (and the first render
          is not followed by a full-document style recalculation). Its CSP
          hash is computed from this file in vite.config.ts. -->
-    <script>(function(){try{var d=document.documentElement,s=localStorage;if(s.getItem('amba-theme')==='light')d.dataset.theme='light';var l=s.getItem('amba.lang');if(l==='en'||l==='id')d.lang=l}catch(e){}})();</script>
+    <script>(function(){try{var d=document.documentElement,s=localStorage,p=s.getItem('amba-theme');if(p!=='light'&&p!=='dark')p='system';var t=p==='system'?(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'):p;d.dataset.theme=t;d.dataset.themePref=p;var m=document.querySelector('meta[name=theme-color]');if(m)m.setAttribute('content',t==='dark'?'#1e1d1b':'#f4f3ee');var l=s.getItem('amba.lang');if(l==='en'||l==='id')d.lang=l}catch(e){}})();</script>
     %sveltekit.head%
   </head>
   <body data-sveltekit-preload-data="hover">

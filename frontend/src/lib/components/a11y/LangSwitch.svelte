@@ -23,33 +23,35 @@
 </div>
 
 <style>
-  /* Mirrors TextSize: 44px targets, brand fill for the active option. */
+  /* Same glass track as the theme switch: a raised neutral segment marks the
+   * active language; the accent stays on the primary action. */
   .lang {
     display: inline-flex;
-    gap: 4px;
-    padding: 5px;
-    background: var(--white);
-    border: var(--border-width) solid var(--border);
+    gap: 2px;
+    padding: 3px;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-edge);
     border-radius: var(--radius-md);
+    box-shadow: var(--glass-highlight);
   }
   button {
     display: grid;
     place-items: center;
-    min-width: 48px;
-    min-height: 44px;
+    min-width: 44px;
+    min-height: 40px;
     padding: 0 8px;
-    background: var(--white);
-    color: var(--ink);
+    background: transparent;
+    color: var(--body-2);
     border: 0;
-    border-radius: 11px;
-    font-family: var(--font-display);
-    font-weight: 800;
-    font-size: 0.9em;
+    border-radius: calc(var(--radius-md) - 4px);
+    font-family: var(--font-sans);
+    font-weight: 700;
+    font-size: var(--text-sm);
     cursor: pointer;
     transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
   }
-  button:hover { background: var(--indigo-tint); }
+  button:hover { background: var(--hover-overlay); color: var(--ink); }
   button.is-active,
-  button.is-active:hover { background: var(--brand); color: var(--on-brand); }
+  button.is-active:hover { background: var(--white); color: var(--ink); box-shadow: 0 0 0 1px var(--glass-edge), var(--shadow-1); }
   button:focus-visible { outline: var(--focus-ring); outline-offset: var(--focus-offset); }
 </style>

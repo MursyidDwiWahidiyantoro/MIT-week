@@ -208,8 +208,8 @@
 
       <h3 class="rules-title">{tx(UI.family.rules)}</h3>
       <ol class="cards cards--3 rules">
-        {#each RULES as r, i (r.id)}
-          <li class="tile"><span class="num" aria-hidden="true">{i + 1}</span><h3>{tx(r.title)}</h3><p>{tx(r.body)}</p></li>
+        {#each RULES as r (r.id)}
+          <li class="tile"><h3>{tx(r.title)}</h3><p>{tx(r.body)}</p></li>
         {/each}
       </ol>
     </div>
@@ -240,35 +240,36 @@
     align-items: center;
     min-height: 44px;
     padding: 0 var(--space-4);
-    border: 1px solid var(--border-strong);
+    border: 1px solid var(--glass-edge);
     border-radius: var(--radius-pill);
+    background: var(--glass-bg);
+    box-shadow: var(--glass-highlight);
     font-weight: 700;
     font-size: var(--text-sm);
     text-decoration: none;
     color: var(--ink);
   }
-  .jump a:hover { background: var(--indigo-tint); color: var(--ink); }
+  .jump a:hover { background: var(--glass-bg-strong); color: var(--ink); }
 
   section { scroll-margin-top: 7rem; }
   .sec-lede { margin: var(--space-2) 0 var(--space-5); color: var(--body-2); max-width: var(--measure); }
   .note { margin: var(--space-4) 0 0; color: var(--body-2); font-size: var(--text-sm); max-width: 46rem; }
 
-  .cards { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-4); grid-template-columns: 1fr; }
+  /* Read, not browse: the lists sit on hairlines instead of a grid of equal cards. */
+  .cards { list-style: none; margin: 0; padding: 0; display: grid; gap: 0 clamp(1.5rem, 3vw, 2.75rem); grid-template-columns: 1fr; }
   @media (min-width: 40rem) { .cards--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); } .cards--3 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   @media (min-width: 64rem) { .cards--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
   .tile {
     min-width: 0;
-    padding: var(--space-5);
-    background: var(--white);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
+    padding: var(--space-4) 0 var(--space-5);
+    border-top: 1px solid var(--border);
   }
-  .tile h3 { font-size: var(--text-lg); margin: 0 0 var(--space-2); }
+  .tile h3 { font-family: var(--font-sans); font-weight: 700; font-size: var(--text-base); letter-spacing: 0; margin: 0 0 var(--space-1); }
   .tile p { margin: 0; color: var(--body-2); font-size: var(--text-base); line-height: 1.5; }
   .tile .act { margin-top: var(--space-3); color: var(--ink); }
 
   .steps { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-3); max-width: 54rem; }
-  .step { display: flex; gap: var(--space-4); align-items: flex-start; padding: var(--space-4) var(--space-5); background: var(--white); border: 1px solid var(--border); border-radius: var(--radius-md); }
+  .step { display: flex; gap: var(--space-4); align-items: flex-start; padding: var(--space-4) var(--space-5); background: var(--glass-bg); border: 1px solid var(--glass-edge); border-radius: var(--radius-md); box-shadow: var(--glass-highlight); }
   .step h3 { font-size: var(--text-lg); margin: 0 0 var(--space-1); }
   .step p { margin: 0 0 var(--space-2); color: var(--body-2); }
   .ext { display: inline-flex; align-items: center; min-height: 44px; font-weight: 700; color: var(--indigo-text); }
@@ -280,10 +281,10 @@
     height: 36px;
     margin-bottom: var(--space-2);
     border-radius: 50%;
-    background: var(--brand);
-    color: var(--on-brand);
+    background: var(--indigo-soft);
+    color: var(--indigo-text);
     font-family: var(--font-display);
-    font-weight: 800;
+    font-weight: 700;
   }
   .step .num { margin: 0; }
 
@@ -295,8 +296,8 @@
     padding: var(--space-4) var(--space-5);
     max-width: 54rem;
     background: var(--yellow-tint);
-    border-left: 4px solid var(--yellow);
-    border-radius: var(--radius-sm);
+    border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent);
+    border-radius: var(--radius-md);
     font-weight: 700;
   }
   .rule :global(svg) { flex: none; margin-top: 3px; }
@@ -304,6 +305,8 @@
   /* ELA practice */
   .forensic-grid { display: grid; gap: var(--space-4); grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); }
   .f-item { display: grid; gap: var(--space-3); align-content: start; }
+  /* The practice items are interactive: they keep a pane of their own. */
+  .forensic-grid .tile { padding: var(--space-4); border: 1px solid var(--glass-edge); border-radius: var(--radius-lg); background: var(--glass-bg); box-shadow: var(--glass-highlight), var(--shadow-1); }
   .f-img, .f-reveal img { width: 100%; height: auto; border-radius: var(--radius-sm); border: 1px solid var(--border); display: block; }
   .f-body, .f-reveal { display: grid; gap: var(--space-3); }
   .f-body .f-legend { margin: 0; font-weight: 700; color: var(--ink); }
@@ -323,7 +326,7 @@
   .option input { width: 22px; height: 22px; accent-color: var(--brand); flex: none; }
   .f-reveal figure { margin: 0; }
   .f-reveal figcaption { font-size: var(--text-sm); color: var(--muted); margin-top: var(--space-1); }
-  .f-reveal .f-verdict { font-weight: 800; color: var(--ink); }
+  .f-reveal .f-verdict { font-weight: 700; color: var(--ink); }
 
   /* Family */
   .how { margin: 0 0 var(--space-4); color: var(--body-2); max-width: var(--measure); }
@@ -338,7 +341,7 @@
     border: 1px solid var(--border-strong);
     border-radius: var(--radius-md);
     font-family: var(--font-display);
-    font-weight: 800;
+    font-weight: 650;
     font-size: clamp(1.4rem, 3vw, 2rem);
     letter-spacing: -0.02em;
   }
@@ -351,9 +354,9 @@
     border-radius: var(--radius-lg);
     max-width: 34rem;
   }
-  .p-brand { margin: 0 0 var(--space-4); font-family: var(--font-display); font-weight: 800; }
+  .p-brand { margin: 0 0 var(--space-4); font-family: var(--font-display); font-weight: 650; }
   .p-label { margin: 0; font-size: var(--text-sm); font-weight: 700; color: var(--body-2); }
-  .p-word { margin: var(--space-2) 0 var(--space-4); font-family: var(--font-display); font-weight: 800; font-size: clamp(1.6rem, 4vw, 2.2rem); letter-spacing: -0.02em; }
+  .p-word { margin: var(--space-2) 0 var(--space-4); font-family: var(--font-display); font-weight: 650; font-size: clamp(1.6rem, 4vw, 2.2rem); letter-spacing: -0.02em; }
   .p-rules { margin: 0 0 var(--space-4); padding-left: var(--space-5); display: grid; gap: var(--space-2); }
   .p-foot { margin: 0; color: var(--muted); font-size: var(--text-xs); }
 

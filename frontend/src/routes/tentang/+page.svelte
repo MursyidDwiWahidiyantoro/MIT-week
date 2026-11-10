@@ -13,7 +13,6 @@
 </svelte:head>
 
 <section class="head">
-  <p class="eyebrow">{t('about.eyebrow')}</p>
   <h1 class="h1">AMBA</h1>
   <p class="lede">{t('about.lede')}</p>
 </section>

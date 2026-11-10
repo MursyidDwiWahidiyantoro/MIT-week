@@ -1,69 +1,91 @@
 /*
- * AMBA design tokens — warm orange palette.
- * Source: docs/design-spec.md §2. Every colour, radius, shadow, size and
- * duration below is a token; components reference names only.
+ * AMBA design tokens: frosted glass over warm neutrals, one terracotta accent.
+ * The palette follows Sir's brief (10 Nov 2026): glassmorphism with a simple
+ * Claude-like palette, light and dark both glass, the device choosing the
+ * default. :root is the light theme; html[data-theme='dark'] overrides it.
  *
- * Dark and cream themes share the same layout and component roles.
+ * Tokens that tools/check-contrast.mjs reads are opaque hex values: a glass
+ * surface is listed by the colour it composites to over the page, so the
+ * check measures what the eye sees. The translucent glass recipe lives in the
+ * --glass-* tokens, which the check does not read.
+ *
+ * Legacy names (--indigo-*, --safe, --coral, ...) stay as roles so existing
+ * components keep working; their values now come from this palette.
  */
 :root {
-  /* Reference palette; legacy names remain aliases for existing components. */
-  color-scheme: dark;
-  --brand: #ff5a1f;
-  --brand-hover: #ff7440;
-  --brand-deep: #d93c00;
-  --on-brand: #140800;
-  /* Text that sits on a light semantic fill (safe/yellow/coral). These fills
-   * stay light in both themes, so the text must stay dark in both themes. */
-  --on-fill: #120a04;
-  /* Text that sits on an --ink surface. --ink flips between themes, so this
-   * aliases the opposite ground instead of a fixed hex. */
+  color-scheme: light;
+
+  /* ---- neutrals ---- */
+  --paper: #f4f3ee;
+  --white: #fbfaf7;
+  --surface-2: #efede6;
+  --ink: #1f1e1c;
+  --body-2: #45443f;
+  --muted: #5d5c56;
+  --ink-soft: #6a6963;
+  --border: #dad7ce;
+  --border-strong: #8f8c82;
+
+  /* ---- the accent: terracotta, deepened in light mode for AA text ---- */
+  --brand: #a9502e;
+  --brand-hover: #94452a;
+  --brand-deep: #7e3b24;
+  --on-brand: #ffffff;
+  --indigo: #a9502e;
+  --indigo-soft: #efe6df;
+  --indigo-tint: #f5ece6;
+  --indigo-text: #a1462a;
+  --on-indigo-text: #ffffff;
+
+  /* ---- verdict roles: text colour, and a pale fill for the same state ---- */
+  --ok: #2b6646;
+  --warn: #8a5300;
+  --err: #a3302a;
+  --safe: #dce9df;
+  --yellow: #f2e2be;
+  --coral: #f3d2c9;
+  --coral-tint: #f8e6e1;
+  --yellow-tint: #f8eeda;
+  --on-fill: #1f1e1c;
+
+  /* A dark panel kept dark in both themes (rare: the logo tile, ink buttons). */
+  --panel-dark: #262624;
+  --on-panel-dark: #f4f3ee;
   --on-ink: var(--paper);
-  /* A deliberately dark accent surface (hero card, marquee, ink buttons).
-   * --ink is the *text* colour and flips between themes, so it cannot be used
-   * as a background: in dark mode that produced near-white panels. */
-  --panel-dark: #171210;
-  --on-panel-dark: #fff8f4;
-  --ink: #fff8f4;
-  --paper: #070302;
-  --white: #171210;
-  --indigo: #ff5a1f;
-  --indigo-soft: #2a1d16;
-  --indigo-tint: #33221a;
-  --indigo-text: #ff9a6b;
-  /* The semantic trio is deliberately three DIFFERENT values, not three shades
-   * of orange: warm ivory = safe, amber = suspicious, vermilion = danger.
-   * Ivory keeps the whole palette warm (no cool hue to clash with the copal
-   * orange) and still separates clearly from amber and vermilion. */
-  --safe: #efe0c9;
-  --yellow: #ffc53d;
-  --coral: #ff4b3e;
-  --coral-tint: #2b1310;
-  --yellow-tint: #2a2011;
-  --muted: #bfb4ae;
-  --body-2: #d4c9c3;
-  --ink-soft: #aaa09a;
-  --on-indigo-text: #160b05;
-  --ok: #e8d3ae;
-  --warn: #ffc53d;
-  --err: #ff6b5a;
+
+  /* ---- semantic aliases ---- */
   --bg: var(--paper);
   --surface: var(--white);
-  --surface-2: #211a17;
-  --border: #493b34;
-  --border-strong: #796154;
   --text: var(--ink);
   --text-2: var(--body-2);
   --text-3: var(--muted);
   --accent: var(--brand);
   --accent-2: var(--indigo-text);
   --selected-bg: var(--indigo-tint);
-  --hover-overlay: #30231c;
-  --active-overlay: #402b20;
-  --hero-glow: #ff5a1f40;
+  --hover-overlay: #eceae3;
+  --active-overlay: #e4e1d8;
+  --hero-glow: transparent;
+  --field-bg: #ffffff;
+  --focus: #a9502e;
+
+  /* ---- glass: the material ---- */
+  --glass-bg: rgba(255, 255, 255, 0.62);
+  --glass-bg-strong: rgba(255, 255, 255, 0.8);
+  --glass-border: rgba(255, 255, 255, 0.85);
+  --glass-edge: rgba(31, 30, 28, 0.1);
+  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  --glass-shadow: 0 1px 2px rgba(31, 30, 28, 0.06), 0 22px 44px -26px rgba(31, 30, 28, 0.32);
+  --glass-blur: 20px;
+  --frost-heavy: 30px;
+  /* The light the glass sits in: three soft fields, terracotta, slate, sand. */
+  --field-a: rgba(201, 100, 66, 0.24);
+  --field-b: rgba(96, 125, 139, 0.2);
+  --field-c: rgba(196, 160, 98, 0.16);
+  --grain-opacity: 0.035;
+
   /* ---- type ---- */
   --font-sans: 'Atkinson Hyperlegible', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-display: 'Bricolage Grotesque Variable', 'Helvetica Neue', Arial, sans-serif;
-  /* Labels are set in the display face, not a monospace: two families total. */
   --font-mono: var(--font-display);
 
   --text-xs: 0.8125rem;   /* 13px */
@@ -71,18 +93,16 @@
   --text-base: 1.125rem;  /* 18px */
   --text-lg: 1.25rem;     /* 20px */
   --text-xl: 1.5rem;      /* 24px */
-  --text-2xl: clamp(1.75rem, 1.25rem + 1.6vw, 3.6rem);
-  --text-3xl: clamp(2rem, 1.5rem + 1.7vw, 4rem);
-  /* Every clamp keeps a rem term in the preferred value. A pure vw middle
-   * value is pinned by the viewport, so browser zoom and a larger default font
-   * would change the root font and nothing else at desktop widths. */
-  --text-display: clamp(2.5rem, 2.2rem + 3.4vw, 6.4rem);
-  --text-page: clamp(2.25rem, 1.8rem + 2.2vw, 4.1rem);
+  --text-2xl: clamp(1.6rem, 1.25rem + 1.2vw, 2.6rem);
+  --text-3xl: clamp(1.9rem, 1.45rem + 1.5vw, 3.2rem);
+  /* Every clamp keeps a rem term so browser zoom still scales the type. */
+  --text-display: clamp(2.4rem, 1.8rem + 2.7vw, 4.75rem);
+  --text-page: clamp(2rem, 1.6rem + 1.7vw, 3.35rem);
 
-  --leading-display: 1.02;
-  --leading-tight: 1.1;
-  --leading-normal: 1.5;
-  --measure: 34em;
+  --leading-display: 1.04;
+  --leading-tight: 1.12;
+  --leading-normal: 1.55;
+  --measure: 36em;
 
   /* ---- space ---- */
   --space-1: 0.25rem;
@@ -94,41 +114,42 @@
   --space-7: 3rem;
   --space-8: 4rem;
   --space-9: 6rem;
-  /* The container tracks the viewport: 20px on phones, up to 72px of air on
-   * very wide monitors, so the page reads as a spread and not a centred box. */
-  --gutter: clamp(20px, 3.4vw, 72px);
-  --maxw: 1920px;
-  --section-pad: clamp(3.5rem, 7vw, 7.5rem);
+  --gutter: clamp(20px, 3.4vw, 64px);
+  --maxw: 1280px;
+  --section-pad: clamp(3rem, 6vw, 6rem);
 
   /* ---- edges ---- */
   --border-width: 1px;
   --border-width-strong: 1px;
   --radius-sm: 10px;
-  --radius-md: 16px;
-  --radius-lg: 26px;
-  --radius-xl: 36px;
-  --radius-pill: 99px;
+  --radius-md: 14px;
+  --radius-lg: 22px;
+  --radius-xl: 28px;
+  --radius-pill: 999px;
 
-  /* ---- hard shadows: no blur, ever ---- */
-  --shadow-hard-xs: 0 8px 28px #00000020;
-  --shadow-hard-sm: 0 8px 28px #00000020;
-  --shadow-hard: 0 8px 28px #00000020;
-  --shadow-hard-lg: 0 8px 28px #00000020;
-  --shadow-hard-xl: 0 8px 28px #00000020;
-  --shadow-indigo: 0 8px 28px #00000020;
-  --shadow-lift: 0 8px 28px #00000020;
+  /* ---- depth: soft, lit from above; legacy names map onto three steps ---- */
+  --shadow-1: 0 1px 2px rgba(31, 30, 28, 0.06);
+  --shadow-2: 0 1px 2px rgba(31, 30, 28, 0.06), 0 10px 24px -14px rgba(31, 30, 28, 0.22);
+  --shadow-3: var(--glass-shadow);
+  --shadow-hard-xs: var(--shadow-1);
+  --shadow-hard-sm: var(--shadow-1);
+  --shadow-hard: var(--shadow-2);
+  --shadow-hard-lg: var(--shadow-2);
+  --shadow-hard-xl: var(--shadow-3);
+  --shadow-indigo: var(--shadow-2);
+  --shadow-lift: var(--shadow-2);
 
   /* ---- motion: one easing family, four durations ---- */
-  --dur-fast: 120ms;
-  --dur-base: 200ms;
-  --dur-slow: 420ms;
+  --dur-fast: 140ms;
+  --dur-base: 220ms;
+  --dur-slow: 520ms;
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-in: cubic-bezier(0.64, 0, 0.78, 0);
   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
-  --stagger: 70ms;
+  --stagger: 60ms;
 
   /* ---- focus ---- */
-  --focus-ring: 4px solid var(--ink);
+  --focus-ring: 3px solid var(--focus);
   --focus-offset: 3px;
 
   --disabled-opacity: 0.45;
@@ -143,20 +164,57 @@
   }
 }
 
-html[data-theme='light'] {
-  color-scheme: light;
-  --brand: #c2410c; --brand-hover: #9a3412; --brand-deep: #7c2d12;
-  --on-brand: #fff8f4; --on-fill: #170e09;
-  --indigo: #c2410c;
-  --on-indigo-text: #fff8f4;
-  --ink: #170e09; --paper: #fff8f4; --white: #ffffff;
-  --indigo-soft: #f2e9e1; --indigo-tint: #fbf1ea; --indigo-text: #a4350d;
-  /* Same three hues as dark mode, held bright enough that dark text on them
-   * still clears 4.5:1. */
-  --safe: #ecd9b8; --yellow: #ffc93c; --coral: #ff4b3e;
-  --coral-tint: #fde3dc; --yellow-tint: #fff1cc;
-  --muted: #665950; --body-2: #51463f; --ink-soft: #75665c;
-  --ok: #6b4f2a; --warn: #815000; --err: #a72643;
-  --surface-2: #f7eee8; --border: #dfd1c7; --border-strong: #9a8070;
-  --hover-overlay: #fbe9df; --active-overlay: #f5d7c6; --hero-glow: #ff5a1f3d;
+html[data-theme='dark'] {
+  color-scheme: dark;
+  --paper: #1e1d1b;
+  --white: #2a2926;
+  --surface-2: #252421;
+  --ink: #f2f0e9;
+  --body-2: #cfccc2;
+  --muted: #aaa79d;
+  --ink-soft: #9c998f;
+  --border: #3a3935;
+  --border-strong: #77746b;
+
+  --brand: #d97757;
+  --brand-hover: #e38a6c;
+  --brand-deep: #c4623f;
+  --on-brand: #1e1d1b;
+  --indigo: #d97757;
+  --indigo-soft: #3a2a23;
+  --indigo-tint: #33261f;
+  --indigo-text: #e8957a;
+  --on-indigo-text: #1e1d1b;
+
+  --ok: #8cc8a1;
+  --warn: #e2b455;
+  --err: #f08a79;
+  --safe: #22342a;
+  --yellow: #3a2f1b;
+  --coral: #3e2420;
+  --coral-tint: #3a2420;
+  --yellow-tint: #352b1a;
+  --on-fill: #f2f0e9;
+
+  --panel-dark: #141413;
+  --on-panel-dark: #f2f0e9;
+
+  --hover-overlay: #302f2b;
+  --active-overlay: #3a3934;
+  --field-bg: #1a1917;
+  --focus: #e8957a;
+
+  --glass-bg: rgba(44, 43, 40, 0.56);
+  --glass-bg-strong: rgba(38, 37, 35, 0.8);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-edge: rgba(0, 0, 0, 0.35);
+  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  --glass-shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 26px 52px -26px rgba(0, 0, 0, 0.72);
+  --field-a: rgba(217, 119, 87, 0.19);
+  --field-b: rgba(100, 130, 150, 0.15);
+  --field-c: rgba(180, 140, 90, 0.1);
+  --grain-opacity: 0.05;
+
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-2: 0 1px 2px rgba(0, 0, 0, 0.35), 0 12px 28px -14px rgba(0, 0, 0, 0.6);
 }
