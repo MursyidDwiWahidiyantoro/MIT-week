@@ -1,6 +1,6 @@
 ---
 name: AMBA
-description: Cek dulu sebelum percaya. A content checker for Indonesian families, in the style of the Gemini web app, Indonesian only.
+description: Cek dulu sebelum percaya. A content checker for Indonesian families, in the style of the Gemini web app with Claude's colours, Indonesian only.
 ---
 
 # Design System: AMBA
@@ -14,7 +14,7 @@ On 10 Nov 2026, Sir asked for:
 
 Checking a forwarded video, image or link reads like a conversation: the person sends the item from one round prompt bar, AMBA "thinks" while its checks run, and the verdict comes back as an answer with the evidence under it.
 
-The values below were measured on gemini.google.com that day; the captures are in `OpenBot/Shared/amba-v2/gemini/ref/`. The Gemini sparkle logo and the name Gemini are not used: AMBA keeps its own shield mark on the three-colour gradient.
+The shapes, type and layout were measured on gemini.google.com that day; the captures are in `OpenBot/Shared/amba-v2/gemini/ref/`. Later the same day Sir changed the colours to Claude's and kept the Gemini style ("warna nya diganti ke khas dari claude aja bukan gemini tapi style nya tetap dari gemini"), so the colours below were measured on claude.com. Neither product's logo or name is used: AMBA keeps its own shield mark on the three-colour gradient.
 
 Dark is the default theme. Light is a one-click option (Sir's choice, 10 Nov 2026).
 
@@ -22,19 +22,25 @@ Dark is the default theme. Light is a one-click option (Sir's choice, 10 Nov 202
 
 | Role | Dark (default) | Light |
 |---|---|---|
-| Page | #0f0f0f | #faf9f9 |
-| Side rail | #1f1f1f | #ffffff |
-| Prompt pill, cards | #1e1f20 | #ffffff (pill) / #f0f4f9 (cards) |
-| Raised, hover | #282a2c | #e9eef6 |
-| Text | #e3e3e3 | #1f1f1f |
-| Secondary text | #c4c7c5 / #9aa0a6 | #444746 / #5e5e5e |
-| Primary pill | #c2e7ff, text #001d35 | #9dd2ff, text #001d35 |
-| Links, active | #a8c7fa | #0b57d0 |
-| Selected item | #1f3760 | #d3e3fd |
+| Page | #141413 | #faf9f5 |
+| Dashboard frame (side bar, top bar) | #1a1918 | #f0eee6 |
+| Work sheet | #141413 | #ffffff |
+| Prompt pill | #262624 | #ffffff |
+| Cards | #1f1e1d | #f5f4ed |
+| Raised, hover | #262624 / #30302e | #f0eee6 |
+| Text | #faf9f5 | #141413 |
+| Secondary text | #c2c0b6 / #9c9a92 | #3d3d3a / #5e5d59 |
+| Borders | #3d3d3a / #30302e | #d9d6cc / #e8e6dc |
+| Primary pill | #d97757, text #141413 | #b4532f, text #ffffff |
+| Links, active | #e8957a | #a8492a |
+| Selected item | #3b2a22 | #f3e3da |
+| Risk-map bar under its line | #87867f | #87867f |
 
-The gradient runs #4285f4 → #9b72cb → #d96570. It is used for the greeting, the AMBA mark, the prompt's focus ring and the "thinking" ring.
+Claude's own button is #c6613f with white text. White on #c6613f is under 4.5:1, so the light theme uses the deeper #b4532f. The dark theme uses the logo orange #d97757 with dark text.
 
-A soft radial glow sits behind the home greeting: navy on dark, pale blue on light.
+The gradient runs #c6613f → #d97757 → #e8b088 on dark and #a8492a → #c6613f → #b9772f on light. It is used for the greeting, the AMBA mark, the prompt's focus ring, the "thinking" ring and the landing page's wave.
+
+A soft clay glow sits behind the home greeting in both themes.
 
 The verdict roles are Material tones, never the accent. Each has a pale fill for its chip.
 
@@ -42,9 +48,9 @@ The verdict roles are Material tones, never the accent. Each has a pale fill for
 |---|---|---|
 | Safe | #6dd58c | #146c2e |
 | Caution | #fdd663 | #7a5900 |
-| Danger | #f2b8b5 | #b3261e |
+| Danger | #f28b82 | #b3261e |
 
-`tools/check-contrast.mjs` checks 92 pairs in both themes, and all pass AA.
+`tools/check-contrast.mjs` checks 106 pairs in both themes, and all pass AA.
 
 ## Type
 
